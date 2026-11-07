@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Roguelike.App/Roguelike.App.csproj" />
+    <Project Path="src/Roguelike.Core/Roguelike.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Roguelike.Core.Tests/Roguelike.Core.Tests.csproj" />
+  </Folder>
+</Solution>
