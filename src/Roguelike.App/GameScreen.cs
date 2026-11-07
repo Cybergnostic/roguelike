@@ -64,12 +64,21 @@ public sealed partial class GameScreen : ScreenObject
         _messages.Clear();
         AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
         AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Quit: Esc.", Theme.Text);
+        AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
     }
 
     public override bool ProcessKeyboard(Keyboard keyboard)
     {
+        if (InModalUi)
+        {
+            if (ModalInput(keyboard) is { } chosen && !_world.Player.IsDead)
+                PlayTurn(chosen);
+            Draw();
+            return true;
+        }
+
         if (keyboard.IsKeyPressed(Keys.Escape))
         {
             Game.Instance.MonoGameInstance.Exit();
@@ -98,9 +107,17 @@ public sealed partial class GameScreen : ScreenObject
         if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
             || keyboard.IsKeyPressed(Keys.Space))
             action = new WaitAction();
+        int messagesBefore = _messageCount;
+        action ??= ItemCommand(keyboard);
 
         if (action is null)
-            return false;
+        {
+            // An item key may have opened a menu or just printed a message.
+            bool changed = InModalUi || _messageCount != messagesBefore;
+            if (changed)
+                Draw();
+            return changed;
+        }
 
         PlayTurn(action);
         Draw();
@@ -118,10 +135,12 @@ public sealed partial class GameScreen : ScreenObject
         bool IsVisible(int id) => _reveal ||
             (_world.GetActor(id) is { } a ? fov[a.Position] : before.TryGetValue(id, out var b) && fov[b.Position]);
         var text = new EventText(_world, id => $"the {before.GetValueOrDefault(id).Name ?? "thing"}", IsVisible);
+        bool playerMoved = false;
 
         var said = new HashSet<string>();
         foreach (var e in events)
         {
+            playerMoved |= e is ActorMoved m && m.ActorId == _world.Player.Id;
             // One copy of each line per turn ("You hear the clash of weapons." can fire a lot).
             if (text.Describe(e) is not { } line || !said.Add(line))
                 continue;
@@ -136,6 +155,8 @@ public sealed partial class GameScreen : ScreenObject
                 color = Theme.Danger;
             AddMessage(line, color);
         }
+        if (playerMoved)
+            DescribeItemsUnderfoot();
         if (_world.Player.IsDead)
         {
             _autoplay = false;
@@ -143,8 +164,11 @@ public sealed partial class GameScreen : ScreenObject
         }
     }
 
+    private int _messageCount;
+
     private void AddMessage(string text, Color color)
     {
+        _messageCount++;
         _messages.Add((text, color));
         if (_messages.Count > LogLines)
             _messages.RemoveAt(0);
@@ -155,6 +179,7 @@ public sealed partial class GameScreen : ScreenObject
         DrawMap();
         DrawSidebar();
         DrawStatus();
+        DrawModalUi();
 
         _log.Clear();
         for (int i = 0; i < _messages.Count; i++)
@@ -181,6 +206,7 @@ public sealed partial class GameScreen : ScreenObject
             _map.SetGlyph(x, y, look.Glyph, fg, heat?.Invoke(p) ?? Theme.Background);
         }
 
+        DrawFloorItems();
         if (_showSquads)
             DrawSquadMarkers();
 
@@ -283,8 +309,9 @@ public sealed partial class GameScreen : ScreenObject
         _status.Clear();
         _status.Print(1, 0, $"HP {Math.Max(0, player.Hp)}/{player.MaxHp}",
             player.Hp * 3 <= player.MaxHp ? Theme.Danger : Theme.Good);
-        _status.Print(14, 0, $"Turn {_world.Turn}", Theme.Text);
-        _status.Print(26, 0, $"War bands: {_world.Squads.Count}", Theme.Text);
+        var bow = player.Equipment?.Bow is null ? "no bow" : $"Bow {player.RangedAttack} r{player.Range}";
+        _status.Print(14, 0, $"Atk {player.Attack}  Def {player.Defense}  {bow}", Theme.Text);
+        _status.Print(46, 0, $"Turn {_world.Turn}", Theme.Text);
 
         var flags = new List<string>();
         if (_world.ObserverMode) flags.Add(_autoplay ? "SPECTATING (auto)" : "SPECTATING");

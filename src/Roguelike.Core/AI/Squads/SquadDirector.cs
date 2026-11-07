@@ -54,6 +54,7 @@ public static class SquadDirector
             case SquadState.Alert when sinceSeen > GiveUpSearchAfter && spotter is null:
                 squad.State = SquadState.Idle;
                 squad.Destination = null;
+                squad.HelpTargetSquadId = null; // the fight is over; call the runner back
                 break;
 
             case SquadState.Flee when spotter is null && squad.Morale >= Squad.RallyPoint:

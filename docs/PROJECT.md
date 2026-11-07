@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-07
+Last updated: 2026-11-07 (player kit)
 
 ---
 
@@ -71,8 +71,10 @@ Roguelike.slnx
 data/                        game content (JSON with comments), copied next to every program
   factions.json              factions + relations (hostile/neutral/allied)
   monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless
-  spawns.json                room occupancy + weighted squad templates
-  looks.json                 front end only: glyph + colour per kind and tile
+  spawns.json                room occupancy, floor item chance, weighted squad templates
+  items.json                 item types, +X enchantment weights, loot tables
+  player.json                player base stats, inventory size, starting kit
+  looks.json                 front end only: glyph + colour per kind, item and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
   World.cs                   all state; Step(action) -> events; spatial/AI helpers
@@ -82,7 +84,10 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
   Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
   Entities/Faction.cs        Faction, Relation, FactionRelations
-  Actions/                   GameAction records: Move, Attack, Wait, RangedAttack, Heal, CallForHelp
+  Items/Item.cs              ItemDef (data), Item (instance: +X Enchantment, Rarity, Count), categories
+  Items/Inventory.cs         Inventory (stacking, capacity) and Equipment (weapon/bow/armor slots)
+  Actions/                   GameAction records: Move (bump-attack, ally swap), Attack, Wait, RangedAttack,
+                             Heal, CallForHelp, PickUp, Drop, Equip, Drink, Fire
   Events/GameEvent.cs        structured events emitted during a turn
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
@@ -91,9 +96,12 @@ src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
   GameScreen.cs              map/sidebar/status/log, input, turn loop
   GameScreen.Debug.cs        debug views (F1/F2/F3/F5/P), autoplay
+  GameScreen.Items.cs        item commands, inventory menus, bow targeting
+  ItemText.cs                item names ("+1 short sword", "2 potions of healing")
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
 tools/Roguelike.Sim/         headless simulation report CLI
+tools/scripts/sendkey.py     send keys to the game window (UI checks without stealing focus)
 tests/Roguelike.Core.Tests/  xUnit: determinism, map connectivity, squad behaviour, observer mode
 docs/PROJECT.md              this file
 ```
@@ -120,9 +128,12 @@ docs/PROJECT.md              this file
    monsters' phase (stale within a turn, which is acceptable). `TowardPlayer` is kept for the debug
    heatmap and tests. `StepDownhill` prefers less crowded cells, which makes groups surround
    instead of queue.
-7. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
+7. **Combat goes through `world.Damage`** (HP, events, death, loot drop). Failed player actions emit
+   `ActionFailed(reason)` and return false (no turn used); the front end words the reason.
+8. **Stats are derived:** `Attack`/`Defense`/`RangedAttack`/`Range` = base + equipment (+X included).
+9. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
    defaults to `ContentDatabase.Default`. Reference everything by id; validate new fields in `Load`.
-8. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
+10. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
    non-player actor acts → remove dead → turn++ → regen → update FOV.
 
 ---
@@ -135,6 +146,11 @@ docs/PROJECT.md              this file
   `export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet" DOTNET_CLI_TELEMETRY_OPTOUT=1`
 - Linux (LMDE 7), X11 display `:0`. Screenshots of the game window work with `import -window <id>`.
   The user may have their own game window open with the same title; pick the newest window id.
+  To drive the UI, `tools/scripts/sendkey.py <id> <keys>` sends X events straight to that window
+  (python-xlib; no focus change, so keys can't land in the user's other windows). Wrap
+  `import` and the script in `timeout`; `import` on a vanished window can hang.
+- `--seed N` makes a run reproducible. Level generation consumes RNG, so adding content that
+  spawns at generation (e.g. floor items) changes every seed's level; re-find demo seeds then.
 
 ### Commands
 ```sh
@@ -147,6 +163,8 @@ dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000]
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Restart after death: `R`. Quit: `Esc`.
+Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
+`f` fire bow (Tab next target, `f`/Enter fire, Esc cancel).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
 target position, squad list with morale), `F3` cycle heatmaps (toward player, then per faction
 "toward enemies" and "flee"),
@@ -181,6 +199,13 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   seek clear shots; shamans heal (cooldown 5, range 6); runners fetch the nearest idle squad.
 - **Readability**: sidebar with visible monsters' HP and intent; unseen events reported as sounds;
   unseen attackers are "something".
+- **Player kit**: items from data with +X enchantment (incl. cursed) and a rarity field (all
+  Common so far); inventory (20 slots, potions stack) and equipment slots; derived stats; loot
+  tables per monster and floor items; pick up/drop/equip/drink/fire; inventory menus and bow
+  targeting UI; the bot uses the kit (potions, bow, better gear, walks to loot).
+- **AI fixes found via a failing test**: runners keep their mission while the squad flees and call
+  from shouting range (6 + line of sight); allies swap places, which cured corridor deadlocks
+  that had frozen many patrols (idle time 86% → 71%).
 - **Observation tools**: debug overlays, spectator mode, autoplay, headless `Roguelike.Sim` report.
 - **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
   perception of any hostile; per-faction toward/flee maps; squads engage other factions.
@@ -192,9 +217,14 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   ~19 goblins per level; squads 95% idle; ~1200 turns/s.
 - Observer + idle bot, 30 seeds × 800 turns (after factions): ~12 monsters per level;
   goblins lose 126 dead vs undead 35; 27 routs; squads 92% idle; ~1600 turns/s.
+- Aggressive bot with the kit, 50 seeds × 1000 turns (after player kit + ally swap): player died
+  **2%** (far too easy); squads 71% idle, 18% engaged; 29 of 610 monsters survive; ~2700 turns/s.
 
 **Known issues / tech debt**
-- Balance untuned: skeletons beat goblins about 3.5:1; map gen is mostly maze (GoRogue rooms-and-mazes).
+- Balance untuned: the player kit made the game far too easy (bot dies 2%); skeletons beat goblins
+  about 3.5:1; map gen is mostly maze (GoRogue rooms-and-mazes).
+- Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
+  out of sight; potions are used even at full HP.
 - Squads mostly idle (92%): patrols are random and rarely meet. The strategic layer (raids toward
   enemy territory) will fix it.
 - Engaged squads follow `TowardEnemiesOf`, which leads to the nearest enemy even if unseen
@@ -213,8 +243,8 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 
 1. ~~Observation tools~~ (done 2026-11-07)
 2. ~~Multi-faction foundation~~ (done 2026-11-07)
-3. **Minimal player kit** ← next: inventory, bow, healing potions, armour, so playtests and balance mean something.
-4. **Necromancer faction**
+3. ~~Minimal player kit~~ (done 2026-11-07): inventory, bow, healing potions, armour, so playtests and balance mean something.
+4. **Necromancer faction** ← next (consider a balance pass first: the game is now too easy)
    - Undead have **no morale** (never flee, slow, relentless): a deliberate contrast to goblins.
    - **Corpses** as objects left by every death; the necromancer raises corpses in range, so goblins
      killed near the tower become his skeletons.

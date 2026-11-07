@@ -1,14 +1,15 @@
 {
   // Monster stat blocks. "role" drives squad AI: warrior, archer, shaman, runner.
   // "range" > 0 gives a ranged attack. "fearless" monsters ignore morale and never flee.
+  // "loot" names a loot table in items.json, rolled when the monster dies.
   "monsters": [
-    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 4, "defense": 1 },
-    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 3, "defense": 0, "range": 6 },
-    { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0 },
-    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0 },
+    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 4, "defense": 1, "loot": "goblin" },
+    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 3, "defense": 0, "range": 6, "loot": "goblin" },
+    { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "loot": "goblin" },
+    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "loot": "goblin" },
 
     // Placeholder undead until the necromancer arrives: tough, fearless, slow to die.
-    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 4, "defense": 2, "fearless": true },
-    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 3, "defense": 1, "range": 5, "fearless": true }
+    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 4, "defense": 2, "fearless": true, "loot": "skeleton" },
+    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 3, "defense": 1, "range": 5, "fearless": true, "loot": "skeleton" }
   ]
 }

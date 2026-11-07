@@ -63,6 +63,10 @@ public static class Simulator
         SquadSpotted s when s.TargetId == world.Player.Id => "squads spotted player",
         SquadSpotted => "squads spotted other factions",
         SquadRouted => "squads routed",
+        LootDropped => "loot dropped",
+        ItemPickedUp => "items picked up",
+        ItemEquipped => "items equipped",
+        PotionDrunk => "potions drunk",
         ReinforcementsCalled => "reinforcements called",
         _ => null,
     };

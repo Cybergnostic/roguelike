@@ -2,12 +2,22 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
+using Roguelike.Core.Items;
 
 namespace Roguelike.Core.Content;
 
 public sealed record MonsterDef(
     string Id, string Faction, SquadRole Role,
-    int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false);
+    int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null);
+
+/// <summary>One weighted loot table line; a null item means "nothing".</summary>
+public sealed record LootEntry(string? Item, int Weight);
+
+public sealed record EnchantmentWeight(int Value, int Weight);
+
+public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, int Enchantment = 0);
+
+public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit);
 
 public sealed record SquadMemberDef(string Monster, int Min, int Max, double Chance = 1.0);
 
@@ -24,6 +34,11 @@ public sealed class ContentDatabase
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
     public IReadOnlyList<SquadTemplateDef> SquadTemplates { get; }
     public double RoomOccupancy { get; }
+    public double FloorItemChance { get; }
+    public IReadOnlyDictionary<string, ItemDef> Items { get; }
+    public IReadOnlyList<EnchantmentWeight> Enchantments { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<LootEntry>> LootTables { get; }
+    public PlayerDef Player { get; }
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
 
@@ -43,13 +58,19 @@ public sealed class ContentDatabase
 
     private ContentDatabase(
         Dictionary<string, Faction> factions, FactionRelations relations,
-        Dictionary<string, MonsterDef> monsters, List<SquadTemplateDef> squads, double roomOccupancy)
+        Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
+        Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player)
     {
         Factions = factions;
         Relations = relations;
         Monsters = monsters;
-        SquadTemplates = squads;
-        RoomOccupancy = roomOccupancy;
+        SquadTemplates = spawns.Squads;
+        RoomOccupancy = spawns.RoomOccupancy;
+        FloorItemChance = spawns.FloorItemChance;
+        Items = items;
+        Enchantments = itemFile.Enchantments;
+        LootTables = itemFile.LootTables.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<LootEntry>)kv.Value);
+        Player = player;
     }
 
     public static ContentDatabase Load(string directory)
@@ -57,6 +78,29 @@ public sealed class ContentDatabase
         var factionFile = Read<FactionFile>(directory, "factions.json");
         var monsterFile = Read<MonsterFile>(directory, "monsters.json");
         var spawnFile = Read<SpawnFile>(directory, "spawns.json");
+        var itemFile = Read<ItemFile>(directory, "items.json");
+        var player = Read<PlayerDef>(directory, "player.json");
+
+        var items = new Dictionary<string, ItemDef>();
+        foreach (var item in itemFile.Items)
+            if (!items.TryAdd(item.Id, item))
+                throw Error("items.json", $"duplicate item '{item.Id}'");
+        foreach (var (table, entries) in itemFile.LootTables)
+            foreach (var entry in entries)
+                if (entry.Item is not null && !items.ContainsKey(entry.Item))
+                    throw Error("items.json", $"loot table '{table}' uses unknown item '{entry.Item}'");
+        if (itemFile.Enchantments.Sum(e => e.Weight) <= 0)
+            throw Error("items.json", "enchantments need a positive total weight");
+
+        foreach (var k in player.Kit)
+        {
+            if (!items.TryGetValue(k.Item, out var def))
+                throw Error("player.json", $"kit uses unknown item '{k.Item}'");
+            if (k.Equip && !def.IsEquipment)
+                throw Error("player.json", $"kit item '{k.Item}' can't be equipped");
+        }
+        if (spawnFile.FloorItemChance > 0 && !itemFile.LootTables.ContainsKey("floor"))
+            throw Error("items.json", "floorItemChance is set but there is no \"floor\" loot table");
 
         var factions = new Dictionary<string, Faction>();
         foreach (var f in factionFile.Factions)
@@ -75,6 +119,8 @@ public sealed class ContentDatabase
             FactionOrThrow(factions, m.Faction, "monsters.json");
             if (m.MaxHp <= 0)
                 throw Error("monsters.json", $"monster '{m.Id}' needs maxHp > 0");
+            if (m.Loot is not null && !itemFile.LootTables.ContainsKey(m.Loot))
+                throw Error("monsters.json", $"monster '{m.Id}' uses unknown loot table '{m.Loot}'");
             if (!monsters.TryAdd(m.Id, m))
                 throw Error("monsters.json", $"duplicate monster '{m.Id}'");
         }
@@ -93,7 +139,7 @@ public sealed class ContentDatabase
             }
         }
 
-        return new ContentDatabase(factions, relations, monsters, [.. spawnFile.Squads], spawnFile.RoomOccupancy);
+        return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player);
     }
 
     private static T Read<T>(string directory, string file)
@@ -121,5 +167,7 @@ public sealed class ContentDatabase
     private sealed record FactionEntry(string Id, string Name);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
-    private sealed record SpawnFile(double RoomOccupancy, List<SquadTemplateDef> Squads);
+    private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads);
+    private sealed record ItemFile(
+        List<ItemDef> Items, List<EnchantmentWeight> Enchantments, Dictionary<string, List<LootEntry>> LootTables);
 }

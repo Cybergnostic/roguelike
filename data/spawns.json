@@ -4,6 +4,8 @@
   // Each member line adds between min and max of that monster (inclusive),
   // each one only with probability "chance" (default 1).
   "roomOccupancy": 0.45,
+  // Chance for each room to have one item lying on the floor, from the "floor" loot table.
+  "floorItemChance": 0.35,
   "squads": [
     {
       "name": "goblin war band",

@@ -1,4 +1,5 @@
 using Roguelike.Core.AI;
+using Roguelike.Core.Items;
 using SadRogue.Primitives;
 
 namespace Roguelike.Core.Entities;
@@ -16,17 +17,37 @@ public sealed class Actor
 
     public int MaxHp { get; }
     public int Hp { get; set; }
-    public int Attack { get; }
-    public int Defense { get; }
 
-    /// <summary>Maximum ranged attack distance; 0 means melee only.</summary>
-    public int Range { get; init; }
+    /// <summary>Natural stats, before equipment.</summary>
+    public int BaseAttack { get; }
+    public int BaseDefense { get; }
+
+    /// <summary>Natural ranged distance (monster archers); a bow overrides it.</summary>
+    public int BaseRange { get; init; }
 
     /// <summary>Ignores morale: never routs.</summary>
     public bool Fearless { get; init; }
 
+    /// <summary>Loot table rolled on death (items.json), if any.</summary>
+    public string? LootTable { get; init; }
+
+    /// <summary>Carried and worn items. Only the player has them so far.</summary>
+    public Inventory? Inventory { get; init; }
+    public Equipment? Equipment { get; init; }
+
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
+
+    /// <summary>Melee attack: natural attack plus wielded weapon (including its +X).</summary>
+    public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0);
+
+    public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0);
+
+    /// <summary>Ranged attack: the bow's if one is equipped, otherwise natural (monster archers).</summary>
+    public int RangedAttack => Equipment?.Bow is { } bow ? BaseAttack + bow.AttackBonus : BaseAttack;
+
+    /// <summary>Maximum ranged attack distance; 0 means melee only.</summary>
+    public int Range => Equipment?.Bow?.Def.Range ?? BaseRange;
 
     /// <summary>Human-readable name derived from the kind id ("goblin_archer" -> "goblin archer").</summary>
     public string Name => Kind.Replace('_', ' ');
@@ -41,8 +62,8 @@ public sealed class Actor
         Faction = faction;
         Position = position;
         MaxHp = Hp = maxHp;
-        Attack = attack;
-        Defense = defense;
+        BaseAttack = attack;
+        BaseDefense = defense;
         Brain = brain;
     }
 }

@@ -26,4 +26,6 @@ dotnet test
 Controls: arrows / numpad / `hjklyubn` to move and attack, `.` `5` or `Space` to wait,
 `R` to restart after death, `Esc` to quit.
 
+Items: `g` pick up, `i` inventory, `e` equip, `q` drink, `d` drop, `f` fire bow.
+
 Debug views: `F1` reveal map, `F2` squads, `F3` heatmaps, `F5` spectator mode, `P` autoplay.

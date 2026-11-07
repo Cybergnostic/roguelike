@@ -81,8 +81,10 @@ public class SquadTests(ITestOutputHelper output)
     [Fact]
     public void RunnerFetchesAnotherSquad()
     {
-        var world = FindWorld(w => w.Squads.Count >= 2 && w.Squads.Any(s => s.WithRole(SquadRole.Runner).Any()));
-        var squad = world.Squads.First(s => s.WithRole(SquadRole.Runner).Any());
+        static bool HasRunnerAndAllies(World w, Squad s) =>
+            s.WithRole(SquadRole.Runner).Any() && w.Squads.Any(o => o != s && o.Faction == s.Faction);
+        var world = FindWorld(w => w.Squads.Any(s => HasRunnerAndAllies(w, s)));
+        var squad = world.Squads.First(s => HasRunnerAndAllies(world, s));
         RevealPlayerTo(world, squad, distance: 5);
         Assert.NotNull(squad.HelpTargetSquadId);
         var helperId = squad.HelpTargetSquadId!.Value;
@@ -113,6 +115,24 @@ public class SquadTests(ITestOutputHelper output)
         Assert.True(Count("shaman heals") > 0);
         Assert.True(Count("squads routed") > 0);
         Assert.True(Count("reinforcements called") > 0);
+    }
+
+    [Fact]
+    public void AlliesSwapPlacesButNeverWithThePlayer()
+    {
+        var world = FindWorld(w => w.Squads.Any(s => s.Members.Count >= 2));
+        var squad = world.Squads.First(s => s.Members.Count >= 2);
+        var (a, b) = (squad.Members[0], squad.Members[1]);
+        var spot = World.EightWay.Select(d => a.Position + d).First(world.IsFree);
+        b.Position = spot;
+        var (pa, pb) = (a.Position, b.Position);
+
+        Assert.True(new MoveAction(SadRogue.Primitives.Direction.GetDirection(pa, pb)).Perform(world, a));
+        Assert.Equal(pb, a.Position);
+        Assert.Equal(pa, b.Position);
+
+        Assert.False(world.CanSwap(a, world.Player));
+        Assert.False(world.CanSwap(world.Player, a));
     }
 
     [Fact]

@@ -11,6 +11,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 {
     private const int ShamanHealCooldown = 5;
     private const int ShamanHealRange = 6;
+    private const int ShoutRange = 6;
 
     private int _nextHealTurn;
 
@@ -19,6 +20,12 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     public GameAction Decide(World world, Actor self)
     {
         var role = Squad.RoleOf(self);
+
+        // A runner on a mission keeps running whatever the squad is doing: fetching help
+        // matters most when the squad is losing.
+        if (role == SquadRole.Runner && Squad.HelpTargetSquadId is not null && Squad.State != SquadState.Idle)
+            return Runner(world, self);
+
         return Squad.State switch
         {
             SquadState.Flee => Flee(world, self),
@@ -26,7 +33,6 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             {
                 SquadRole.Archer => Archer(world, self),
                 SquadRole.Shaman => Shaman(world, self),
-                SquadRole.Runner when Squad.HelpTargetSquadId is not null => Runner(world, self),
                 _ => Warrior(world, self),
             },
             SquadState.Alert => Investigate(world, self),
@@ -132,7 +138,9 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             return Warrior(world, self);
         }
 
-        if (World.Distance(self.Position, targetLeader.Position) <= 2)
+        // Shouting distance is enough: the other squad doesn't have to stand still to be reached.
+        if (World.Distance(self.Position, targetLeader.Position) <= ShoutRange
+            && world.HasLineOfSight(self.Position, targetLeader.Position))
             return new CallForHelpAction(Squad.Id, target.Id);
 
         var step = world.StepToward(self, targetLeader.Position);

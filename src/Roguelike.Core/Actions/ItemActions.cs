@@ -1,0 +1,115 @@
+using Roguelike.Core.Entities;
+using Roguelike.Core.Events;
+using Roguelike.Core.Items;
+
+namespace Roguelike.Core.Actions;
+
+/// <summary>Picks up everything at the actor's feet that fits.</summary>
+public sealed record PickUpAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Inventory is not { } inventory)
+            return false;
+
+        var here = world.ItemsAt(actor.Position).ToList();
+        if (here.Count == 0)
+            return Fail(world, actor, FailureReason.NothingToPickUp);
+
+        bool any = false;
+        foreach (var item in here)
+        {
+            if (!inventory.CanAdd(item))
+            {
+                world.Emit(new ActionFailed(actor.Id, FailureReason.InventoryFull));
+                break;
+            }
+            world.TakeFromFloor(item);
+            inventory.Add(item);
+            world.Emit(new ItemPickedUp(actor.Id, item));
+            any = true;
+        }
+        return any;
+    }
+
+    internal static bool Fail(World world, Actor actor, FailureReason reason)
+    {
+        world.Emit(new ActionFailed(actor.Id, reason));
+        return false;
+    }
+}
+
+/// <summary>Drops an item (the whole stack) at the actor's feet, unequipping it first.</summary>
+public sealed record DropAction(int ItemId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Inventory?.Find(ItemId) is not { } item)
+            return false;
+        actor.Equipment?.Unequip(item);
+        actor.Inventory.Remove(item);
+        world.PlaceOnFloor(item, actor.Position);
+        world.Emit(new ItemDropped(actor.Id, item));
+        return true;
+    }
+}
+
+/// <summary>Equips an item into its slot, or takes it off if it's already equipped.</summary>
+public sealed record EquipAction(int ItemId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Inventory?.Find(ItemId) is not { } item || actor.Equipment is not { } equipment)
+            return false;
+        if (!item.Def.IsEquipment)
+            return PickUpAction.Fail(world, actor, FailureReason.CannotEquip);
+
+        if (equipment.IsEquipped(item))
+        {
+            equipment.Unequip(item);
+            world.Emit(new ItemUnequipped(actor.Id, item));
+            return true;
+        }
+
+        var replaced = equipment.Equip(item);
+        world.Emit(new ItemEquipped(actor.Id, item, replaced));
+        return true;
+    }
+}
+
+/// <summary>Drinks one potion from a stack.</summary>
+public sealed record DrinkAction(int ItemId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Inventory?.Find(ItemId) is not { } item)
+            return false;
+        if (item.Def.Category != ItemCategory.Potion)
+            return PickUpAction.Fail(world, actor, FailureReason.NotDrinkable);
+
+        int healed = Math.Min(item.Def.Heal, actor.MaxHp - actor.Hp);
+        actor.Hp += healed;
+        item.Count--;
+        if (item.Count <= 0)
+            actor.Inventory.Remove(item);
+        world.Emit(new PotionDrunk(actor.Id, item, healed));
+        return true;
+    }
+}
+
+/// <summary>The player's bow shot, with explicit reasons when it can't be taken.</summary>
+public sealed record FireAction(int TargetId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Equipment?.Bow is null)
+            return PickUpAction.Fail(world, actor, FailureReason.NoBow);
+        if (world.GetActor(TargetId) is not { IsDead: false } target)
+            return false;
+        if (World.Distance(actor.Position, target.Position) > actor.Range)
+            return PickUpAction.Fail(world, actor, FailureReason.OutOfRange);
+        if (!world.HasClearShot(actor.Position, target.Position))
+            return PickUpAction.Fail(world, actor, FailureReason.NoLineOfFire);
+        return new RangedAttackAction(TargetId).Perform(world, actor);
+    }
+}

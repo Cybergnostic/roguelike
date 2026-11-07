@@ -4,6 +4,7 @@ using Roguelike.Core.Content;
 using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
+using Roguelike.Core.Items;
 using Roguelike.Core.Map;
 using SadRogue.Primitives;
 using SadRogue.Primitives.GridViews;
@@ -46,6 +47,13 @@ public sealed class World
 
     private readonly Dictionary<Faction, FactionMaps> _factionMaps = [];
 
+    /// <summary>An item lying on the map.</summary>
+    public sealed record FloorItem(Item Item, Point Position);
+
+    public IReadOnlyList<FloorItem> FloorItems => _floorItems;
+
+    private readonly List<FloorItem> _floorItems = [];
+    private int _nextItemId;
     private readonly List<Actor> _actors = [];
     private readonly List<Squad> _squads = [];
     private readonly List<GameEvent> _events = [];
@@ -62,9 +70,9 @@ public sealed class World
         if (Map.Rooms.Count < 2)
             throw new InvalidOperationException("Map generation produced too few rooms.");
 
-        Player = AddActor(new Actor(_nextId++, "player", content.PlayerFaction, Map.Rooms[0].Center,
-            maxHp: 30, attack: 6, defense: 1));
+        Player = CreatePlayer(Map.Rooms[0].Center);
         SpawnSquads();
+        SpawnFloorItems();
 
         TowardPlayer = new DistanceMap(Map.Walkable);
         _aStar = new AStar(Map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
@@ -124,6 +132,56 @@ public sealed class World
 
     public Squad? SquadOf(Actor actor) => (actor.Brain as SquadMemberBrain)?.Squad;
 
+    // ---- Combat ----
+
+    /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
+    public void Damage(Actor attacker, Actor target, int damage, bool ranged)
+    {
+        target.Hp -= damage;
+        Emit(new ActorAttacked(attacker.Id, target.Id, damage, ranged));
+        if (!target.IsDead)
+            return;
+
+        Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
+        if (target.LootTable is { } table && RollLoot(table) is { } loot)
+        {
+            PlaceOnFloor(loot, target.Position);
+            Emit(new LootDropped(target.Id, loot, target.Position));
+        }
+    }
+
+    // ---- Items ----
+
+    public IEnumerable<Item> ItemsAt(Point p) => _floorItems.Where(f => f.Position == p).Select(f => f.Item);
+
+    public void PlaceOnFloor(Item item, Point p) => _floorItems.Add(new FloorItem(item, p));
+
+    public bool TakeFromFloor(Item item) => _floorItems.RemoveAll(f => f.Item == item) > 0;
+
+    /// <summary>Makes a new item. Equipment rolls its +X unless one is given.</summary>
+    public Item CreateItem(ItemDef def, int? enchantment = null, int count = 1) =>
+        new(_nextItemId++, def)
+        {
+            Enchantment = enchantment ?? (def.IsEquipment ? RollEnchantment() : 0),
+            Count = count,
+        };
+
+    /// <summary>Picks one entry from a loot table; null when it rolls "nothing".</summary>
+    public Item? RollLoot(string table)
+    {
+        var entries = Content.LootTables[table];
+        int roll = Rng.NextInt(entries.Sum(e => e.Weight));
+        var entry = entries.First(e => (roll -= e.Weight) < 0);
+        return entry.Item is null ? null : CreateItem(Content.Items[entry.Item]);
+    }
+
+    private int RollEnchantment()
+    {
+        var table = Content.Enchantments;
+        int roll = Rng.NextInt(table.Sum(e => e.Weight));
+        return table.First(e => (roll -= e.Weight) < 0).Value;
+    }
+
     // ---- Spatial queries used by AI ----
 
     public static int Distance(Point a, Point b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
@@ -131,6 +189,13 @@ public sealed class World
     public bool IsAdjacent(Point a, Point b) => a != b && Distance(a, b) <= 1;
 
     public bool IsFree(Point p) => Map.InBounds(p) && Map.Walkable[p] && ActorAt(p) is null;
+
+    /// <summary>
+    /// Allied monsters may trade places (Brogue-style) so they can't deadlock in corridors.
+    /// The player is never pushed around.
+    /// </summary>
+    public bool CanSwap(Actor mover, Actor other) =>
+        mover != Player && other != Player && Relations.Get(mover.Faction, other.Faction) == Relation.Allied;
 
     /// <summary>
     /// Spectator mode: the player is an invisible, invulnerable observer, so the
@@ -283,7 +348,7 @@ public sealed class World
         if (path is not null && path.Length > 0)
         {
             var next = path.GetStep(0);
-            if (IsFree(next))
+            if (IsFree(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker)))
                 return Direction.GetDirection(self.Position, next);
         }
 
@@ -321,9 +386,41 @@ public sealed class World
     private Actor Spawn(MonsterDef def, Point at) =>
         AddActor(new Actor(_nextId++, def.Id, Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
         {
-            Range = def.Range,
+            BaseRange = def.Range,
             Fearless = def.Fearless,
+            LootTable = def.Loot,
         });
+
+    /// <summary>The player, with base stats and starting kit from player.json.</summary>
+    private Actor CreatePlayer(Point at)
+    {
+        var def = Content.Player;
+        var player = AddActor(new Actor(_nextId++, "player", Content.PlayerFaction, at, def.MaxHp, def.Attack, def.Defense)
+        {
+            Inventory = new Inventory(def.InventoryCapacity),
+            Equipment = new Equipment(),
+        });
+        foreach (var k in def.Kit)
+        {
+            var item = player.Inventory!.Add(CreateItem(Content.Items[k.Item], k.Enchantment, k.Count));
+            if (k.Equip)
+                player.Equipment!.Equip(item);
+        }
+        return player;
+    }
+
+    private void SpawnFloorItems()
+    {
+        if (Content.FloorItemChance <= 0)
+            return;
+        foreach (var room in Map.Rooms.Skip(1))
+        {
+            if (Rng.NextDouble() >= Content.FloorItemChance)
+                continue;
+            if (RollLoot("floor") is { } item && RandomFreeFloor(room) is { } p)
+                PlaceOnFloor(item, p);
+        }
+    }
 
     /// <summary>Populates rooms (except the start) with squads, per spawns.json.</summary>
     private void SpawnSquads()

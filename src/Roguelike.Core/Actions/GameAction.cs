@@ -35,9 +35,14 @@ public sealed record MoveAction(Direction Direction) : GameAction
         var other = world.ActorAt(target);
         if (other is not null)
         {
-            if (!world.AreHostile(actor, other))
+            if (world.AreHostile(actor, other))
+                return new AttackAction(other.Id).Perform(world, actor);
+            if (!world.CanSwap(actor, other))
                 return false;
-            return new AttackAction(other.Id).Perform(world, actor);
+
+            // Allies trade places, so two of them can't block each other in a corridor.
+            other.Position = actor.Position;
+            world.Emit(new ActorMoved(other.Id, target, actor.Position));
         }
 
         var from = actor.Position;
@@ -55,13 +60,8 @@ public sealed record AttackAction(int TargetId) : GameAction
         if (target is null || target.IsDead || world.IsUntouchable(target))
             return false;
 
-        int roll = world.Rng.NextInt(1, actor.Attack + 1);
-        int damage = Math.Max(0, roll - target.Defense);
-        target.Hp -= damage;
-        world.Emit(new ActorAttacked(actor.Id, target.Id, damage));
-
-        if (target.IsDead)
-            world.Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
+        int roll = world.Rng.NextInt(1, Math.Max(1, actor.Attack) + 1);
+        world.Damage(actor, target, Math.Max(0, roll - target.Defense), ranged: false);
         return true;
     }
 }

@@ -39,12 +39,46 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ReinforcementsCalled c when isVisible(c.RunnerId) => $"{Cap(Name(c.RunnerId))} rallies another war band!",
         ReinforcementsCalled => "War drums sound somewhere in the dungeon.",
 
+        ItemPickedUp p when p.ActorId == world.Player.Id => $"You pick up {ItemText.AName(p.Item)}.",
+        ItemDropped d when d.ActorId == world.Player.Id => $"You drop {ItemText.TheName(d.Item)}.",
+        LootDropped l when isVisible(l.ActorId) => $"{Cap(Name(l.ActorId))} drops {ItemText.AName(l.Item)}.",
+        ItemEquipped q when q.ActorId == world.Player.Id =>
+            $"You {EquipVerb(q.Item)} {ItemText.TheName(q.Item)}" +
+            (q.Replaced is { } old ? $", putting away {ItemText.TheName(old)}." : ".") +
+            (q.Item.Enchantment < 0 ? " It feels wrong in your hands." : ""),
+        ItemUnequipped u when u.ActorId == world.Player.Id => $"You take off {ItemText.TheName(u.Item)}.",
+        PotionDrunk p when p.ActorId == world.Player.Id =>
+            p.Healed > 0 ? $"You drink {ItemText.AName(Single(p.Item))}. You feel better (+{p.Healed} HP)."
+                         : $"You drink {ItemText.AName(Single(p.Item))}. Nothing happens; you're unhurt.",
+        ActionFailed f when f.ActorId == world.Player.Id => f.Reason switch
+        {
+            FailureReason.NothingToPickUp => "There is nothing here to pick up.",
+            FailureReason.InventoryFull => "Your pack is full.",
+            FailureReason.NoBow => "You have no bow readied.",
+            FailureReason.OutOfRange => "That's out of range.",
+            FailureReason.NoLineOfFire => "Something is in the way.",
+            FailureReason.CannotEquip => "You can't equip that.",
+            FailureReason.NotDrinkable => "You can't drink that.",
+            _ => null,
+        },
+
         _ => null,
     };
 
     /// <summary>Unseen attackers are "something": you know you were shot, not by whom.</summary>
     private string Name(int id) =>
         id == world.Player.Id ? "you" : isVisible(id) ? nameOf(id) : "something";
+
+    private static string EquipVerb(Roguelike.Core.Items.Item item) => item.Def.Category switch
+    {
+        Roguelike.Core.Items.ItemCategory.Weapon => "wield",
+        Roguelike.Core.Items.ItemCategory.Bow => "ready",
+        _ => "put on",
+    };
+
+    /// <summary>A one-item view of a stack, for "you drink a potion" phrasing.</summary>
+    private static Roguelike.Core.Items.Item Single(Roguelike.Core.Items.Item item) =>
+        new(item.Id, item.Def) { Enchantment = item.Enchantment, Count = 1 };
 
     private string Verb(int actorId, string you, string them) => actorId == world.Player.Id ? you : them;
 

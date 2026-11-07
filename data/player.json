@@ -1,0 +1,13 @@
+{
+  // The player's base stats (before equipment) and starting kit.
+  "maxHp": 30,
+  "attack": 2,
+  "defense": 0,
+  "inventoryCapacity": 20,
+  "kit": [
+    { "item": "short_sword",    "equip": true },
+    { "item": "leather_armor",  "equip": true },
+    { "item": "short_bow",      "equip": true },
+    { "item": "healing_potion", "count": 2 }
+  ]
+}

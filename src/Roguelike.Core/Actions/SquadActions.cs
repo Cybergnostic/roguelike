@@ -14,12 +14,8 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
             || !world.HasClearShot(actor.Position, target.Position))
             return false;
 
-        int roll = world.Rng.NextInt(1, actor.Attack + 1);
-        int damage = Math.Max(0, roll - target.Defense);
-        target.Hp -= damage;
-        world.Emit(new ActorAttacked(actor.Id, target.Id, damage, Ranged: true));
-        if (target.IsDead)
-            world.Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
+        int roll = world.Rng.NextInt(1, Math.Max(1, actor.RangedAttack) + 1);
+        world.Damage(actor, target, Math.Max(0, roll - target.Defense), ranged: true);
         return true;
     }
 }

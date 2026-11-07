@@ -25,13 +25,18 @@ public static class Theme
     public static readonly Color FleeingBackground = new(60, 40, 0);
 
     private static readonly Look Unknown = new('?', Color.Magenta);
-    private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles) Looks =
+    private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items) Looks =
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
     public static Look ForTile(Tile tile) =>
         Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
 
     public static Look ForKind(string kind) => Looks.Kinds.GetValueOrDefault(kind, Unknown);
+
+    /// <summary>By item id first, then by category ("weapon", "potion", ...).</summary>
+    public static Look ForItem(Roguelike.Core.Items.Item item) =>
+        Looks.Items.TryGetValue(item.Def.Id, out var look) ? look
+        : Looks.Items.GetValueOrDefault(item.Def.Category.ToString().ToLowerInvariant(), Unknown);
 
     /// <summary>Debug reveal: cells the player hasn't seen, dimmer than visible ones.</summary>
     public static Color Revealed(Color c) => new((byte)(c.R * 0.55), (byte)(c.G * 0.55), (byte)(c.B * 0.65));
@@ -66,11 +71,11 @@ public static class Theme
             (int)(hot.B + (cold.B - hot.B) * t));
     }
 
-    private static (Dictionary<string, Look>, Dictionary<string, Look>) LoadLooks(string path)
+    private static (Dictionary<string, Look>, Dictionary<string, Look>, Dictionary<string, Look>) LoadLooks(string path)
     {
         var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
         using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
-        return (ReadSection(doc.RootElement, "kinds"), ReadSection(doc.RootElement, "tiles"));
+        return (ReadSection(doc.RootElement, "kinds"), ReadSection(doc.RootElement, "tiles"), ReadSection(doc.RootElement, "items"));
     }
 
     private static Dictionary<string, Look> ReadSection(JsonElement root, string name)

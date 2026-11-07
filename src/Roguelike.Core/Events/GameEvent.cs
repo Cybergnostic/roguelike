@@ -1,3 +1,4 @@
+using Roguelike.Core.Items;
 using SadRogue.Primitives;
 
 namespace Roguelike.Core.Events;
@@ -26,3 +27,32 @@ public sealed record SquadRouted(int SquadId, IReadOnlyList<int> MemberIds) : Ga
 
 /// <summary>A runner reached another squad and brought it into the fight.</summary>
 public sealed record ReinforcementsCalled(int RunnerId, int FromSquadId, int ToSquadId) : GameEvent;
+
+// ---- Items ----
+
+public sealed record ItemPickedUp(int ActorId, Item Item) : GameEvent;
+
+public sealed record ItemDropped(int ActorId, Item Item) : GameEvent;
+
+/// <summary>A dying monster dropped loot where it fell.</summary>
+public sealed record LootDropped(int ActorId, Item Item, Point At) : GameEvent;
+
+public sealed record ItemEquipped(int ActorId, Item Item, Item? Replaced) : GameEvent;
+
+public sealed record ItemUnequipped(int ActorId, Item Item) : GameEvent;
+
+public sealed record PotionDrunk(int ActorId, Item Item, int Healed) : GameEvent;
+
+public enum FailureReason
+{
+    NothingToPickUp,
+    InventoryFull,
+    NoBow,
+    OutOfRange,
+    NoLineOfFire,
+    CannotEquip,
+    NotDrinkable,
+}
+
+/// <summary>An action that didn't happen, and why (the turn isn't used).</summary>
+public sealed record ActionFailed(int ActorId, FailureReason Reason) : GameEvent;
