@@ -4,10 +4,11 @@ using SadConsole.Configuration;
 
 Settings.WindowTitle = "Roguelike";
 
-// Usage: Roguelike.App [--seed N]
+// Usage: Roguelike.App [--seed N] [--spectate]
 int seedIndex = Array.IndexOf(args, "--seed");
 if (seedIndex >= 0 && seedIndex + 1 < args.Length && ulong.TryParse(args[seedIndex + 1], out var seed))
     GameScreen.StartSeed = seed;
+GameScreen.StartSpectating = args.Contains("--spectate");
 
 var config = new Builder()
     .SetWindowSizeInCells(GameScreen.Width, GameScreen.Height, zoom: true)

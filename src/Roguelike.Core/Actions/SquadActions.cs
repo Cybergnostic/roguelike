@@ -9,7 +9,7 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
     public override bool Perform(World world, Actor actor)
     {
         var target = world.GetActor(TargetId);
-        if (target is null || target.IsDead || actor.Range <= 0
+        if (target is null || target.IsDead || world.IsUntouchable(target) || actor.Range <= 0
             || World.Distance(actor.Position, target.Position) > actor.Range
             || !world.HasClearShot(actor.Position, target.Position))
             return false;

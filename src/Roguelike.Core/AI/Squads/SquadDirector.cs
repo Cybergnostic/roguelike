@@ -20,7 +20,7 @@ public static class SquadDirector
             return;
 
         var player = world.Player;
-        var spotter = player.IsDead ? null : squad.Members.FirstOrDefault(world.PlayerCanSee);
+        var spotter = player.IsDead ? null : squad.Members.FirstOrDefault(world.CanSeePlayer);
         if (spotter is not null)
         {
             squad.LastKnownTarget = player.Position;

@@ -11,7 +11,7 @@ using Console = SadConsole.Console;
 namespace Roguelike.App;
 
 /// <summary>Root screen: map, sidebar, status line and message log. Owns input; draws the World.</summary>
-public sealed class GameScreen : ScreenObject
+public sealed partial class GameScreen : ScreenObject
 {
     public const int MapWidth = 80;
     public const int MapHeight = 24;
@@ -49,6 +49,7 @@ public sealed class GameScreen : ScreenObject
         Children.Add(_status);
         Children.Add(_log);
         _world = NewWorld();
+        ApplyStartOptions();
         Draw();
     }
 
@@ -62,7 +63,8 @@ public sealed class GameScreen : ScreenObject
         var world = World.Create(seed, MapWidth, MapHeight);
         _messages.Clear();
         AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
-        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . or 5.  Quit: Esc.", Theme.Text);
+        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Quit: Esc.", Theme.Text);
+        AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
     }
 
@@ -71,6 +73,12 @@ public sealed class GameScreen : ScreenObject
         if (keyboard.IsKeyPressed(Keys.Escape))
         {
             Game.Instance.MonoGameInstance.Exit();
+            return true;
+        }
+
+        if (HandleDebugKeys(keyboard))
+        {
+            Draw();
             return true;
         }
 
@@ -87,19 +95,28 @@ public sealed class GameScreen : ScreenObject
         GameAction? action = null;
         foreach (var (key, dir) in MoveKeys)
             if (keyboard.IsKeyPressed(key)) { action = new MoveAction(dir); break; }
-        if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5))
+        if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
+            || keyboard.IsKeyPressed(Keys.Space))
             action = new WaitAction();
 
         if (action is null)
             return false;
 
+        PlayTurn(action);
+        Draw();
+        return true;
+    }
+
+    /// <summary>Runs one turn and logs what happened.</summary>
+    private void PlayTurn(GameAction action)
+    {
         // Snapshot names and positions before the turn, so actors that die mid-turn can still be described.
         var before = _world.Actors.ToDictionary(a => a.Id, a => (a.Name, a.Position));
         var events = _world.Step(action);
 
         var fov = _world.Map.PlayerFov.BooleanResultView;
-        bool IsVisible(int id) =>
-            _world.GetActor(id) is { } a ? fov[a.Position] : before.TryGetValue(id, out var b) && fov[b.Position];
+        bool IsVisible(int id) => _reveal ||
+            (_world.GetActor(id) is { } a ? fov[a.Position] : before.TryGetValue(id, out var b) && fov[b.Position]);
         var text = new EventText(_world, id => $"the {before.GetValueOrDefault(id).Name ?? "thing"}", IsVisible);
 
         foreach (var e in events)
@@ -118,10 +135,10 @@ public sealed class GameScreen : ScreenObject
             AddMessage(line, color);
         }
         if (_world.Player.IsDead)
+        {
+            _autoplay = false;
             AddMessage("Press R to start a new game, Esc to quit.", Theme.Danger);
-
-        Draw();
-        return true;
+        }
     }
 
     private void AddMessage(string text, Color color)
@@ -146,26 +163,36 @@ public sealed class GameScreen : ScreenObject
     {
         var map = _world.Map;
         var fov = map.PlayerFov.BooleanResultView;
+        var heat = HeatmapView();
 
         _map.Clear();
         for (int y = 0; y < map.Height; y++)
         for (int x = 0; x < map.Width; x++)
         {
             var p = new Point(x, y);
-            if (!map.Explored[p])
+            if (!map.Explored[p] && !_reveal)
                 continue;
             var look = Theme.ForTile(map.Tiles[p]);
-            var fg = fov[p] ? look.Foreground : Theme.Remembered(look.Foreground);
-            _map.SetGlyph(x, y, look.Glyph, fg, Theme.Background);
+            var fg = fov[p] ? look.Foreground
+                : map.Explored[p] ? Theme.Remembered(look.Foreground)
+                : Theme.Revealed(look.Foreground);
+            _map.SetGlyph(x, y, look.Glyph, fg, heat?.Invoke(p) ?? Theme.Background);
         }
+
+        if (_showSquads)
+            DrawSquadMarkers();
 
         foreach (var actor in _world.Actors)
         {
-            if (actor.IsDead || !fov[actor.Position])
+            if (actor.IsDead || !(fov[actor.Position] || _reveal))
                 continue;
             var look = Theme.ForKind(actor.Kind);
-            var bg = _world.SquadOf(actor)?.State == SquadState.Flee ? Theme.FleeingBackground : Theme.Background;
-            _map.SetGlyph(actor.Position.X, actor.Position.Y, look.Glyph, look.Foreground, bg);
+            var squad = _world.SquadOf(actor);
+            var bg = squad?.State == SquadState.Flee ? Theme.FleeingBackground
+                : _showSquads && squad is not null ? Theme.SquadTint(squad.Id)
+                : _map.Surface[actor.Position.X, actor.Position.Y].Background;
+            var fg = actor == _world.Player && _world.ObserverMode ? Theme.Intent : look.Foreground;
+            _map.SetGlyph(actor.Position.X, actor.Position.Y, look.Glyph, fg, bg);
         }
     }
 
@@ -174,10 +201,15 @@ public sealed class GameScreen : ScreenObject
     {
         _sidebar.Clear();
         _sidebar.Fill(Theme.Text, Theme.SidebarBackground, 0);
+        if (_showSquads)
+        {
+            DrawSquadList();
+            return;
+        }
 
         var player = _world.Player;
         var visible = _world.Actors
-            .Where(a => a != player && !a.IsDead && _world.PlayerCanSee(a))
+            .Where(a => a != player && !a.IsDead && (_reveal || _world.PlayerCanSee(a)))
             .OrderBy(a => World.Distance(a.Position, player.Position))
             .ToList();
 
@@ -245,8 +277,15 @@ public sealed class GameScreen : ScreenObject
         _status.Print(1, 0, $"HP {Math.Max(0, player.Hp)}/{player.MaxHp}",
             player.Hp * 3 <= player.MaxHp ? Theme.Danger : Theme.Good);
         _status.Print(14, 0, $"Turn {_world.Turn}", Theme.Text);
-        int bands = _world.Squads.Count;
-        _status.Print(28, 0, $"War bands remaining: {bands}", Theme.Text);
+        _status.Print(26, 0, $"War bands: {_world.Squads.Count}", Theme.Text);
+
+        var flags = new List<string>();
+        if (_world.ObserverMode) flags.Add(_autoplay ? "SPECTATING (auto)" : "SPECTATING");
+        if (_reveal) flags.Add("REVEAL");
+        if (_showSquads) flags.Add("SQUADS");
+        if (_heatmap != Heatmap.Off) flags.Add($"HEAT: {HeatmapName}");
+        var text = string.Join("  ", flags);
+        _status.Print(Width - text.Length - 1, 0, text, Theme.Warning);
     }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];

@@ -30,10 +30,29 @@ public sealed class World
     public IReadOnlyList<Squad> Squads => _squads;
 
     /// <summary>Dijkstra map toward the player, shared by every monster that is chasing.</summary>
-    public GoalMap TowardPlayer { get; }
+    public DistanceMap TowardPlayer { get; }
 
-    /// <summary>Brogue-style safety map: following it downhill moves away from the player intelligently.</summary>
-    public FleeMap AwayFromPlayer { get; }
+    /// <summary>
+    /// Brogue-style safety map: following it downhill moves away from the player intelligently
+    /// (toward exits, not into corners). Expensive, so it is only recalculated when first
+    /// asked for after the player has moved.
+    /// </summary>
+    public FleeMap AwayFromPlayer
+    {
+        get
+        {
+            if (_fleeDirty)
+            {
+                _fleeSource.Update(); // FleeMap recalculates itself from its source
+                _fleeDirty = false;
+            }
+            return _awayFromPlayer;
+        }
+    }
+
+    private readonly GoalMap _fleeSource;
+    private readonly FleeMap _awayFromPlayer;
+    private bool _fleeDirty = true;
 
     private readonly List<Actor> _actors = [];
     private readonly List<Squad> _squads = [];
@@ -57,8 +76,9 @@ public sealed class World
             !Map.Walkable[p] ? GoalState.Obstacle
             : p == Player.Position ? GoalState.Goal
             : GoalState.Clear);
-        TowardPlayer = new GoalMap(goals, SadRogue.Primitives.Distance.Chebyshev);
-        AwayFromPlayer = new FleeMap(TowardPlayer);
+        TowardPlayer = new DistanceMap(Map.Walkable);
+        _fleeSource = new GoalMap(goals, SadRogue.Primitives.Distance.Chebyshev);
+        _awayFromPlayer = new FleeMap(_fleeSource);
         _aStar = new AStar(Map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
 
         UpdatePerception();
@@ -84,16 +104,6 @@ public sealed class World
         if (Turn % PlayerRegenInterval == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
         UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
-        return [.. _events];
-    }
-
-    /// <summary>Lets squads and monsters act without the player doing anything. Used by tests and tools.</summary>
-    public IReadOnlyList<GameEvent> StepWithoutPlayer()
-    {
-        _events.Clear();
-        RunNonPlayerTurns();
-        _actors.RemoveAll(a => a.IsDead && a != Player);
-        Turn++;
         return [.. _events];
     }
 
@@ -130,8 +140,23 @@ public sealed class World
 
     public bool IsFree(Point p) => Map.InBounds(p) && Map.Walkable[p] && ActorAt(p) is null;
 
-    /// <summary>Symmetric approximation: a monster sees the player iff the player sees its cell.</summary>
-    public bool PlayerCanSee(Actor actor) => !Player.IsDead && Map.PlayerFov.BooleanResultView[actor.Position];
+    /// <summary>
+    /// Spectator mode: the player is an invisible, invulnerable observer, so the
+    /// simulation can be watched running on its own.
+    /// </summary>
+    public bool ObserverMode { get; set; }
+
+    /// <summary>Whether the player can see this actor (interface, bots).</summary>
+    public bool PlayerCanSee(Actor actor) => Map.PlayerFov.BooleanResultView[actor.Position];
+
+    /// <summary>
+    /// Whether this actor can see the player (AI). Symmetric approximation: a monster
+    /// sees the player iff the player sees its cell. Always false in observer mode.
+    /// </summary>
+    public bool CanSeePlayer(Actor actor) => !Player.IsDead && !ObserverMode && PlayerCanSee(actor);
+
+    /// <summary>Observer-mode guard for attacks: the player can't be harmed while spectating.</summary>
+    public bool IsUntouchable(Actor target) => ObserverMode && target == Player;
 
     /// <summary>A corridor cell or doorway: walls on both sides along one axis.</summary>
     public bool IsChokepoint(Point p)
@@ -210,7 +235,8 @@ public sealed class World
     private void UpdatePerception()
     {
         UpdateFov();
-        TowardPlayer?.Update(); // also recalculates AwayFromPlayer
+        TowardPlayer.Update([Player.Position]);
+        _fleeDirty = true;
     }
 
     private void UpdateFov()

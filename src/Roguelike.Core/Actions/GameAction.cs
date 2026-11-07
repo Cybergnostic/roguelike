@@ -52,7 +52,7 @@ public sealed record AttackAction(int TargetId) : GameAction
     public override bool Perform(World world, Actor actor)
     {
         var target = world.GetActor(TargetId);
-        if (target is null || target.IsDead)
+        if (target is null || target.IsDead || world.IsUntouchable(target))
             return false;
 
         int roll = world.Rng.NextInt(1, actor.Attack + 1);

@@ -69,7 +69,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             return away is { } a ? new MoveAction(a) : new AttackAction(player.Id);
         }
 
-        if (world.PlayerCanSee(self) && distance <= self.Range)
+        if (world.CanSeePlayer(self) && distance <= self.Range)
         {
             if (world.HasClearShot(self.Position, player.Position))
                 return new RangedAttackAction(player.Id);
