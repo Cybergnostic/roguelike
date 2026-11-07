@@ -70,7 +70,7 @@ public class FactionTests(ITestOutputHelper output)
 
         Assert.True(Count("squads spotted other factions") > 0);
         Assert.True(Count("melee attacks between factions") > 0);
-        Assert.True(Count("killed: goblins") + Count("killed: undead") > 0);
+        Assert.True(Count("killed by others: goblins") + Count("killed by others: undead") > 0);
         Assert.Equal(0, Count("squads spotted player"));
     }
 

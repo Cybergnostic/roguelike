@@ -17,7 +17,9 @@ public sealed record EnchantmentWeight(int Value, int Weight);
 
 public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, int Enchantment = 0);
 
-public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit);
+/// <summary>The player's base stats. RegenInterval: turns per 1 HP regained (0 = no regeneration).</summary>
+public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit,
+    int RegenInterval = 8);
 
 public sealed record SquadMemberDef(string Monster, int Min, int Max, double Chance = 1.0);
 
@@ -35,6 +37,9 @@ public sealed class ContentDatabase
     public IReadOnlyList<SquadTemplateDef> SquadTemplates { get; }
     public double RoomOccupancy { get; }
     public double FloorItemChance { get; }
+
+    /// <summary>No squad spawns in a room any of whose cells is closer than this (walking) to the player's start.</summary>
+    public int SafeStartDistance { get; }
     public IReadOnlyDictionary<string, ItemDef> Items { get; }
     public IReadOnlyList<EnchantmentWeight> Enchantments { get; }
     public IReadOnlyDictionary<string, IReadOnlyList<LootEntry>> LootTables { get; }
@@ -67,6 +72,7 @@ public sealed class ContentDatabase
         SquadTemplates = spawns.Squads;
         RoomOccupancy = spawns.RoomOccupancy;
         FloorItemChance = spawns.FloorItemChance;
+        SafeStartDistance = spawns.SafeStartDistance;
         Items = items;
         Enchantments = itemFile.Enchantments;
         LootTables = itemFile.LootTables.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<LootEntry>)kv.Value);
@@ -92,6 +98,8 @@ public sealed class ContentDatabase
         if (itemFile.Enchantments.Sum(e => e.Weight) <= 0)
             throw Error("items.json", "enchantments need a positive total weight");
 
+        if (player.RegenInterval < 0)
+            throw Error("player.json", "regenInterval can't be negative");
         foreach (var k in player.Kit)
         {
             if (!items.TryGetValue(k.Item, out var def))
@@ -167,7 +175,8 @@ public sealed class ContentDatabase
     private sealed record FactionEntry(string Id, string Name);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
-    private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads);
+    private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
+        int SafeStartDistance = 0);
     private sealed record ItemFile(
         List<ItemDef> Items, List<EnchantmentWeight> Enchantments, Dictionary<string, List<LootEntry>> LootTables);
 }

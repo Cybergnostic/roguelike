@@ -19,7 +19,6 @@ namespace Roguelike.Core;
 public sealed class World
 {
     public const int FovRadius = 8;
-    private const int PlayerRegenInterval = 8;
 
     public static readonly Direction[] EightWay = [.. AdjacencyRule.EightWay.DirectionsOfNeighbors()];
 
@@ -98,7 +97,8 @@ public sealed class World
 
         _actors.RemoveAll(a => a.IsDead && a != Player);
         Turn++;
-        if (Turn % PlayerRegenInterval == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
+        int regen = Content.Player.RegenInterval;
+        if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
         UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
         return [.. _events];
@@ -142,7 +142,7 @@ public sealed class World
         if (!target.IsDead)
             return;
 
-        Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
+        Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
         if (target.LootTable is { } table && RollLoot(table) is { } loot)
         {
             PlaceOnFloor(loot, target.Position);
@@ -430,9 +430,15 @@ public sealed class World
         if (totalWeight <= 0)
             return;
 
+        // A quiet start: nobody spawns within walking distance of the player's first room.
+        var fromStart = new DistanceMap(Map.Walkable);
+        fromStart.Update([Player.Position]);
+
         foreach (var room in Map.Rooms.Skip(1))
         {
             if (Rng.NextDouble() >= Content.RoomOccupancy)
+                continue;
+            if (ClosestReachableCell(room, fromStart) < Content.SafeStartDistance)
                 continue;
 
             int roll = Rng.NextInt(totalWeight);
@@ -456,6 +462,11 @@ public sealed class World
                 _squads.Add(squad);
         }
     }
+
+    /// <summary>Walking distance from the distance map's goal to the nearest cell of a room.</summary>
+    private static double ClosestReachableCell(Rectangle room, DistanceMap map) =>
+        room.Positions().Select(p => map[p]).Where(d => d is not null).Select(d => d!.Value)
+            .DefaultIfEmpty(double.MaxValue).Min();
 
     private Point? RandomFreeFloor(Rectangle room)
     {

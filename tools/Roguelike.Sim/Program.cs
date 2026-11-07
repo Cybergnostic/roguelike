@@ -6,12 +6,35 @@ using Roguelike.Core.Simulation;
 //
 //   dotnet run --project tools/Roguelike.Sim -- [--seeds 50] [--start 0] [--turns 1000]
 //                                               [--bot aggressive|idle] [--observer] [--games]
+//   --map prints the level for seed --start instead of simulating.
 
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle] [--observer] [--games]");
+    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle] [--observer] [--games] [--map]");
     return 1;
+}
+
+if (options.ShowMap)
+{
+    // Print the level for seed --start as text: # wall, . floor, @ player, letters = monsters.
+    var world = Roguelike.Core.World.Create(options.Start);
+    for (int y = 0; y < world.Map.Height; y++)
+    {
+        var line = new System.Text.StringBuilder();
+        for (int x = 0; x < world.Map.Width; x++)
+        {
+            var p = new SadRogue.Primitives.Point(x, y);
+            var actor = world.ActorAt(p);
+            line.Append(actor == world.Player ? '@'
+                : actor is not null ? actor.Kind[0]
+                : world.ItemsAt(p).Any() ? '!'
+                : world.Map.Walkable[p] ? '.' : '#');
+        }
+        Console.WriteLine(line);
+    }
+    Console.WriteLine($"rooms {world.Map.Rooms.Count}, floor inside rooms {100 * Simulator.RoomFloorFraction(world):0}%");
+    return 0;
 }
 
 IPlayerBot bot = options.Bot switch
@@ -49,6 +72,14 @@ if (deaths > 0)
     Console.WriteLine($"  avg turn of death      {results.Where(r => r.PlayerDied).Average(r => r.Turns),8:0.0}");
 Console.WriteLine($"  squads surviving       {results.Sum(r => r.SquadsAtEnd),6} / {results.Sum(r => r.SquadsAtStart)}");
 Console.WriteLine($"  monsters surviving     {results.Sum(r => r.MonstersAtEnd),6} / {results.Sum(r => r.MonstersAtStart)}");
+var survivors = results.Where(r => !r.PlayerDied).ToList();
+if (survivors.Count > 0)
+{
+    Console.WriteLine($"  survivors' lowest HP   {100 * survivors.Average(r => r.LowestHpFraction),7:0}%  (avg)");
+    Console.WriteLine($"  close calls (<25% HP)  {survivors.Count(r => r.LowestHpFraction < 0.25),6} / {survivors.Count}");
+}
+Console.WriteLine($"  floor inside rooms     {100 * results.Average(r => r.RoomFloorFraction),7:0}%  (rest is corridor/maze)");
+Console.WriteLine($"  monsters per level     {results.Average(r => r.MonstersAtStart),8:0.0}");
 Console.WriteLine();
 
 Console.WriteLine("Events (total, per game)");
@@ -73,7 +104,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false)
 {
     public static Options? Parse(string[] args)
     {
@@ -89,6 +120,7 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--bot" when Next() is "aggressive" or "idle": o = o with { Bot = args[i] }; break;
                 case "--observer": o = o with { Observer = true }; break;
                 case "--games": o = o with { PerGame = true }; break;
+                case "--map": o = o with { ShowMap = true }; break;
                 default: return null;
             }
         }

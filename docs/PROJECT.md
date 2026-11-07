@@ -79,7 +79,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
   World.cs                   all state; Step(action) -> events; spatial/AI helpers
   Map/GameMap.cs             tiles, explored, walkable/transparent views, player FOV, rooms
-  Map/MapGenerator.cs        GoRogue rooms-and-mazes (will be replaced by history-driven gen)
+  Map/MapGenerator.cs        GoRogue rooms-and-mazes, tuned roomy (will be replaced by history-driven gen)
   Map/DistanceMap.cs         fast BFS Dijkstra map (IGridView<double?>)
   Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
   Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
@@ -159,7 +159,10 @@ dotnet test                                     # ~15 s
 dotnet run --project src/Roguelike.App          # play
 dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
+dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
 ```
+The report gives: death rate, survivors' lowest HP and close calls (<25% HP), share of floor
+inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Restart after death: `R`. Quit: `Esc`.
@@ -207,6 +210,16 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   from shouting range (6 + line of sight); allies swap places, which cured corridor deadlocks
   that had frozen many patrols (idle time 86% → 71%).
 - **Observation tools**: debug overlays, spectator mode, autoplay, headless `Roguelike.Sim` report.
+- **Balance pass** (2026-11-07), measured with the sim:
+  - Map gen: 10–16 wider rooms, all dead ends trimmed. Floor inside rooms went from 29% to 57%.
+  - Quiet start: no squad spawns in a room within `safeStartDistance` (15) walking steps.
+  - Regen is now `regenInterval` in player.json (20 turns per HP, was 8).
+  - Monsters hit harder: warriors attack 6, archers 4. Skeleton warriors' defence went from 2 to 1,
+    which ended their 5:1 dominance over goblins (now about 1.5:1).
+  - Bigger goblin bands (2–4 warriors); 60% room occupancy.
+  - Fewer potions: 15 on the floor table, 10 on the goblin table.
+  - Death events carry `KillerId`.
+  - The sim report shows close calls and room share, and can print a level with `--map`.
 - **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
   perception of any hostile; per-faction toward/flee maps; squads engage other factions.
   Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
@@ -219,10 +232,17 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   goblins lose 126 dead vs undead 35; 27 routs; squads 92% idle; ~1600 turns/s.
 - Aggressive bot with the kit, 50 seeds × 1000 turns (after player kit + ally swap): player died
   **2%** (far too easy); squads 71% idle, 18% engaged; 29 of 610 monsters survive; ~2700 turns/s.
+- **Current** (after the balance pass), aggressive bot, 100 seeds × 1000 turns:
+  - Player died **23%**, mostly in the first 100–150 turns.
+  - Survivors' lowest HP averages 35%; 14 of 77 had a close call.
+  - About 21 monsters per level; the player kills about 11 and the factions kill about 7 of each other.
+  - Squads are 70% idle, 17% engaged; about 2500 turns/s.
+  - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
+    and survivors get real close calls. Deeper content should push from there.
 
 **Known issues / tech debt**
-- Balance untuned: the player kit made the game far too easy (bot dies 2%); skeletons beat goblins
-  about 3.5:1; map gen is mostly maze (GoRogue rooms-and-mazes).
+- Balance is tuned for one level only. There's no depth curve yet. Once the bot clears a level,
+  nothing else happens.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
   out of sight; potions are used even at full HP.
 - Squads mostly idle (92%): patrols are random and rarely meet. The strategic layer (raids toward
@@ -244,7 +264,7 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 1. ~~Observation tools~~ (done 2026-11-07)
 2. ~~Multi-faction foundation~~ (done 2026-11-07)
 3. ~~Minimal player kit~~ (done 2026-11-07): inventory, bow, healing potions, armour, so playtests and balance mean something.
-4. **Necromancer faction** ← next (consider a balance pass first: the game is now too easy)
+4. **Necromancer faction** ← next (balance pass done 2026-11-07; re-measure with the sim after)
    - Undead have **no morale** (never flee, slow, relentless): a deliberate contrast to goblins.
    - **Corpses** as objects left by every death; the necromancer raises corpses in range, so goblins
      killed near the tower become his skeletons.
@@ -256,7 +276,7 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 Later: multiple levels/sites, a campaign chaining sites, stealth, LLM-driven interrogation (optional),
 tiles/visual upgrade toward Cogmind/Qud.
 
-Balance pass (map density, map gen variety) fits between steps 2 and 4, measured with `Roguelike.Sim`.
+Re-run the sim and compare with the current baseline (§6) after every content or AI change.
 
 ---
 

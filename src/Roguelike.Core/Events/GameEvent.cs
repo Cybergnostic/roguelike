@@ -15,7 +15,8 @@ public sealed record ActorAttacked(int AttackerId, int TargetId, int Damage, boo
 
 public sealed record ActorHealed(int HealerId, int TargetId, int Amount) : GameEvent;
 
-public sealed record ActorDied(int ActorId, string Kind, string FactionId) : GameEvent;
+/// <summary>KillerId is whoever dealt the final blow.</summary>
+public sealed record ActorDied(int ActorId, string Kind, string FactionId, int KillerId) : GameEvent;
 
 public sealed record BumpedWall(int ActorId, Point At) : GameEvent;
 

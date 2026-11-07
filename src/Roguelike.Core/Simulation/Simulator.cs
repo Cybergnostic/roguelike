@@ -14,7 +14,9 @@ public sealed record GameResult(
     int MonstersAtStart,
     int MonstersAtEnd,
     IReadOnlyDictionary<string, int> EventCounts,
-    IReadOnlyDictionary<SquadState, int> SquadStateTurns);
+    IReadOnlyDictionary<SquadState, int> SquadStateTurns,
+    double LowestHpFraction,
+    double RoomFloorFraction);
 
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
@@ -28,6 +30,7 @@ public static class Simulator
         int monstersAtStart = CountMonsters(world);
         var counts = new Dictionary<string, int>();
         var stateTurns = Enum.GetValues<SquadState>().ToDictionary(s => s, _ => 0);
+        double lowestHp = 1.0;
 
         while (world.Turn < maxTurns && !world.Player.IsDead)
         {
@@ -39,11 +42,29 @@ public static class Simulator
             }
             foreach (var squad in world.Squads)
                 stateTurns[squad.State]++;
+            lowestHp = Math.Min(lowestHp, Math.Max(0, (double)world.Player.Hp / world.Player.MaxHp));
         }
 
         return new GameResult(seed, world.Player.IsDead, world.Turn,
             squadsAtStart, world.Squads.Count, monstersAtStart, CountMonsters(world),
-            counts, stateTurns);
+            counts, stateTurns, lowestHp, RoomFloorFraction(world));
+    }
+
+    /// <summary>Share of walkable cells that lie inside rooms (the rest is corridor and maze).</summary>
+    public static double RoomFloorFraction(World world)
+    {
+        int floor = 0, inRooms = 0;
+        var walkable = world.Map.Walkable;
+        for (int y = 0; y < walkable.Height; y++)
+        for (int x = 0; x < walkable.Width; x++)
+        {
+            if (!walkable[x, y])
+                continue;
+            floor++;
+            if (world.Map.Rooms.Any(r => r.Contains(new SadRogue.Primitives.Point(x, y))))
+                inRooms++;
+        }
+        return floor == 0 ? 0 : (double)inRooms / floor;
     }
 
     private static int CountMonsters(World world) =>
@@ -59,7 +80,8 @@ public static class Simulator
         ActorAttacked => "melee attacks between factions",
         ActorHealed => "shaman heals",
         ActorDied d when d.ActorId == world.Player.Id => "player deaths",
-        ActorDied d => $"killed: {d.FactionId}",
+        ActorDied d when d.KillerId == world.Player.Id => $"killed by player: {d.FactionId}",
+        ActorDied d => $"killed by others: {d.FactionId}",
         SquadSpotted s when s.TargetId == world.Player.Id => "squads spotted player",
         SquadSpotted => "squads spotted other factions",
         SquadRouted => "squads routed",

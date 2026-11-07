@@ -16,7 +16,9 @@ public static class MapGenerator
     {
         var generator = new Generator(width, height)
             .ConfigAndGenerateSafe(gen => gen.AddSteps(
-                DefaultAlgorithms.DungeonMazeMapSteps(rng: rng, minRooms: 6, maxRooms: 12)));
+                DefaultAlgorithms.DungeonMazeMapSteps(rng: rng, minRooms: 10, maxRooms: 16,
+                    roomMinSize: 3, roomMaxSize: 9, roomSizeRatioX: 1.6f, roomSizeRatioY: 1f,
+                    maxCreationAttempts: 20, maxPlacementAttempts: 20, saveDeadEndChance: 0)));
 
         var wallFloor = generator.Context.GetFirst<ISettableGridView<bool>>("WallFloor");
         var tiles = new ArrayView<Tile>(width, height);

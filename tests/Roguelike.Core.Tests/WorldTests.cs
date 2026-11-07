@@ -75,4 +75,18 @@ public class WorldTests
         for (ulong seed = 0; seed < 20; seed++)
             Simulate(seed, 1000);
     }
+
+    [Fact]
+    public void NoMonsterSpawnsNearTheStart()
+    {
+        for (ulong seed = 0; seed < 30; seed++)
+        {
+            var world = World.Create(seed);
+            var fromStart = new Roguelike.Core.Map.DistanceMap(world.Map.Walkable);
+            fromStart.Update([world.Player.Position]);
+            foreach (var monster in world.Actors.Where(a => a != world.Player))
+                Assert.True(fromStart[monster.Position] >= world.Content.SafeStartDistance,
+                    $"seed {seed}: {monster.Kind} spawned {fromStart[monster.Position]} steps from the start");
+        }
+    }
 }
