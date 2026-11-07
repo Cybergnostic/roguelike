@@ -257,8 +257,13 @@ public sealed class World
     /// Allied monsters may trade places (Brogue-style) so they can't deadlock in corridors.
     /// The player is never pushed around.
     /// </summary>
+    /// <summary>
+    /// Allies trade places, except with the player, and never so that a leashed actor
+    /// (a lair guard) gets pushed out of its territory.
+    /// </summary>
     public bool CanSwap(Actor mover, Actor other) =>
-        mover != Player && other != Player && Relations.Get(mover.Faction, other.Faction) == Relation.Allied;
+        mover != Player && other != Player && Relations.Get(mover.Faction, other.Faction) == Relation.Allied
+        && (SquadOf(other) is not { IsLeashed: true } squad || squad.WithinLeash(mover.Position));
 
     /// <summary>
     /// Spectator mode: the player is an invisible, invulnerable observer, so the

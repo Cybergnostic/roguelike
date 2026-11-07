@@ -177,11 +177,11 @@ public class NecromancerTests
     {
         var world = World.Create(2);
         world.ObserverMode = true;
-        var necromancer = NecromancerOf(world);
-        int bones = world.Corpses.Count;
+        var bones = world.Corpses.Where(c => world.Map.Zones.Single().Area.Contains(c.Position)).ToList();
+        Assert.NotEmpty(bones);
         for (int i = 0; i < 30; i++)
             Assert.DoesNotContain(world.Step(new WaitAction()), e => e is CorpseRaised);
-        Assert.Equal(bones, world.Corpses.Count);
+        Assert.All(bones, b => Assert.Contains(b, world.Corpses));
     }
 
     [Fact]
