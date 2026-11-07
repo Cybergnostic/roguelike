@@ -15,6 +15,11 @@ public static class Theme
     public static readonly Color Text = new(200, 200, 200);
     public static readonly Color Danger = new(230, 80, 60);
     public static readonly Color Good = new(120, 220, 120);
+    public static readonly Color Warning = new(235, 180, 60);
+    public static readonly Color Intent = new(150, 160, 190);
+    public static readonly Color SidebarBackground = new(18, 18, 26);
+    public static readonly Color BarEmpty = new(40, 40, 50);
+    public static readonly Color FleeingBackground = new(60, 40, 0);
 
     public static Look ForTile(Tile tile) => tile switch
     {
@@ -26,7 +31,10 @@ public static class Theme
     public static Look ForKind(string kind) => kind switch
     {
         "player" => new('@', Color.White),
-        "goblin" => new('g', new Color(110, 200, 70)),
+        "goblin_warrior" => new('g', new Color(110, 200, 70)),
+        "goblin_archer" => new('g', new Color(220, 200, 80)),
+        "goblin_shaman" => new('g', new Color(190, 110, 230)),
+        "goblin_runner" => new('g', new Color(90, 200, 220)),
         _ => new('?', Color.Magenta),
     };
 

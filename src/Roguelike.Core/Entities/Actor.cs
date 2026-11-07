@@ -25,13 +25,19 @@ public sealed class Actor
     public int Attack { get; }
     public int Defense { get; }
 
+    /// <summary>Maximum ranged attack distance; 0 means melee only.</summary>
+    public int Range { get; init; }
+
     /// <summary>Null for the player, whose actions come from input.</summary>
-    public IBrain? Brain { get; }
+    public IBrain? Brain { get; set; }
+
+    /// <summary>Human-readable name derived from the kind id ("goblin_archer" -> "goblin archer").</summary>
+    public string Name => Kind.Replace('_', ' ');
 
     public bool IsDead => Hp <= 0;
 
     public Actor(int id, string kind, Faction faction, Point position,
-        int maxHp, int attack, int defense, IBrain? brain)
+        int maxHp, int attack, int defense, IBrain? brain = null)
     {
         Id = id;
         Kind = kind;
