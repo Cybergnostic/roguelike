@@ -36,7 +36,11 @@ public sealed record SquadMemberDef(string Monster, int Min, int Max, double Cha
 /// and Corpses (remains lying in the lair from the start).
 /// </summary>
 public sealed record SquadTemplateDef(string Name, string Faction, int Weight, IReadOnlyList<SquadMemberDef> Members,
-    string? Zone = null, string? Architecture = null, int Leash = 0, IReadOnlyList<CorpseEntry>? Corpses = null);
+    string? Zone = null, string? Architecture = null, int Leash = 0, IReadOnlyList<CorpseEntry>? Corpses = null,
+    MusterDef? Muster = null);
+
+/// <summary>A lair sends out a new squad (by template name) every Every turns, while its faction has fewer than Max roaming squads.</summary>
+public sealed record MusterDef(string Squad, int Every, int Max);
 
 /// <summary>Remains placed at level creation: Count corpses of a monster kind.</summary>
 public sealed record CorpseEntry(string Monster, int Count);
@@ -132,7 +136,7 @@ public sealed class ContentDatabase
 
         var factions = new Dictionary<string, Faction>();
         foreach (var f in factionFile.Factions)
-            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name)))
+            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid }))
                 throw Error("factions.json", $"duplicate faction '{f.Id}'");
         if (!factions.ContainsKey(Faction.PlayerId))
             throw Error("factions.json", $"missing the '{Faction.PlayerId}' faction");
@@ -140,6 +144,15 @@ public sealed class ContentDatabase
         var relations = new FactionRelations();
         foreach (var r in factionFile.Relations)
             relations.Set(FactionOrThrow(factions, r.A, "factions.json"), FactionOrThrow(factions, r.B, "factions.json"), r.Relation);
+
+        foreach (var f in factions.Values.Where(f => f.Raid is not null))
+        {
+            var target = FactionOrThrow(factions, f.Raid!.Against, "factions.json");
+            if (f.Raid.Every <= 0)
+                throw Error("factions.json", $"faction '{f.Id}': raid \"every\" must be > 0");
+            if (!relations.AreHostile(f, target))
+                throw Error("factions.json", $"faction '{f.Id}' raids '{target.Id}', which it isn't hostile to");
+        }
 
         var monsters = new Dictionary<string, MonsterDef>();
         foreach (var m in monsterFile.Monsters)
@@ -176,6 +189,15 @@ public sealed class ContentDatabase
                 throw Error("spawns.json", $"squad '{s.Name}' uses unknown architecture '{s.Architecture}'");
             if (s.Leash < 0)
                 throw Error("spawns.json", $"squad '{s.Name}': leash can't be negative");
+            if (s.Muster is { } muster)
+            {
+                var mustered = spawnFile.Squads.FirstOrDefault(t => t.Name == muster.Squad)
+                    ?? throw Error("spawns.json", $"lair '{s.Name}' musters unknown squad '{muster.Squad}'");
+                if (mustered.Faction != s.Faction)
+                    throw Error("spawns.json", $"lair '{s.Name}' musters '{muster.Squad}' of another faction");
+                if (muster.Every <= 0 || muster.Max <= 0)
+                    throw Error("spawns.json", $"lair '{s.Name}': muster needs every > 0 and max > 0");
+            }
             foreach (var c in s.Corpses ?? [])
                 if (!monsters.ContainsKey(c.Monster))
                     throw Error("spawns.json", $"squad '{s.Name}' lays out corpses of unknown monster '{c.Monster}'");
@@ -206,7 +228,7 @@ public sealed class ContentDatabase
     private static InvalidDataException Error(string file, string message) => new($"{file}: {message}");
 
     private sealed record FactionFile(List<FactionEntry> Factions, List<RelationEntry> Relations);
-    private sealed record FactionEntry(string Id, string Name);
+    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,

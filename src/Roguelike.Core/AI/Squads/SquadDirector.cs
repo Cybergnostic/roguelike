@@ -66,6 +66,7 @@ public static class SquadDirector
         if (!squad.IsFearless && squad.State != SquadState.Flee && squad.Morale < Squad.BreakingPoint)
         {
             squad.State = SquadState.Flee;
+            squad.CallOffRaid(); // a broken war band goes home, whatever its orders
             world.Emit(new SquadRouted(squad.Id, squad.Members.Select(m => m.Id).ToList()));
         }
 
@@ -125,6 +126,17 @@ public static class SquadDirector
             return;
         }
         var leader = squad.Leader!;
+        if (squad.RaidTarget is { } target)
+        {
+            // Marching on the target; once there with nothing to fight, the raid is over.
+            if (SadRogue.Primitives.Distance.Chebyshev.Calculate(leader.Position, target) <= 2)
+                squad.CallOffRaid();
+            else
+            {
+                squad.Destination = target;
+                return;
+            }
+        }
         if (squad.Destination is { } d && SadRogue.Primitives.Distance.Chebyshev.Calculate(leader.Position, d) > 1)
             return;
         var rooms = world.Map.Rooms;

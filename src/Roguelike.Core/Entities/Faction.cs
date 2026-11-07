@@ -7,6 +7,9 @@ public enum Relation
     Allied,
 }
 
+/// <summary>Every <paramref name="Every"/> turns, send an idle squad against a lair of faction <paramref name="Against"/>.</summary>
+public sealed record RaidPlan(int Every, string Against);
+
 /// <summary>A side in the dungeon's conflicts. Defined in data (factions.json).</summary>
 public sealed class Faction(string id, string name)
 {
@@ -14,6 +17,9 @@ public sealed class Faction(string id, string name)
 
     public string Id { get; } = id;
     public string Name { get; } = name;
+
+    /// <summary>This faction's standing orders for raids, if it makes any.</summary>
+    public RaidPlan? Raid { get; init; }
 
     public override string ToString() => Id;
 }

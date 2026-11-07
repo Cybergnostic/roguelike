@@ -26,7 +26,9 @@ public class ItemTests
         Assert.Equal(player.Equipment.Bow!.Def.Range, player.Range);
 
         var potions = player.Inventory!.Items.Single(i => i.Def.Category == ItemCategory.Potion);
-        Assert.Equal(2, potions.Count); // the kit's two potions stack in one slot
+        var kitPotions = kit.Kit.Single(k => k.Item == "healing_potion").Count;
+        Assert.True(kitPotions > 1);
+        Assert.Equal(kitPotions, potions.Count); // the kit's potions stack in one slot
     }
 
     [Fact]
@@ -103,15 +105,17 @@ public class ItemTests
         var world = World.Create(1);
         var player = world.Player;
         var potions = player.Inventory!.Items.Single(i => i.Def.Category == ItemCategory.Potion);
+        int count = potions.Count;
         player.Hp = 5;
 
         var events = world.Step(new DrinkAction(potions.Id));
 
         Assert.Equal(5 + potions.Def.Heal, player.Hp);
-        Assert.Equal(1, potions.Count);
+        Assert.Equal(count - 1, potions.Count);
         Assert.Contains(events, e => e is PotionDrunk { Healed: > 0 });
 
-        world.Step(new DrinkAction(potions.Id));
+        while (potions.Count > 0 && player.Inventory.Items.Contains(potions))
+            world.Step(new DrinkAction(potions.Id));
         Assert.DoesNotContain(potions, player.Inventory.Items);
     }
 

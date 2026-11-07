@@ -51,6 +51,22 @@ public sealed class Squad
     /// <summary>A lair squad's home: it waits there when idle instead of patrolling.</summary>
     public Point? Home { get; set; }
 
+    /// <summary>A raid in progress: where the squad is marching, and the zone it's raiding.</summary>
+    public Point? RaidTarget { get; set; }
+    public string? RaidZone { get; set; }
+
+    public bool IsRaiding => RaidTarget is not null;
+
+    /// <summary>Turns the raid leader has waited for stragglers in a row; it gives up waiting after a while.</summary>
+    public int StragglerWait { get; set; }
+    public const int MaxStragglerWait = 10;
+
+    public void CallOffRaid()
+    {
+        RaidTarget = null;
+        RaidZone = null;
+    }
+
     /// <summary>How far (walking) from home the squad will go; 0 = no limit.</summary>
     public int Leash { get; set; }
 

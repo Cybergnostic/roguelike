@@ -223,8 +223,17 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         var leader = Squad.Leader;
         if (leader == self)
         {
-            // Amble, so the group can keep up.
-            if (Squad.Destination is not { } goal || world.Rng.NextInt(4) == 0)
+            // Amble, so the group can keep up; raiders march, pausing only for stragglers.
+            if (Squad.Destination is not { } goal)
+                return new WaitAction();
+            if (Squad.IsRaiding)
+            {
+                bool stragglers = Squad.Members.Any(m => World.Distance(m.Position, self.Position) > 4);
+                Squad.StragglerWait = stragglers ? Squad.StragglerWait + 1 : 0;
+                if (stragglers && Squad.StragglerWait <= Squad.MaxStragglerWait)
+                    return new WaitAction();
+            }
+            else if (world.Rng.NextInt(4) == 0)
                 return new WaitAction();
             var step = world.StepToward(self, goal);
             return step is { } s ? new MoveAction(s) : new WaitAction();

@@ -43,6 +43,8 @@ public static class Simulator
                 {
                     var by = $"player killed by: {killer.Kind}";
                     counts[by] = counts.GetValueOrDefault(by) + 1;
+                    var where = $"player died in: {world.Map.ZoneAt(world.Player.Position)?.Name ?? "the open dungeon"}";
+                    counts[where] = counts.GetValueOrDefault(where) + 1;
                 }
             }
             foreach (var squad in world.Squads)
@@ -96,6 +98,8 @@ public static class Simulator
         PotionDrunk => "potions drunk",
         ReinforcementsCalled => "reinforcements called",
         CorpseRaised => "corpses raised",
+        RaidLaunched => "raids launched",
+        SquadMustered => "squads mustered",
         MinionCrumbled => "minions crumbled",
         _ => null,
     };

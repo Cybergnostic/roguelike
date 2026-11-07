@@ -69,7 +69,7 @@ loot (rarity tiers, +X gear).
 ```
 Roguelike.slnx
 data/                        game content (JSON with comments), copied next to every program
-  factions.json              factions + relations (hostile/neutral/allied)
+  factions.json              factions + relations (hostile/neutral/allied) + raid orders
   monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed,
                              risesAs (corpse → undead), raise (necromancers)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
@@ -94,6 +94,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Events/GameEvent.cs        structured events emitted during a turn
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
+  AI/Strategy/FactionPlanner strategic layer, once per turn: lair musters and faction raids
   Simulation/                bots (AggressiveBot, IdleBot) and Simulator (headless games + stats)
 src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
@@ -237,6 +238,21 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
     otherwise fights like an archer with bolts. Raised dead join his squad and the undead faction.
   - His servants crumble to dust when he dies, and raised dead leave no corpse.
   - Sim counts "corpses raised", "minions crumbled" and "player killed by: <kind>".
+- **Necromancer, part 3: a living dungeon** (2026-11-07):
+  - `World.Lairs`: a lair is a zone, its recipe and the squad holding it; it falls when that squad
+    is wiped out. Lairs are placed as far as possible from the start and from each other.
+  - **The goblin warren**: a second lair (shaman, warrior, archer; leash 10) that **musters** a
+    fresh war band every 100 turns while it stands, if fewer than 3 goblin bands roam.
+  - **Raids** (`raid` in factions.json): every 100 turns the goblins send their nearest idle band
+    against the necromancer's tower while it stands. Raiders march (no ambling), fight whatever they
+    meet, call off the raid when routed, and finish on arrival. Dead raiders feed the necromancer.
+  - `FactionPlanner` (AI/Strategy) runs musters and raids once per turn, before squads think.
+  - Fix: squadmates following the same leader used to swap places back and forth forever in
+    single file (looked frozen). Followers now queue behind each other; only the leader swaps
+    through its own squad. A raid leader waits for stragglers at most 10 turns.
+  - Events `SquadMustered`, `RaidLaunched`; sidebar intents "marching to raid", squad list "raiding".
+  - looks.json kinds may set `rangedVerb` (the necromancer "blasts").
+  - Sim reports "raids launched", "squads mustered" and "player died in: <zone>".
 - **Necromancer, part 2: the tower** (2026-11-07):
   - Lairs in spawns.json can have `zone` (a name announced on entry), `architecture` (a
     `LairBuilder` style), `leash` and starting `corpses`.
@@ -265,7 +281,15 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current** (necromancer part 2): player died **37%**; 12 of 63 survivors had a close call.
+- **Current** (necromancer part 3: warren, musters, raids), aggressive bot, 100 seeds × 1000 turns:
+  - Player died **36%**; 11 of 64 survivors had a close call; average turn of death about 160.
+  - Nearly all deaths are in the open dungeon, not inside the lairs (`player died in:` in the report).
+  - Per game: about 2 raids and 2 musters with the bot playing.
+  - Retuned for a self-replenishing dungeon: goblin warriors attack 5, regen 12, 3 starting potions,
+    and the warren's guards are a shaman, a warrior and an archer. Before retuning it was 55%.
+  - Observer mode (no player): about 4 raids, 3 musters and **11.5 corpses raised** per game (was 6);
+    the necromancer sometimes falls (about 2 servants crumble per game).
+- Necromancer part 2: player died 37%; 12 of 63 survivors had a close call.
   With 2 guards it was 47%; the lightly guarded tower whose bones rise is both fairer and creepier.
 - Necromancer part 1, aggressive bot, 100 seeds × 1000 turns:
   - Player died **39%**; average turn of death about 170. The lair is now the boss fight.
@@ -283,8 +307,12 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   nothing else happens.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
   out of sight; potions are used even at full HP.
-- Squads mostly idle (92%): patrols are random and rarely meet. The strategic layer (raids toward
-  enemy territory) will fix it.
+- Squads are still idle about 77% of the time, because patrols are random. Raids and musters keep
+  the dungeon going, but there's no other purpose for idle squads yet (foraging, guarding routes).
+- Undead don't raid or forage. Possible next step: the necromancer sends servants to drag corpses
+  back to the tower.
+- The warren has no architecture of its own yet (it's a plain room with a name).
+- The start is safe and every faction's numbers are tuned for a single level only.
 - Engaged squads follow `TowardEnemiesOf`, which leads to the nearest enemy even if unseen
   (omniscient chase). Fine while engaged; revisit with stealth.
 - Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
@@ -302,11 +330,11 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 1. ~~Observation tools~~ (done 2026-11-07)
 2. ~~Multi-faction foundation~~ (done 2026-11-07)
 3. ~~Minimal player kit~~ (done 2026-11-07): inventory, bow, healing potions, armour, so playtests and balance mean something.
-4. **Necromancer faction** ← in progress (part 3 next)
-   - ~~Part 1: speed, corpses, the necromancer, raising the dead, servants crumble~~ (done 2026-11-07)
-   - ~~Part 2: the tower: lair architecture, zone, starting bones, leash~~ (done 2026-11-07)
-   - Part 3: first strategic layer: raiding parties sent between territories (e.g. the necromancer
-     sends servants to harvest corpses); the player stumbles into fights.
+4. ~~**Necromancer faction**~~ (done 2026-11-07)
+   - ~~Part 1: speed, corpses, the necromancer, raising the dead, servants crumble~~
+   - ~~Part 2: the tower: lair architecture, zone, starting bones, leash~~
+   - ~~Part 3: a living dungeon: lairs, the goblin warren, musters, raids~~
+   - Follow-ups: undead corpse-harvesting parties, warren architecture, bot that focuses priority targets.
 5. **Full character system and procedural items** (see §8)
 6. **History generator**: eras → map features → factions → artifacts
 7. **Crafting**: material tags + recipes + stations as places

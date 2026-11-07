@@ -2,9 +2,12 @@
   // Factions and how they feel about each other.
   // Members of the same faction are always allied; pairs not listed are neutral.
   // "player" must exist.
+  // "raid": standing orders. Every "every" turns the faction sends its nearest idle squad
+  // against a lair of the "against" faction (which it must be hostile to).
   "factions": [
     { "id": "player", "name": "you" },
-    { "id": "goblins", "name": "the goblins" },
+    // The goblins hate the tower. Their dead feed the necromancer, so each raid makes him stronger.
+    { "id": "goblins", "name": "the goblins", "raid": { "every": 100, "against": "undead" } },
     { "id": "undead", "name": "the undead" }
   ],
   "relations": [

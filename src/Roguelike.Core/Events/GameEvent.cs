@@ -21,6 +21,12 @@ public sealed record ActorDied(int ActorId, string Kind, string FactionId, int K
 /// <summary>A necromancer turned a corpse into a new undead actor.</summary>
 public sealed record CorpseRaised(int CasterId, string CorpseKind, int RaisedId, string RaisedKind, Point At) : GameEvent;
 
+/// <summary>A lair sent out a fresh squad.</summary>
+public sealed record SquadMustered(int SquadId, string FactionId, string ZoneName) : GameEvent;
+
+/// <summary>A faction sent a squad to raid an enemy's zone.</summary>
+public sealed record RaidLaunched(int SquadId, string FactionId, string ZoneName) : GameEvent;
+
 /// <summary>The player walked into a named place (a lair).</summary>
 public sealed record ZoneEntered(string ZoneName) : GameEvent;
 

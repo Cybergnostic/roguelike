@@ -25,6 +25,9 @@ public static class Theme
     public static readonly Color FleeingBackground = new(60, 40, 0);
 
     private static readonly Look Unknown = new('?', Color.Magenta);
+
+    // Declared before Looks: LoadLooks fills it, and static fields initialise in order.
+    private static readonly Dictionary<string, string> RangedVerbs = [];
     private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items, int CorpseGlyph) Looks =
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
@@ -39,6 +42,10 @@ public static class Theme
         Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
 
     public static Look ForKind(string kind) => Looks.Kinds.GetValueOrDefault(kind, Unknown);
+
+    /// <summary>A kind's own verb for ranged attacks ("rangedVerb" in looks.json), if it has one.</summary>
+    public static string? RangedVerb(string kind) => RangedVerbs.GetValueOrDefault(kind);
+
 
     /// <summary>By item id first, then by category ("weapon", "potion", ...).</summary>
     public static Look ForItem(Roguelike.Core.Items.Item item) =>
@@ -97,6 +104,8 @@ public static class Theme
         foreach (var entry in section.EnumerateObject())
         {
             int glyph = ReadGlyph(entry.Value.GetProperty("glyph"));
+            if (entry.Value.TryGetProperty("rangedVerb", out var verb))
+                RangedVerbs[entry.Name] = verb.GetString()!;
             result[entry.Name] = new Look(glyph, ParseColor(entry.Value.GetProperty("color").GetString()!));
         }
         return result;

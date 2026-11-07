@@ -7,7 +7,7 @@
   // "raise" (necromancers): reach in cells (needs line of sight), turns between raisings,
   // and how many servants it can control at once. Its servants crumble when it dies.
   "monsters": [
-    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 6, "defense": 1, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 5, "defense": 1, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "range": 6, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "loot": "goblin", "risesAs": "goblin_zombie" },

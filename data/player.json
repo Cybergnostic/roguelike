@@ -5,11 +5,11 @@
   "defense": 0,
   "inventoryCapacity": 20,
   // Turns per 1 HP regained. Slow on purpose: potions and retreating should matter.
-  "regenInterval": 20,
+  "regenInterval": 12,
   "kit": [
     { "item": "short_sword",    "equip": true },
     { "item": "leather_armor",  "equip": true },
     { "item": "short_bow",      "equip": true },
-    { "item": "healing_potion", "count": 2 }
+    { "item": "healing_potion", "count": 3 }
   ]
 }

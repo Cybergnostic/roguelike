@@ -14,6 +14,8 @@ public class NecromancerTests
 {
     private static Actor NecromancerOf(World world) => world.Actors.Single(a => a.Kind == "necromancer");
 
+    private static Roguelike.Core.Map.Zone Tower(World world) => world.Map.Zones.Single(z => z.FactionId == "undead");
+
     /// <summary>A free cell near the necromancer that he can see, for staging a corpse.</summary>
     private static Point SpotInSight(World world, Actor necromancer) =>
         world.Map.Tiles.Positions()
@@ -157,7 +159,7 @@ public class NecromancerTests
         for (ulong seed = 0; seed < 20; seed++)
         {
             var world = World.Create(seed);
-            var zone = Assert.Single(world.Map.Zones);
+            var zone = Tower(world);
             var cells = zone.Area.Positions().ToList();
             Assert.Contains(cells, p => world.Map.Tiles[p] == Roguelike.Core.Map.Tile.LairFloor);
             Assert.Contains(world.Corpses, c => zone.Area.Contains(c.Position));
@@ -177,7 +179,7 @@ public class NecromancerTests
     {
         var world = World.Create(2);
         world.ObserverMode = true;
-        var bones = world.Corpses.Where(c => world.Map.Zones.Single().Area.Contains(c.Position)).ToList();
+        var bones = world.Corpses.Where(c => Tower(world).Area.Contains(c.Position)).ToList();
         Assert.NotEmpty(bones);
         for (int i = 0; i < 30; i++)
             Assert.DoesNotContain(world.Step(new WaitAction()), e => e is CorpseRaised);
@@ -188,7 +190,7 @@ public class NecromancerTests
     public void WalkingIntoTheTowerIsAnnounced()
     {
         var world = World.Create(1);
-        var zone = world.Map.Zones.Single();
+        var zone = Tower(world);
         var (outside, dir) = world.Map.Tiles.Positions()
             .Where(p => world.IsFree(p) && !zone.Area.Contains(p))
             .SelectMany(p => World.EightWay.Select(d => (p, d)))
@@ -217,5 +219,81 @@ public class NecromancerTests
                     $"seed {seed} turn {t}: necromancer {squad.DistanceFromHome(necromancer.Position)} steps from home");
             }
         }
+    }
+
+    [Fact]
+    public void GoblinsRaidTheTowerAndFeedTheNecromancer()
+    {
+        int raids = 0, reached = 0, raisedGoblins = 0;
+        for (ulong seed = 0; seed < 10; seed++)
+        {
+            var world = World.Create(seed);
+            world.ObserverMode = true;
+            var tower = Tower(world);
+            var raiders = new HashSet<int>();
+            bool arrived = false;
+            for (int t = 0; t < 600; t++)
+            {
+                foreach (var e in world.Step(new WaitAction()))
+                {
+                    if (e is RaidLaunched r)
+                    {
+                        Assert.Equal("goblins", r.FactionId);
+                        Assert.Equal(tower.Name, r.ZoneName);
+                        raids++;
+                        foreach (var m in world.Squads.Single(s => s.Id == r.SquadId).Members)
+                            raiders.Add(m.Id);
+                    }
+                    if (e is CorpseRaised { CorpseKind: var kind } && kind.StartsWith("goblin"))
+                        raisedGoblins++;
+                }
+                arrived |= world.Actors.Any(a => raiders.Contains(a.Id)
+                                                 && tower.Area.Expand(3, 3).Contains(a.Position));
+            }
+            if (arrived)
+                reached++;
+        }
+        Assert.True(raids >= 10, $"only {raids} raids in 10 games");
+        Assert.True(reached >= 5, $"raiders reached the tower in only {reached} of 10 games");
+        Assert.True(raisedGoblins > 0, "no raider ever rose again in the necromancer's service");
+    }
+
+    [Fact]
+    public void RoutedRaidersGoHome()
+    {
+        var world = World.Create(3);
+        var squad = world.Squads.First(s => s.Faction.Id == "goblins");
+        squad.RaidTarget = Tower(world).Heart;
+        squad.Morale = 0;
+
+        world.Step(new WaitAction());
+
+        Assert.Equal(SquadState.Flee, squad.State);
+        Assert.False(squad.IsRaiding);
+    }
+
+    [Fact]
+    public void TheWarrenMustersFreshBandsUntilItFalls()
+    {
+        var world = World.Create(1);
+        world.ObserverMode = true;
+        var warren = world.Lairs.Single(l => l.Zone.FactionId == "goblins");
+        Assert.True(World.Distance(warren.Zone.Heart, Tower(world).Heart) > 10, "the lairs should be apart");
+
+        // Clear out the roaming goblin bands so the warren is below its cap.
+        foreach (var m in world.Squads.Where(s => s.Faction.Id == "goblins" && s.Home is null)
+                     .SelectMany(s => s.Members).ToList())
+            world.Damage(world.Player, m, 1000, ranged: false);
+
+        int mustered = 0;
+        for (int t = 0; t < 250; t++)
+            mustered += world.Step(new WaitAction()).OfType<SquadMustered>().Count();
+        Assert.True(mustered > 0, "the warren never mustered a band");
+
+        foreach (var m in warren.Squad!.Members.ToList())
+            world.Damage(world.Player, m, 1000, ranged: false);
+        Assert.True(warren.HasFallen);
+        for (int t = 0; t < 300; t++)
+            Assert.DoesNotContain(world.Step(new WaitAction()), e => e is SquadMustered);
     }
 }

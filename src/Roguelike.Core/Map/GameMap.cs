@@ -14,8 +14,11 @@ public enum Tile : byte
     Pillar,
 }
 
-/// <summary>A named area of the map, such as a lair. Entering one is announced.</summary>
-public sealed record Zone(string Name, Rectangle Area);
+/// <summary>
+/// A named area of the map, such as a lair, held by a faction. Heart is the walkable cell at
+/// its centre: where its owners wait, and where raiders head. Entering a zone is announced.
+/// </summary>
+public sealed record Zone(string Name, Rectangle Area, string FactionId, Point Heart);
 
 /// <summary>Terrain plus derived views (walkability, transparency) and the player's view of it.</summary>
 public sealed class GameMap

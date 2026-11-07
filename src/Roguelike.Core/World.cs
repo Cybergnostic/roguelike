@@ -2,6 +2,7 @@ using GoRogue.Pathing;
 using Roguelike.Core.Actions;
 using Roguelike.Core.Content;
 using Roguelike.Core.AI.Squads;
+using Roguelike.Core.AI.Strategy;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
 using Roguelike.Core.Items;
@@ -55,6 +56,22 @@ public sealed class World
     public sealed record Corpse(int Id, string Kind, Point Position, int Turn);
 
     public IReadOnlyList<Corpse> Corpses => _corpses;
+
+    /// <summary>
+    /// A faction's stronghold: its zone, the recipe it was built from, and the squad that holds
+    /// it. A lair whose squad is wiped out has fallen: it no longer musters or draws raids.
+    /// </summary>
+    public sealed class Lair(Zone zone, SquadTemplateDef template)
+    {
+        public Zone Zone { get; } = zone;
+        public SquadTemplateDef Template { get; } = template;
+        public Squad? Squad { get; set; }
+        public bool HasFallen => Squad is null || Squad.Members.All(m => m.IsDead);
+    }
+
+    public IReadOnlyList<Lair> Lairs => _lairs;
+
+    private readonly List<Lair> _lairs = [];
 
     private readonly List<Corpse> _corpses = [];
     private int _nextCorpseId;
@@ -121,6 +138,7 @@ public sealed class World
         foreach (var maps in _factionMaps.Values)
             maps.TowardDirty = maps.AwayDirty = true;
 
+        FactionPlanner.Think(this);
         foreach (var squad in _squads)
             SquadDirector.Think(this, squad);
 
@@ -407,6 +425,14 @@ public sealed class World
     }
 
     /// <summary>Next step of an A* path to <paramref name="goal"/>, sidestepping actors in the way.</summary>
+    /// <summary>
+    /// Followers of the same squad queue rather than swap: they're all heading for the leader,
+    /// so swapping would only make two of them trade places back and forth forever.
+    /// The leader may still swap through its own followers.
+    /// </summary>
+    private bool SameQueue(Actor self, Actor other) =>
+        SquadOf(self) is { } squad && SquadOf(other) == squad && squad.Leader != self;
+
     public Direction? StepToward(Actor self, Point goal)
     {
         if (self.Position == goal)
@@ -416,7 +442,7 @@ public sealed class World
         if (path is not null && path.Length > 0)
         {
             var next = path.GetStep(0);
-            if (IsFree(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker)))
+            if (IsFree(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker) && !SameQueue(self, blocker)))
                 return Direction.GetDirection(self.Position, next);
         }
 
@@ -501,21 +527,25 @@ public sealed class World
         var fromStart = new DistanceMap(Map.Walkable);
         fromStart.Update([Player.Position]);
 
+        // Lairs go where they're farthest from the start and from each other.
         var taken = new HashSet<Rectangle>();
-        var farthestFirst = Map.Rooms.Skip(1)
-            .Select(r => (Room: r, Distance: ClosestReachableCell(r, fromStart)))
-            .Where(x => x.Distance < double.MaxValue)
-            .OrderByDescending(x => x.Distance)
-            .Select(x => x.Room)
-            .ToList();
+        var awayFrom = new List<DistanceMap> { fromStart };
         foreach (var lair in Content.Lairs)
         {
-            var free = farthestFirst.Where(r => !taken.Contains(r)).Take(1).ToList();
-            if (free.Count == 0)
+            var best = Map.Rooms.Skip(1)
+                .Where(r => !taken.Contains(r))
+                .Select(r => (Room: r, Score: awayFrom.Min(m => ClosestReachableCell(r, m))))
+                .Where(x => x.Score < double.MaxValue)
+                .OrderByDescending(x => x.Score)
+                .Take(1).ToList();
+            if (best.Count == 0)
                 break;
-            var room = free[0];
+            var room = best[0].Room;
             taken.Add(room);
-            BuildLair(lair, room);
+            var built = BuildLair(lair, room);
+            var fromLair = new DistanceMap(Map.Walkable);
+            fromLair.Update([built.Zone.Heart]);
+            awayFrom.Add(fromLair);
         }
 
         var templates = Content.SquadTemplates;
@@ -536,17 +566,20 @@ public sealed class World
     }
 
     /// <summary>Architecture, zone, the squad with its home and leash, and the remains lying about.</summary>
-    private void BuildLair(SquadTemplateDef lair, Rectangle room)
+    private Lair BuildLair(SquadTemplateDef lair, Rectangle room)
     {
         if (lair.Architecture is { } style)
             LairBuilder.Build(Map, room, style);
-        if (lair.Zone is { } name)
-            Map.Zones.Add(new Zone(name, room));
+        var home = room.Positions().Where(p => Map.Walkable[p])
+            .OrderBy(p => Distance(p, room.Center)).First();
+        var zone = new Zone(lair.Zone ?? lair.Name, room, lair.Faction, home);
+        Map.Zones.Add(zone);
+        var built = new Lair(zone, lair);
+        _lairs.Add(built);
 
         if (FillSquad(lair, room) is { } squad)
         {
-            var home = room.Positions().Where(p => Map.Walkable[p])
-                .OrderBy(p => Distance(p, room.Center)).First();
+            built.Squad = squad;
             squad.Home = home;
             if (lair.Leash > 0)
             {
@@ -560,7 +593,13 @@ public sealed class World
             for (int i = 0; i < entry.Count; i++)
                 if (RandomFreeFloor(room) is { } p && !CorpsesAt(p).Any())
                     _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
+        return built;
     }
+
+    /// <summary>
+    /// Sends a fresh squad out of a lair (see the lair's "muster"). Null if nobody could be placed.
+    /// </summary>
+    public Squad? Muster(Lair lair, SquadTemplateDef template) => FillSquad(template, lair.Zone.Area);
 
     /// <summary>Spawns a squad from a template inside a room; null if nobody could be placed.</summary>
     private Squad? FillSquad(SquadTemplateDef template, Rectangle room)

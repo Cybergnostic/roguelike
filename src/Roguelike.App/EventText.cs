@@ -16,8 +16,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
                              && !isVisible(a.AttackerId) && !isVisible(a.TargetId) => "You hear the clash of weapons.",
         ActorDied d when d.ActorId != world.Player.Id && !isVisible(d.ActorId) => null,
 
-        ActorAttacked { Ranged: true } a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "shoot", "shoots")} at {Name(a.TargetId)} and misses.",
-        ActorAttacked { Ranged: true } a => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "shoot", "shoots")} {Name(a.TargetId)} for {a.Damage}.",
+        ActorAttacked { Ranged: true } a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} at {Name(a.TargetId)} and misses.",
+        ActorAttacked { Ranged: true } a => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} {Name(a.TargetId)} for {a.Damage}.",
         ActorAttacked a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "miss", "misses")} {Name(a.TargetId)}.",
         ActorAttacked a => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "hit", "hits")} {Name(a.TargetId)} for {a.Damage}.",
 
@@ -35,6 +35,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         MinionCrumbled => null,
 
         ZoneEntered z => $"You enter {z.ZoneName}.",
+        SquadMustered m when world.Squads.FirstOrDefault(s => s.Id == m.SquadId)?.Members.Any(a => isVisible(a.Id)) == true =>
+            $"A fresh band sets out from {m.ZoneName}!",
+        SquadMustered m => $"Drums beat in {m.ZoneName}.",
+        RaidLaunched r => $"War horns sound: {world.Content.Factions[r.FactionId].Name} march on {r.ZoneName}.",
 
         SquadSpotted s when s.TargetId == world.Player.Id => $"{Cap(Name(s.SpotterId))} spots you and raises the alarm!",
         SquadSpotted s when isVisible(s.SpotterId) || isVisible(s.TargetId) =>
@@ -87,6 +91,12 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
     /// <summary>A one-item view of a stack, for "you drink a potion" phrasing.</summary>
     private static Roguelike.Core.Items.Item Single(Roguelike.Core.Items.Item item) =>
         new(item.Id, item.Def) { Enchantment = item.Enchantment, Count = 1 };
+
+    /// <summary>"shoots" unless looks.json gives the kind its own verb (a caster "blasts").</summary>
+    private string RangedVerb(int actorId) =>
+        actorId == world.Player.Id ? "shoot"
+        : isVisible(actorId) && world.GetActor(actorId) is { } a && Theme.RangedVerb(a.Kind) is { } verb ? verb
+        : "shoots";
 
     private string Verb(int actorId, string you, string them) => actorId == world.Player.Id ? you : them;
 

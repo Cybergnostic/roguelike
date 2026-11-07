@@ -1,6 +1,7 @@
 {
   // Front-end only: how each kind of thing is drawn. The simulation never reads this.
   // Glyphs are single characters (or a CP437 code as a number); colours are #RRGGBB.
+  // Kinds may set "rangedVerb" for their ranged attacks (default "shoots").
   "kinds": {
     "player":           { "glyph": "@", "color": "#FFFFFF" },
     "goblin_warrior":   { "glyph": "g", "color": "#6EC846" },
@@ -10,7 +11,7 @@
     "skeleton_warrior": { "glyph": "s", "color": "#E6E2D2" },
     "skeleton_archer":  { "glyph": "s", "color": "#B4AA8C" },
     "goblin_zombie":    { "glyph": "z", "color": "#8CA060" },
-    "necromancer":      { "glyph": "N", "color": "#B478FF" }
+    "necromancer":      { "glyph": "N", "color": "#B478FF", "rangedVerb": "blasts" }
   },
   // Items by id; categories are the fallback for ids not listed.
   "items": {
