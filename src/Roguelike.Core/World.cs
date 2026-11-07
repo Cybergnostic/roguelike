@@ -98,8 +98,11 @@ public sealed class World
         if (Player.IsDead)
             return _events;
 
+        var zoneBefore = Map.ZoneAt(Player.Position);
         if (!playerAction.Perform(this, Player))
             return [.. _events];
+        if (Map.ZoneAt(Player.Position) is { } zone && zone != zoneBefore)
+            Emit(new ZoneEntered(zone.Name));
 
         UpdatePerception();
         RunNonPlayerTurns();
@@ -507,8 +510,7 @@ public sealed class World
                 break;
             var room = free[0];
             taken.Add(room);
-            if (FillSquad(lair, room) is { } squad)
-                squad.Home = room.Center;
+            BuildLair(lair, room);
         }
 
         var templates = Content.SquadTemplates;
@@ -526,6 +528,33 @@ public sealed class World
             int roll = Rng.NextInt(totalWeight);
             FillSquad(templates.First(t => (roll -= t.Weight) < 0), room);
         }
+    }
+
+    /// <summary>Architecture, zone, the squad with its home and leash, and the remains lying about.</summary>
+    private void BuildLair(SquadTemplateDef lair, Rectangle room)
+    {
+        if (lair.Architecture is { } style)
+            LairBuilder.Build(Map, room, style);
+        if (lair.Zone is { } name)
+            Map.Zones.Add(new Zone(name, room));
+
+        if (FillSquad(lair, room) is { } squad)
+        {
+            var home = room.Positions().Where(p => Map.Walkable[p])
+                .OrderBy(p => Distance(p, room.Center)).First();
+            squad.Home = home;
+            if (lair.Leash > 0)
+            {
+                squad.Leash = lair.Leash;
+                squad.HomeDistance = new DistanceMap(Map.Walkable);
+                squad.HomeDistance.Update([home]);
+            }
+        }
+
+        foreach (var entry in lair.Corpses ?? [])
+            for (int i = 0; i < entry.Count; i++)
+                if (RandomFreeFloor(room) is { } p && !CorpsesAt(p).Any())
+                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
     }
 
     /// <summary>Spawns a squad from a template inside a room; null if nobody could be placed.</summary>

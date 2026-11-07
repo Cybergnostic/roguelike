@@ -34,6 +34,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         MinionCrumbled m when isVisible(m.ActorId) => $"The {Kind(m.Kind)} crumbles to dust, its master gone.",
         MinionCrumbled => null,
 
+        ZoneEntered z => $"You enter {z.ZoneName}.",
+
         SquadSpotted s when s.TargetId == world.Player.Id => $"{Cap(Name(s.SpotterId))} spots you and raises the alarm!",
         SquadSpotted s when isVisible(s.SpotterId) || isVisible(s.TargetId) =>
             $"{Cap(Name(s.SpotterId))} spots {Name(s.TargetId)}!",

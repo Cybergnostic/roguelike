@@ -51,6 +51,19 @@ public sealed class Squad
     /// <summary>A lair squad's home: it waits there when idle instead of patrolling.</summary>
     public Point? Home { get; set; }
 
+    /// <summary>How far (walking) from home the squad will go; 0 = no limit.</summary>
+    public int Leash { get; set; }
+
+    /// <summary>Walking distances from home, set together with a leash.</summary>
+    public Map.DistanceMap? HomeDistance { get; set; }
+
+    public bool IsLeashed => Leash > 0 && HomeDistance is not null;
+
+    /// <summary>Walking distance from home (infinite where unreachable or unleashed).</summary>
+    public double DistanceFromHome(Point p) => HomeDistance?[p] ?? double.MaxValue;
+
+    public bool WithinLeash(Point p) => !IsLeashed || DistanceFromHome(p) <= Leash;
+
     /// <summary>Where the squad is heading while idle (patrol) or alert (investigating).</summary>
     public Point? Destination { get; set; }
 

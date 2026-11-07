@@ -33,14 +33,25 @@
   ],
   // Unique squads with a home, placed before the random ones; each takes the free room
   // farthest (walking) from the player's start, and waits there when idle.
+  //   "zone": the place's name, announced when the player walks in.
+  //   "architecture": how the room is rebuilt ("tower": dark flagstones, pillars that block sight).
+  //   "leash": how far (walking) from home the squad will go; it holds the border instead.
+  //   "corpses": remains lying in the lair from the start (raisable once he's roused).
   "lairs": [
     {
       "name": "the necromancer's court",
       "faction": "undead",
       "weight": 0,
+      "zone": "the necromancer's tower",
+      "architecture": "tower",
+      "leash": 12,
+      "corpses": [
+        { "monster": "skeleton_warrior", "count": 2 },
+        { "monster": "skeleton_archer", "count": 1 }
+      ],
       "members": [
         { "monster": "necromancer", "min": 1, "max": 1 },
-        { "monster": "skeleton_warrior", "min": 2, "max": 2 },
+        { "monster": "skeleton_warrior", "min": 1, "max": 1 },
         { "monster": "skeleton_archer", "min": 1, "max": 1 }
       ]
     }

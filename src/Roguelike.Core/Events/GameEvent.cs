@@ -21,6 +21,9 @@ public sealed record ActorDied(int ActorId, string Kind, string FactionId, int K
 /// <summary>A necromancer turned a corpse into a new undead actor.</summary>
 public sealed record CorpseRaised(int CasterId, string CorpseKind, int RaisedId, string RaisedKind, Point At) : GameEvent;
 
+/// <summary>The player walked into a named place (a lair).</summary>
+public sealed record ZoneEntered(string ZoneName) : GameEvent;
+
 /// <summary>A bound servant fell apart because its master died.</summary>
 public sealed record MinionCrumbled(int ActorId, string Kind, int MasterId) : GameEvent;
 

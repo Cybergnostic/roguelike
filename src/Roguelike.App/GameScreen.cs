@@ -148,7 +148,7 @@ public sealed partial class GameScreen : ScreenObject
             {
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
-                SquadSpotted or ReinforcementsCalled or CorpseRaised => Theme.Warning,
+                SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered => Theme.Warning,
                 MinionCrumbled => Theme.Good,
                 _ => Theme.Text,
             };

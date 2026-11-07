@@ -25,6 +25,8 @@
   "corpse": { "glyph": "%" },
   "tiles": {
     "wall":  { "glyph": "#", "color": "#8C8278" },
-    "floor": { "glyph": ".", "color": "#5A5A64" }
+    "floor": { "glyph": ".", "color": "#5A5A64" },
+    "lairfloor": { "glyph": 250, "color": "#7A5A9A" },
+    "pillar":    { "glyph": 254, "color": "#A898B8" }
   }
 }

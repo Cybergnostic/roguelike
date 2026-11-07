@@ -30,7 +30,16 @@ public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int Inventory
 
 public sealed record SquadMemberDef(string Monster, int Min, int Max, double Chance = 1.0);
 
-public sealed record SquadTemplateDef(string Name, string Faction, int Weight, IReadOnlyList<SquadMemberDef> Members);
+/// <summary>
+/// A squad recipe. Lairs also use: Zone (the place's name, announced on entry), Architecture
+/// (a LairBuilder style), Leash (how far, walking, the squad will go from home; 0 = no limit)
+/// and Corpses (remains lying in the lair from the start).
+/// </summary>
+public sealed record SquadTemplateDef(string Name, string Faction, int Weight, IReadOnlyList<SquadMemberDef> Members,
+    string? Zone = null, string? Architecture = null, int Leash = 0, IReadOnlyList<CorpseEntry>? Corpses = null);
+
+/// <summary>Remains placed at level creation: Count corpses of a monster kind.</summary>
+public sealed record CorpseEntry(string Monster, int Count);
 
 /// <summary>
 /// All game content loaded from the data directory (factions.json, monsters.json, spawns.json),
@@ -163,6 +172,13 @@ public sealed class ContentDatabase
                 if (member.Min < 0 || member.Max < member.Min)
                     throw Error("spawns.json", $"squad '{s.Name}': bad min/max for '{member.Monster}'");
             }
+            if (s.Architecture is not null && !Map.LairBuilder.Styles.Contains(s.Architecture))
+                throw Error("spawns.json", $"squad '{s.Name}' uses unknown architecture '{s.Architecture}'");
+            if (s.Leash < 0)
+                throw Error("spawns.json", $"squad '{s.Name}': leash can't be negative");
+            foreach (var c in s.Corpses ?? [])
+                if (!monsters.ContainsKey(c.Monster))
+                    throw Error("spawns.json", $"squad '{s.Name}' lays out corpses of unknown monster '{c.Monster}'");
         }
 
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player);

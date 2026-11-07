@@ -20,6 +20,28 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     public GameAction Decide(World world, Actor self)
     {
+        var action = DecideFreely(world, self);
+        return Squad.IsLeashed ? KeepToTerritory(world, self, action) : action;
+    }
+
+    /// <summary>
+    /// Lair squads defend their territory but don't leave it: a step past the leash becomes a
+    /// wait (at the border, where archers and casters can still shoot). Steps back home are fine.
+    /// </summary>
+    private GameAction KeepToTerritory(World world, Actor self, GameAction action)
+    {
+        if (action is not MoveAction move)
+            return action;
+        var to = self.Position + move.Direction;
+        if (world.ActorAt(to) is { } other && world.AreHostile(self, other))
+            return action; // a bump attack, not a step
+        return Squad.WithinLeash(to) || Squad.DistanceFromHome(to) < Squad.DistanceFromHome(self.Position)
+            ? action
+            : new WaitAction();
+    }
+
+    private GameAction DecideFreely(World world, Actor self)
+    {
         var role = Squad.RoleOf(self);
 
         // A runner on a mission keeps running whatever the squad is doing: fetching help
@@ -27,8 +49,10 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (role == SquadRole.Runner && Squad.HelpTargetSquadId is not null && Squad.State != SquadState.Idle)
             return Runner(world, self);
 
-        // A necromancer raises whatever dead it can reach, fighting or not.
-        if (role == SquadRole.Necromancer && TryRaise(world, self) is { } raise)
+        // A roused necromancer raises whatever dead it can reach. At rest he broods, so the
+        // bones in his lair are still lying there when someone comes calling.
+        if (role == SquadRole.Necromancer && Squad.State is SquadState.Engage or SquadState.Alert
+            && TryRaise(world, self) is { } raise)
             return raise;
 
         return Squad.State switch

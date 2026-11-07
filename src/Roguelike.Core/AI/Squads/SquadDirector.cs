@@ -75,6 +75,13 @@ public static class SquadDirector
             ? squad.HoldTurns + 1
             : 0;
 
+        // A lair squad won't search beyond its territory: it goes home instead.
+        if (squad.State == SquadState.Alert && squad.Destination is { } goal && !squad.WithinLeash(goal))
+        {
+            squad.State = SquadState.Idle;
+            squad.Destination = null;
+        }
+
         if (squad.State == SquadState.Idle)
             UpdatePatrol(world, squad);
     }

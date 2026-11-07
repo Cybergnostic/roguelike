@@ -88,15 +88,16 @@ public class SquadTests(ITestOutputHelper output)
         var squad = world.Squads.First(s => HasRunnerAndAllies(world, s));
         RevealPlayerTo(world, squad, distance: 5, openGround: true);
         Assert.NotNull(squad.HelpTargetSquadId);
-        var helperId = squad.HelpTargetSquadId!.Value;
 
         ReinforcementsCalled? call = null;
         for (int turn = 0; turn < 300 && call is null; turn++)
             call = world.Step(new WaitAction()).OfType<ReinforcementsCalled>().FirstOrDefault();
 
         Assert.NotNull(call);
-        Assert.Equal(helperId, call.ToSquadId);
-        var helper = world.Squads.First(s => s.Id == helperId);
+        // Not necessarily the first choice: if the fight lulls, the runner is recalled and a later
+        // alarm sends it to whichever squad is nearest then.
+        var helper = world.Squads.First(s => s.Id == call.ToSquadId);
+        Assert.Equal(squad.Faction, helper.Faction);
         Assert.NotEqual(SquadState.Idle, helper.State);
     }
 

@@ -22,6 +22,15 @@ public class NecromancerTests
             .OrderBy(p => World.Distance(p, necromancer.Position))
             .First();
 
+    /// <summary>Puts his court on alert, as if it had just seen an intruder nearby.</summary>
+    private static void Rouse(World world, Actor necromancer)
+    {
+        var squad = world.SquadOf(necromancer)!;
+        squad.State = SquadState.Alert;
+        squad.LastSeenTurn = world.Turn;
+        squad.LastKnownTarget = squad.Destination = necromancer.Position;
+    }
+
     [Fact]
     public void EveryLevelHasOneNecromancerAtHomeFarFromTheStart()
     {
@@ -56,6 +65,7 @@ public class NecromancerTests
         var necromancer = NecromancerOf(world);
         var goblin = world.SpawnMonster("goblin_warrior", SpotInSight(world, necromancer));
         world.Damage(necromancer, goblin, 1000, ranged: false);
+        Rouse(world, necromancer);
 
         CorpseRaised? raised = null;
         for (int i = 0; i < 10 && raised is null; i++)
@@ -138,6 +148,74 @@ public class NecromancerTests
         finally
         {
             Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheTowerHasPillarsBonesAndStaysConnected()
+    {
+        for (ulong seed = 0; seed < 20; seed++)
+        {
+            var world = World.Create(seed);
+            var zone = Assert.Single(world.Map.Zones);
+            var cells = zone.Area.Positions().ToList();
+            Assert.Contains(cells, p => world.Map.Tiles[p] == Roguelike.Core.Map.Tile.LairFloor);
+            Assert.Contains(world.Corpses, c => zone.Area.Contains(c.Position));
+            if (zone.Area.Width >= 5 && zone.Area.Height >= 5)
+                Assert.Contains(cells, p => world.Map.Tiles[p] == Roguelike.Core.Map.Tile.Pillar);
+
+            // Every walkable cell on the level is still reachable from the start.
+            var fromStart = new Roguelike.Core.Map.DistanceMap(world.Map.Walkable);
+            fromStart.Update([world.Player.Position]);
+            Assert.All(world.Map.Tiles.Positions().Where(p => world.Map.Walkable[p]),
+                p => Assert.NotNull(fromStart[p]));
+        }
+    }
+
+    [Fact]
+    public void TheBonesInTheTowerWaitUntilHeIsRoused()
+    {
+        var world = World.Create(2);
+        world.ObserverMode = true;
+        var necromancer = NecromancerOf(world);
+        int bones = world.Corpses.Count;
+        for (int i = 0; i < 30; i++)
+            Assert.DoesNotContain(world.Step(new WaitAction()), e => e is CorpseRaised);
+        Assert.Equal(bones, world.Corpses.Count);
+    }
+
+    [Fact]
+    public void WalkingIntoTheTowerIsAnnounced()
+    {
+        var world = World.Create(1);
+        var zone = world.Map.Zones.Single();
+        var (outside, dir) = world.Map.Tiles.Positions()
+            .Where(p => world.IsFree(p) && !zone.Area.Contains(p))
+            .SelectMany(p => World.EightWay.Select(d => (p, d)))
+            .First(x => zone.Area.Contains(x.p + x.d) && world.IsFree(x.p + x.d));
+        world.Player.Position = outside;
+
+        var events = world.Step(new MoveAction(dir));
+
+        Assert.Contains(events, e => e is ZoneEntered z && z.ZoneName == zone.Name);
+    }
+
+    [Fact]
+    public void TheCourtNeverStraysBeyondItsLeash()
+    {
+        for (ulong seed = 0; seed < 10; seed++)
+        {
+            var world = World.Create(seed);
+            world.ObserverMode = true;
+            var necromancer = NecromancerOf(world);
+            var squad = world.SquadOf(necromancer)!;
+            Assert.True(squad.IsLeashed);
+            for (int t = 0; t < 400 && !necromancer.IsDead; t++)
+            {
+                world.Step(new WaitAction());
+                Assert.True(squad.WithinLeash(necromancer.Position),
+                    $"seed {seed} turn {t}: necromancer {squad.DistanceFromHome(necromancer.Position)} steps from home");
+            }
         }
     }
 }

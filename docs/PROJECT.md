@@ -82,6 +82,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   World.cs                   all state; Step(action) -> events; spatial/AI helpers
   Map/GameMap.cs             tiles, explored, walkable/transparent views, player FOV, rooms
   Map/MapGenerator.cs        GoRogue rooms-and-mazes, tuned roomy (will be replaced by history-driven gen)
+  Map/LairBuilder.cs         rebuilds a room as a lair ("tower": lair floor + pillars); keeps it connected
   Map/DistanceMap.cs         fast BFS Dijkstra map (IGridView<double?>)
   Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
   Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
@@ -236,6 +237,15 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
     otherwise fights like an archer with bolts. Raised dead join his squad and the undead faction.
   - His servants crumble to dust when he dies, and raised dead leave no corpse.
   - Sim counts "corpses raised", "minions crumbled" and "player killed by: <kind>".
+- **Necromancer, part 2: the tower** (2026-11-07):
+  - Lairs in spawns.json can have `zone` (a name announced on entry), `architecture` (a
+    `LairBuilder` style), `leash` and starting `corpses`.
+  - The necromancer's room becomes "the necromancer's tower": `LairFloor` tiles and free-standing
+    `Pillar`s that block sight (cover), with 3 old skeletons' bones lying about.
+  - His court is now the necromancer, 1 skeleton warrior and 1 archer. He raises only when roused
+    (Engage/Alert), so the bones get up when you arrive.
+  - Leash 12: lair squads never step farther (walking) from home, holding the border instead;
+    searches beyond it turn into going home.
 - **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
   perception of any hostile; per-faction toward/flee maps; squads engage other factions.
   Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
@@ -255,7 +265,9 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current** (necromancer part 1), aggressive bot, 100 seeds × 1000 turns:
+- **Current** (necromancer part 2): player died **37%**; 12 of 63 survivors had a close call.
+  With 2 guards it was 47%; the lightly guarded tower whose bones rise is both fairer and creepier.
+- Necromancer part 1, aggressive bot, 100 seeds × 1000 turns:
   - Player died **39%**; average turn of death about 170. The lair is now the boss fight.
   - Killers: skeleton warrior 17, necromancer 8, goblin warrior 6, skeleton archer 5, goblin archer 3.
   - About 2 corpses raised per game.
@@ -265,7 +277,6 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
     better.
 
 **Known issues / tech debt**
-- Lair squads chase enemies anywhere and only go home once idle again. A leash is planned (part 2).
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
   it should look for another route or another squad.
 - Balance is tuned for one level only. There's no depth curve yet. Once the bot clears a level,
@@ -291,9 +302,9 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 1. ~~Observation tools~~ (done 2026-11-07)
 2. ~~Multi-faction foundation~~ (done 2026-11-07)
 3. ~~Minimal player kit~~ (done 2026-11-07): inventory, bow, healing potions, armour, so playtests and balance mean something.
-4. **Necromancer faction** ← in progress
+4. **Necromancer faction** ← in progress (part 3 next)
    - ~~Part 1: speed, corpses, the necromancer, raising the dead, servants crumble~~ (done 2026-11-07)
-   - Part 2: a lair zone with its own architecture; lair squads leash to their territory.
+   - ~~Part 2: the tower: lair architecture, zone, starting bones, leash~~ (done 2026-11-07)
    - Part 3: first strategic layer: raiding parties sent between territories (e.g. the necromancer
      sends servants to harvest corpses); the player stumbles into fights.
 5. **Full character system and procedural items** (see §8)
