@@ -6,9 +6,16 @@ using Roguelike.Core.Items;
 
 namespace Roguelike.Core.Content;
 
+/// <param name="Speed">Energy gained per turn; 100 acts once a turn, 50 every other turn, 200 twice.</param>
+/// <param name="RisesAs">The monster this one's corpse becomes when raised; null if it can't be raised.</param>
+/// <param name="Raise">Necromancers only: how they raise the dead.</param>
 public sealed record MonsterDef(
     string Id, string Faction, SquadRole Role,
-    int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null);
+    int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
+    int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null);
+
+/// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
+public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
 
 /// <summary>One weighted loot table line; a null item means "nothing".</summary>
 public sealed record LootEntry(string? Item, int Weight);
@@ -37,6 +44,9 @@ public sealed class ContentDatabase
     public IReadOnlyList<SquadTemplateDef> SquadTemplates { get; }
     public double RoomOccupancy { get; }
     public double FloorItemChance { get; }
+
+    /// <summary>Unique squads with a home: each takes the free room farthest from the start.</summary>
+    public IReadOnlyList<SquadTemplateDef> Lairs { get; }
 
     /// <summary>No squad spawns in a room any of whose cells is closer than this (walking) to the player's start.</summary>
     public int SafeStartDistance { get; }
@@ -70,6 +80,7 @@ public sealed class ContentDatabase
         Relations = relations;
         Monsters = monsters;
         SquadTemplates = spawns.Squads;
+        Lairs = spawns.Lairs ?? [];
         RoomOccupancy = spawns.RoomOccupancy;
         FloorItemChance = spawns.FloorItemChance;
         SafeStartDistance = spawns.SafeStartDistance;
@@ -129,11 +140,18 @@ public sealed class ContentDatabase
                 throw Error("monsters.json", $"monster '{m.Id}' needs maxHp > 0");
             if (m.Loot is not null && !itemFile.LootTables.ContainsKey(m.Loot))
                 throw Error("monsters.json", $"monster '{m.Id}' uses unknown loot table '{m.Loot}'");
+            if (m.Speed <= 0)
+                throw Error("monsters.json", $"monster '{m.Id}' needs speed > 0");
+            if (m.Role == SquadRole.Necromancer && m.Raise is null)
+                throw Error("monsters.json", $"necromancer '{m.Id}' needs a \"raise\" block");
             if (!monsters.TryAdd(m.Id, m))
                 throw Error("monsters.json", $"duplicate monster '{m.Id}'");
         }
+        foreach (var m in monsters.Values)
+            if (m.RisesAs is not null && !monsters.ContainsKey(m.RisesAs))
+                throw Error("monsters.json", $"monster '{m.Id}' rises as unknown monster '{m.RisesAs}'");
 
-        foreach (var s in spawnFile.Squads)
+        foreach (var s in spawnFile.Squads.Concat(spawnFile.Lairs ?? []))
         {
             FactionOrThrow(factions, s.Faction, "spawns.json");
             foreach (var member in s.Members)
@@ -176,7 +194,7 @@ public sealed class ContentDatabase
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
-        int SafeStartDistance = 0);
+        int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
     private sealed record ItemFile(
         List<ItemDef> Items, List<EnchantmentWeight> Enchantments, Dictionary<string, List<LootEntry>> LootTables);
 }

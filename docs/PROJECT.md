@@ -70,8 +70,10 @@ loot (rarity tiers, +X gear).
 Roguelike.slnx
 data/                        game content (JSON with comments), copied next to every program
   factions.json              factions + relations (hostile/neutral/allied)
-  monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless
-  spawns.json                room occupancy, floor item chance, weighted squad templates
+  monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed,
+                             risesAs (corpse → undead), raise (necromancers)
+  spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
+                             lairs (unique squads placed in the farthest rooms, with a home)
   items.json                 item types, +X enchantment weights, loot tables
   player.json                player base stats, inventory size, starting kit
   looks.json                 front end only: glyph + colour per kind, item and tile
@@ -87,7 +89,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Items/Item.cs              ItemDef (data), Item (instance: +X Enchantment, Rarity, Count), categories
   Items/Inventory.cs         Inventory (stacking, capacity) and Equipment (weapon/bow/armor slots)
   Actions/                   GameAction records: Move (bump-attack, ally swap), Attack, Wait, RangedAttack,
-                             Heal, CallForHelp, PickUp, Drop, Equip, Drink, Fire
+                             Heal, CallForHelp, RaiseDead, PickUp, Drop, Equip, Drink, Fire
   Events/GameEvent.cs        structured events emitted during a turn
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
@@ -134,7 +136,11 @@ docs/PROJECT.md              this file
 9. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
    defaults to `ContentDatabase.Default`. Reference everything by id; validate new fields in `Load`.
 10. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
-   non-player actor acts → remove dead → turn++ → regen → update FOV.
+   non-player actor gains `Speed` energy and acts once per 100 (zombies at 50 act every other turn;
+   actors created this turn wait) → remove dead → turn++ → regen → update FOV.
+11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
+   except raised dead ("the dead rise only once"). Raised actors carry `MasterId`; `World.Damage`
+   crumbles them when the master dies. Spawn monsters at runtime with `World.SpawnMonster`.
 
 ---
 
@@ -220,6 +226,16 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   - Fewer potions: 15 on the floor table, 10 on the goblin table.
   - Death events carry `KillerId`.
   - The sim report shows close calls and room share, and can print a level with `--map`.
+- **Necromancer, part 1** (2026-11-07):
+  - Speed/energy system (`speed` in monsters.json).
+  - Corpses left by deaths, drawn as `%` in a dim version of the dead kind's colour.
+  - `risesAs` per monster: goblins become slow, tough **goblin zombies**; skeletons reassemble.
+  - The **necromancer** (`N`) is a unique lair squad (necromancer + 2 skeleton warriors + 1 archer),
+    placed in the room farthest from the start. He waits there ("guarding"/"brooding").
+    He raises the nearest corpse in reach and sight (range 7, cooldown 8, max 6 servants),
+    otherwise fights like an archer with bolts. Raised dead join his squad and the undead faction.
+  - His servants crumble to dust when he dies, and raised dead leave no corpse.
+  - Sim counts "corpses raised", "minions crumbled" and "player killed by: <kind>".
 - **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
   perception of any hostile; per-faction toward/flee maps; squads engage other factions.
   Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
@@ -232,15 +248,26 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   goblins lose 126 dead vs undead 35; 27 routs; squads 92% idle; ~1600 turns/s.
 - Aggressive bot with the kit, 50 seeds × 1000 turns (after player kit + ally swap): player died
   **2%** (far too easy); squads 71% idle, 18% engaged; 29 of 610 monsters survive; ~2700 turns/s.
-- **Current** (after the balance pass), aggressive bot, 100 seeds × 1000 turns:
+- After the balance pass, aggressive bot, 100 seeds × 1000 turns:
   - Player died **23%**, mostly in the first 100–150 turns.
   - Survivors' lowest HP averages 35%; 14 of 77 had a close call.
   - About 21 monsters per level; the player kills about 11 and the factions kill about 7 of each other.
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
+- **Current** (necromancer part 1), aggressive bot, 100 seeds × 1000 turns:
+  - Player died **39%**; average turn of death about 170. The lair is now the boss fight.
+  - Killers: skeleton warrior 17, necromancer 8, goblin warrior 6, skeleton archer 5, goblin archer 3.
+  - About 2 corpses raised per game.
+  - With unlimited reassembling skeletons it was 53%. "The dead rise only once" plus a weaker
+    bolt (4) and slower raising (cooldown 8) brought it down.
+  - The bot attacks whatever is nearest; a human who goes for the necromancer first should do
+    better.
 
 **Known issues / tech debt**
+- Lair squads chase enemies anywhere and only go home once idle again. A leash is planned (part 2).
+- A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
+  it should look for another route or another squad.
 - Balance is tuned for one level only. There's no depth curve yet. Once the bot clears a level,
   nothing else happens.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
@@ -264,12 +291,11 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
 1. ~~Observation tools~~ (done 2026-11-07)
 2. ~~Multi-faction foundation~~ (done 2026-11-07)
 3. ~~Minimal player kit~~ (done 2026-11-07): inventory, bow, healing potions, armour, so playtests and balance mean something.
-4. **Necromancer faction** ← next (balance pass done 2026-11-07; re-measure with the sim after)
-   - Undead have **no morale** (never flee, slow, relentless): a deliberate contrast to goblins.
-   - **Corpses** as objects left by every death; the necromancer raises corpses in range, so goblins
-     killed near the tower become his skeletons.
-   - A lair zone with its own architecture.
-   - First strategic layer: raiding parties sent between territories; the player stumbles into fights.
+4. **Necromancer faction** ← in progress
+   - ~~Part 1: speed, corpses, the necromancer, raising the dead, servants crumble~~ (done 2026-11-07)
+   - Part 2: a lair zone with its own architecture; lair squads leash to their territory.
+   - Part 3: first strategic layer: raiding parties sent between territories (e.g. the necromancer
+     sends servants to harvest corpses); the player stumbles into fights.
 5. **Full character system and procedural items** (see §8)
 6. **History generator**: eras → map features → factions → artifacts
 7. **Crafting**: material tags + recipes + stations as places

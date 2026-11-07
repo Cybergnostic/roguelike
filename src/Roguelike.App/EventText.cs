@@ -28,6 +28,12 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ActorDied d when d.ActorId == world.Player.Id => "You die...",
         ActorDied d => $"The {d.Kind.Replace('_', ' ')} dies.",
 
+        CorpseRaised r when isVisible(r.RaisedId) || isVisible(r.CasterId) =>
+            $"{Cap(Name(r.CasterId))} raises the {Kind(r.CorpseKind)}'s corpse - it rises as a {Kind(r.RaisedKind)}!",
+        CorpseRaised => "You hear a low, rhythmic chanting.",
+        MinionCrumbled m when isVisible(m.ActorId) => $"The {Kind(m.Kind)} crumbles to dust, its master gone.",
+        MinionCrumbled => null,
+
         SquadSpotted s when s.TargetId == world.Player.Id => $"{Cap(Name(s.SpotterId))} spots you and raises the alarm!",
         SquadSpotted s when isVisible(s.SpotterId) || isVisible(s.TargetId) =>
             $"{Cap(Name(s.SpotterId))} spots {Name(s.TargetId)}!",
@@ -81,6 +87,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         new(item.Id, item.Def) { Enchantment = item.Enchantment, Count = 1 };
 
     private string Verb(int actorId, string you, string them) => actorId == world.Player.Id ? you : them;
+
+    private static string Kind(string kind) => kind.Replace('_', ' ');
 
     private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 }

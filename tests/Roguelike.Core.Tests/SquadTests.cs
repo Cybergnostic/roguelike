@@ -25,15 +25,16 @@ public class SquadTests(ITestOutputHelper output)
 
     /// <summary>
     /// Teleports the player into view of a squad member, as close to <paramref name="distance"/>
-    /// tiles away as the room allows, and lets one turn pass.
+    /// tiles away as the room allows, and lets one turn pass. With <paramref name="openGround"/>
+    /// the player never stands in a chokepoint, where they might cork the squad's only exit.
     /// </summary>
-    private static IReadOnlyList<GameEvent> RevealPlayerTo(World world, Squad squad, int distance = 3)
+    private static IReadOnlyList<GameEvent> RevealPlayerTo(World world, Squad squad, int distance = 3, bool openGround = false)
     {
         world.Player.Hp = 10_000; // keep the test about AI, not survival
         var anchor = squad.Members.First().Position;
         var spot = world.Map.Tiles.Positions()
             .Where(p => world.IsFree(p) && World.Distance(p, anchor) is >= 2 and <= World.FovRadius - 1
-                        && world.HasLineOfSight(p, anchor))
+                        && world.HasLineOfSight(p, anchor) && !(openGround && world.IsChokepoint(p)))
             .OrderBy(p => Math.Abs(World.Distance(p, anchor) - distance))
             .First();
         world.Player.Position = spot;
@@ -85,7 +86,7 @@ public class SquadTests(ITestOutputHelper output)
             s.WithRole(SquadRole.Runner).Any() && w.Squads.Any(o => o != s && o.Faction == s.Faction);
         var world = FindWorld(w => w.Squads.Any(s => HasRunnerAndAllies(w, s)));
         var squad = world.Squads.First(s => HasRunnerAndAllies(world, s));
-        RevealPlayerTo(world, squad, distance: 5);
+        RevealPlayerTo(world, squad, distance: 5, openGround: true);
         Assert.NotNull(squad.HelpTargetSquadId);
         var helperId = squad.HelpTargetSquadId!.Value;
 

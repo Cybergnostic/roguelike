@@ -14,6 +14,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     private const int ShoutRange = 6;
 
     private int _nextHealTurn;
+    private int _nextRaiseTurn;
 
     public Squad Squad { get; } = squad;
 
@@ -26,12 +27,16 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (role == SquadRole.Runner && Squad.HelpTargetSquadId is not null && Squad.State != SquadState.Idle)
             return Runner(world, self);
 
+        // A necromancer raises whatever dead it can reach, fighting or not.
+        if (role == SquadRole.Necromancer && TryRaise(world, self) is { } raise)
+            return raise;
+
         return Squad.State switch
         {
             SquadState.Flee => Flee(world, self),
             SquadState.Engage => role switch
             {
-                SquadRole.Archer => Archer(world, self),
+                SquadRole.Archer or SquadRole.Necromancer => Archer(world, self),
                 SquadRole.Shaman => Shaman(world, self),
                 _ => Warrior(world, self),
             },
@@ -126,6 +131,27 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
                 return new MoveAction(s);
         }
         return new WaitAction();
+    }
+
+    /// <summary>Nearest raisable corpse in reach and sight, if the cooldown and minion cap allow.</summary>
+    private GameAction? TryRaise(World world, Actor self)
+    {
+        var raise = world.Content.Monsters.GetValueOrDefault(self.Kind)?.Raise;
+        if (raise is null || world.Turn < _nextRaiseTurn || world.MinionsOf(self).Count() >= raise.MaxMinions)
+            return null;
+
+        var corpse = world.Corpses
+            .Where(c => world.Content.Monsters.GetValueOrDefault(c.Kind)?.RisesAs is not null
+                        && World.Distance(self.Position, c.Position) <= raise.Range
+                        && world.IsFree(c.Position)
+                        && world.HasLineOfSight(self.Position, c.Position))
+            .OrderBy(c => World.Distance(self.Position, c.Position))
+            .FirstOrDefault();
+        if (corpse is null)
+            return null;
+
+        _nextRaiseTurn = world.Turn + raise.Cooldown;
+        return new RaiseDeadAction(corpse.Id);
     }
 
     private GameAction Runner(World world, Actor self)

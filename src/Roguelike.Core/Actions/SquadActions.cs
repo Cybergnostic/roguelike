@@ -20,6 +20,33 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
     }
 }
 
+/// <summary>
+/// Raise a corpse within reach and sight. The new undead joins the caster's squad and faction,
+/// whatever it was in life, and is bound to the caster.
+/// </summary>
+public sealed record RaiseDeadAction(int CorpseId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        var corpse = world.Corpses.FirstOrDefault(c => c.Id == CorpseId);
+        var raise = world.Content.Monsters.GetValueOrDefault(actor.Kind)?.Raise;
+        if (corpse is null || raise is null
+            || world.Content.Monsters.GetValueOrDefault(corpse.Kind)?.RisesAs is not { } risesAs
+            || World.Distance(actor.Position, corpse.Position) > raise.Range
+            || !world.HasLineOfSight(actor.Position, corpse.Position)
+            || !world.IsFree(corpse.Position)
+            || world.MinionsOf(actor).Count() >= raise.MaxMinions)
+            return false;
+
+        world.RemoveCorpse(corpse);
+        var def = world.Content.Monsters[risesAs];
+        var raised = world.SpawnMonster(def.Id, corpse.Position, world.SquadOf(actor), actor.Faction);
+        raised.MasterId = actor.Id;
+        world.Emit(new CorpseRaised(actor.Id, corpse.Kind, raised.Id, raised.Kind, corpse.Position));
+        return true;
+    }
+}
+
 public sealed record HealAction(int TargetId, int Amount) : GameAction
 {
     public override bool Perform(World world, Actor actor)

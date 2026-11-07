@@ -8,7 +8,9 @@
     "goblin_shaman":    { "glyph": "g", "color": "#BE6EE6" },
     "goblin_runner":    { "glyph": "g", "color": "#5AC8DC" },
     "skeleton_warrior": { "glyph": "s", "color": "#E6E2D2" },
-    "skeleton_archer":  { "glyph": "s", "color": "#B4AA8C" }
+    "skeleton_archer":  { "glyph": "s", "color": "#B4AA8C" },
+    "goblin_zombie":    { "glyph": "z", "color": "#8CA060" },
+    "necromancer":      { "glyph": "N", "color": "#B478FF" }
   },
   // Items by id; categories are the fallback for ids not listed.
   "items": {
@@ -19,6 +21,8 @@
     "long_sword":     { "glyph": ")", "color": "#E6E6F0" },
     "chain_mail":     { "glyph": "[", "color": "#C8C8D2" }
   },
+  // Corpses use this glyph, in a dimmed colour of the kind that died.
+  "corpse": { "glyph": "%" },
   "tiles": {
     "wall":  { "glyph": "#", "color": "#8C8278" },
     "floor": { "glyph": ".", "color": "#5A5A64" }

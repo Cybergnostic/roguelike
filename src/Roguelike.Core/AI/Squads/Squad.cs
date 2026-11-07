@@ -9,6 +9,8 @@ public enum SquadRole
     Archer,
     Shaman,
     Runner,
+    /// <summary>Raises corpses into undead servants and casts bolts from behind the line.</summary>
+    Necromancer,
 }
 
 public enum SquadState
@@ -45,6 +47,9 @@ public sealed class Squad
     public int? TargetId { get; set; }
     public Point? LastKnownTarget { get; set; }
     public int LastSeenTurn { get; set; } = -1;
+
+    /// <summary>A lair squad's home: it waits there when idle instead of patrolling.</summary>
+    public Point? Home { get; set; }
 
     /// <summary>Where the squad is heading while idle (patrol) or alert (investigating).</summary>
     public Point? Destination { get; set; }

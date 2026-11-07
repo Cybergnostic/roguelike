@@ -18,6 +18,12 @@ public sealed record ActorHealed(int HealerId, int TargetId, int Amount) : GameE
 /// <summary>KillerId is whoever dealt the final blow.</summary>
 public sealed record ActorDied(int ActorId, string Kind, string FactionId, int KillerId) : GameEvent;
 
+/// <summary>A necromancer turned a corpse into a new undead actor.</summary>
+public sealed record CorpseRaised(int CasterId, string CorpseKind, int RaisedId, string RaisedKind, Point At) : GameEvent;
+
+/// <summary>A bound servant fell apart because its master died.</summary>
+public sealed record MinionCrumbled(int ActorId, string Kind, int MasterId) : GameEvent;
+
 public sealed record BumpedWall(int ActorId, Point At) : GameEvent;
 
 /// <summary>A squad noticed an enemy (<paramref name="TargetId"/>); <paramref name="SpotterId"/> raised the alarm.</summary>

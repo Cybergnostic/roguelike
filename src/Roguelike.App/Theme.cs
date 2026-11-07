@@ -25,8 +25,15 @@ public static class Theme
     public static readonly Color FleeingBackground = new(60, 40, 0);
 
     private static readonly Look Unknown = new('?', Color.Magenta);
-    private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items) Looks =
+    private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items, int CorpseGlyph) Looks =
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
+
+    /// <summary>A corpse: the "corpse" glyph in a dim version of the dead kind's colour.</summary>
+    public static Look ForCorpse(string kind)
+    {
+        var c = ForKind(kind).Foreground;
+        return new Look(Looks.CorpseGlyph, new Color(c.R / 2, c.G / 2, c.B / 2));
+    }
 
     public static Look ForTile(Tile tile) =>
         Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
@@ -71,12 +78,16 @@ public static class Theme
             (int)(hot.B + (cold.B - hot.B) * t));
     }
 
-    private static (Dictionary<string, Look>, Dictionary<string, Look>, Dictionary<string, Look>) LoadLooks(string path)
+    private static (Dictionary<string, Look>, Dictionary<string, Look>, Dictionary<string, Look>, int) LoadLooks(string path)
     {
         var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
         using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
-        return (ReadSection(doc.RootElement, "kinds"), ReadSection(doc.RootElement, "tiles"), ReadSection(doc.RootElement, "items"));
+        var root = doc.RootElement;
+        int corpseGlyph = root.TryGetProperty("corpse", out var corpse) ? ReadGlyph(corpse.GetProperty("glyph")) : '%';
+        return (ReadSection(root, "kinds"), ReadSection(root, "tiles"), ReadSection(root, "items"), corpseGlyph);
     }
+
+    private static int ReadGlyph(JsonElement g) => g.ValueKind == JsonValueKind.Number ? g.GetInt32() : g.GetString()![0];
 
     private static Dictionary<string, Look> ReadSection(JsonElement root, string name)
     {
@@ -85,8 +96,7 @@ public static class Theme
             return result;
         foreach (var entry in section.EnumerateObject())
         {
-            var g = entry.Value.GetProperty("glyph");
-            int glyph = g.ValueKind == JsonValueKind.Number ? g.GetInt32() : g.GetString()![0];
+            int glyph = ReadGlyph(entry.Value.GetProperty("glyph"));
             result[entry.Name] = new Look(glyph, ParseColor(entry.Value.GetProperty("color").GetString()!));
         }
         return result;

@@ -51,6 +51,15 @@ public sealed class World
 
     public IReadOnlyList<FloorItem> FloorItems => _floorItems;
 
+    /// <summary>What's left after a monster dies. Necromancers raise these.</summary>
+    public sealed record Corpse(int Id, string Kind, Point Position, int Turn);
+
+    public IReadOnlyList<Corpse> Corpses => _corpses;
+
+    private readonly List<Corpse> _corpses = [];
+    private int _nextCorpseId;
+    private int _nextSquadId;
+
     private readonly List<FloorItem> _floorItems = [];
     private int _nextItemId;
     private readonly List<Actor> _actors = [];
@@ -112,11 +121,18 @@ public sealed class World
         foreach (var squad in _squads)
             SquadDirector.Think(this, squad);
 
+        // Energy: each actor gains its speed every turn and acts once per 100 it has.
+        // Actors created this turn (raised dead) wait for the next one.
         foreach (var actor in _actors.ToList())
         {
             if (actor.IsDead || actor.Brain is null)
                 continue;
-            actor.Brain.Decide(this, actor).Perform(this, actor);
+            actor.Energy += actor.Speed;
+            while (actor.Energy >= 100 && !actor.IsDead && !Player.IsDead)
+            {
+                actor.Energy -= 100;
+                actor.Brain.Decide(this, actor).Perform(this, actor);
+            }
             if (Player.IsDead)
                 break;
         }
@@ -143,11 +159,55 @@ public sealed class World
             return;
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
+        LeaveCorpse(target);
         if (target.LootTable is { } table && RollLoot(table) is { } loot)
         {
             PlaceOnFloor(loot, target.Position);
             Emit(new LootDropped(target.Id, loot, target.Position));
         }
+
+        // A necromancer's servants don't outlive him.
+        foreach (var minion in MinionsOf(target).ToList())
+        {
+            minion.Hp = 0;
+            Emit(new MinionCrumbled(minion.Id, minion.Kind, target.Id));
+            LeaveCorpse(minion);
+        }
+    }
+
+    // ---- Corpses and the dead ----
+
+    /// <summary>The dead rise only once: what a necromancer raised leaves nothing behind.</summary>
+    private void LeaveCorpse(Actor actor)
+    {
+        if (actor != Player && actor.MasterId is null)
+            _corpses.Add(new Corpse(_nextCorpseId++, actor.Kind, actor.Position, Turn));
+    }
+
+    public IEnumerable<Corpse> CorpsesAt(Point p) => _corpses.Where(c => c.Position == p);
+
+    public void RemoveCorpse(Corpse corpse) => _corpses.Remove(corpse);
+
+    /// <summary>Living actors bound to this one (raised by it).</summary>
+    public IEnumerable<Actor> MinionsOf(Actor master) =>
+        _actors.Where(a => a.MasterId == master.Id && !a.IsDead);
+
+    /// <summary>
+    /// Creates a monster from data and puts it in a squad: the given one, or a new squad of
+    /// its own. Faction defaults to the monster's (raised dead take their raiser's instead).
+    /// </summary>
+    public Actor SpawnMonster(string id, Point at, Squad? squad = null, Faction? faction = null)
+    {
+        var def = Content.Monsters[id];
+        var monster = Spawn(def, at, faction);
+        if (squad is null)
+        {
+            squad = new Squad(_nextSquadId++, monster.Faction);
+            _squads.Add(squad);
+        }
+        monster.Brain = new SquadMemberBrain(squad);
+        squad.Add(monster, def.Role);
+        return monster;
     }
 
     // ---- Items ----
@@ -383,12 +443,13 @@ public sealed class World
         return actor;
     }
 
-    private Actor Spawn(MonsterDef def, Point at) =>
-        AddActor(new Actor(_nextId++, def.Id, Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
+    private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
+        AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
         {
             BaseRange = def.Range,
             Fearless = def.Fearless,
             LootTable = def.Loot,
+            Speed = def.Speed,
         });
 
     /// <summary>The player, with base stats and starting kit from player.json.</summary>
@@ -422,45 +483,72 @@ public sealed class World
         }
     }
 
-    /// <summary>Populates rooms (except the start) with squads, per spawns.json.</summary>
+    /// <summary>
+    /// Populates rooms (except the start) per spawns.json: lairs first, each in the free room
+    /// farthest from the start, then random squads in the rest.
+    /// </summary>
     private void SpawnSquads()
     {
+        // A quiet start: nobody spawns within walking distance of the player's first room.
+        var fromStart = new DistanceMap(Map.Walkable);
+        fromStart.Update([Player.Position]);
+
+        var taken = new HashSet<Rectangle>();
+        var farthestFirst = Map.Rooms.Skip(1)
+            .Select(r => (Room: r, Distance: ClosestReachableCell(r, fromStart)))
+            .Where(x => x.Distance < double.MaxValue)
+            .OrderByDescending(x => x.Distance)
+            .Select(x => x.Room)
+            .ToList();
+        foreach (var lair in Content.Lairs)
+        {
+            var free = farthestFirst.Where(r => !taken.Contains(r)).Take(1).ToList();
+            if (free.Count == 0)
+                break;
+            var room = free[0];
+            taken.Add(room);
+            if (FillSquad(lair, room) is { } squad)
+                squad.Home = room.Center;
+        }
+
         var templates = Content.SquadTemplates;
         int totalWeight = templates.Sum(t => t.Weight);
         if (totalWeight <= 0)
             return;
 
-        // A quiet start: nobody spawns within walking distance of the player's first room.
-        var fromStart = new DistanceMap(Map.Walkable);
-        fromStart.Update([Player.Position]);
-
         foreach (var room in Map.Rooms.Skip(1))
         {
             if (Rng.NextDouble() >= Content.RoomOccupancy)
                 continue;
-            if (ClosestReachableCell(room, fromStart) < Content.SafeStartDistance)
+            if (taken.Contains(room) || ClosestReachableCell(room, fromStart) < Content.SafeStartDistance)
                 continue;
 
             int roll = Rng.NextInt(totalWeight);
-            var template = templates.First(t => (roll -= t.Weight) < 0);
-
-            var squad = new Squad(_squads.Count, Content.Factions[template.Faction]);
-            foreach (var member in template.Members)
-            {
-                int count = Rng.NextInt(member.Min, member.Max + 1);
-                for (int i = 0; i < count; i++)
-                {
-                    if (Rng.NextDouble() >= member.Chance || RandomFreeFloor(room) is not { } p)
-                        continue;
-                    var def = Content.Monsters[member.Monster];
-                    var monster = Spawn(def, p);
-                    monster.Brain = new SquadMemberBrain(squad);
-                    squad.Add(monster, def.Role);
-                }
-            }
-            if (!squad.IsWipedOut)
-                _squads.Add(squad);
+            FillSquad(templates.First(t => (roll -= t.Weight) < 0), room);
         }
+    }
+
+    /// <summary>Spawns a squad from a template inside a room; null if nobody could be placed.</summary>
+    private Squad? FillSquad(SquadTemplateDef template, Rectangle room)
+    {
+        var squad = new Squad(_nextSquadId++, Content.Factions[template.Faction]);
+        foreach (var member in template.Members)
+        {
+            int count = Rng.NextInt(member.Min, member.Max + 1);
+            for (int i = 0; i < count; i++)
+            {
+                if (Rng.NextDouble() >= member.Chance || RandomFreeFloor(room) is not { } p)
+                    continue;
+                var def = Content.Monsters[member.Monster];
+                var monster = Spawn(def, p);
+                monster.Brain = new SquadMemberBrain(squad);
+                squad.Add(monster, def.Role);
+            }
+        }
+        if (squad.IsWipedOut)
+            return null;
+        _squads.Add(squad);
+        return squad;
     }
 
     /// <summary>Walking distance from the distance map's goal to the nearest cell of a room.</summary>

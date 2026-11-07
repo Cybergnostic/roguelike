@@ -171,6 +171,7 @@ public sealed partial class GameScreen
         SquadState.Engage => "fighting",
         SquadState.Alert => "searching",
         SquadState.Flee => "fleeing",
+        _ when squad.Home is not null => "guarding",
         _ => "patrolling",
     };
 

@@ -28,6 +28,15 @@ public sealed class Actor
     /// <summary>Ignores morale: never routs.</summary>
     public bool Fearless { get; init; }
 
+    /// <summary>Energy gained per turn (100 = one action per turn). See World.RunNonPlayerTurns.</summary>
+    public int Speed { get; init; } = 100;
+
+    /// <summary>Accumulated energy; an actor acts while it has at least 100.</summary>
+    public int Energy { get; set; }
+
+    /// <summary>The necromancer bound to this actor, if any. It crumbles when the master dies.</summary>
+    public int? MasterId { get; set; }
+
     /// <summary>Loot table rolled on death (items.json), if any.</summary>
     public string? LootTable { get; init; }
 

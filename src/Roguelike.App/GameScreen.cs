@@ -148,7 +148,8 @@ public sealed partial class GameScreen : ScreenObject
             {
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
-                SquadSpotted or ReinforcementsCalled => Theme.Warning,
+                SquadSpotted or ReinforcementsCalled or CorpseRaised => Theme.Warning,
+                MinionCrumbled => Theme.Good,
                 _ => Theme.Text,
             };
             if (e is ActorDied d && d.ActorId == _world.Player.Id)
@@ -206,6 +207,13 @@ public sealed partial class GameScreen : ScreenObject
             _map.SetGlyph(x, y, look.Glyph, fg, heat?.Invoke(p) ?? Theme.Background);
         }
 
+        foreach (var corpse in _world.Corpses)
+        {
+            if (!fov[corpse.Position] && !_reveal)
+                continue;
+            var look = Theme.ForCorpse(corpse.Kind);
+            _map.SetGlyph(corpse.Position.X, corpse.Position.Y, look.Glyph, look.Foreground, _map.Surface[corpse.Position.X, corpse.Position.Y].Background);
+        }
         DrawFloorItems();
         if (_showSquads)
             DrawSquadMarkers();
@@ -283,12 +291,15 @@ public sealed partial class GameScreen : ScreenObject
         return squad.State switch
         {
             SquadState.Flee => "fleeing in panic",
+            SquadState.Idle when role == SquadRole.Necromancer => "brooding",
+            SquadState.Idle when squad.Home is not null => "guarding",
             SquadState.Idle => "patrolling",
             SquadState.Alert => squad.TargetId == _world.Player.Id ? "searching for you" : "searching",
             SquadState.Engage => role switch
             {
                 SquadRole.Runner when squad.HelpTargetSquadId is not null => "running for help!",
                 SquadRole.Archer => $"shooting at {TargetName(squad)}",
+                SquadRole.Necromancer => $"cursing {TargetName(squad)}",
                 SquadRole.Shaman => "supporting allies",
                 _ when squad.IsHoldingPassage && _world.AdjacentHostile(actor) is null
                     => "holding the passage",

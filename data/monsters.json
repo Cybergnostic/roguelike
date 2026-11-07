@@ -1,15 +1,26 @@
 {
-  // Monster stat blocks. "role" drives squad AI: warrior, archer, shaman, runner.
+  // Monster stat blocks. "role" drives squad AI: warrior, archer, shaman, runner, necromancer.
   // "range" > 0 gives a ranged attack. "fearless" monsters ignore morale and never flee.
   // "loot" names a loot table in items.json, rolled when the monster dies.
+  // "speed": energy per turn; 100 acts every turn, 50 every other turn (default 100).
+  // "risesAs": what this monster's corpse becomes when a necromancer raises it.
+  // "raise" (necromancers): reach in cells (needs line of sight), turns between raisings,
+  // and how many servants it can control at once. Its servants crumble when it dies.
   "monsters": [
-    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 6, "defense": 1, "loot": "goblin" },
-    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "range": 6, "loot": "goblin" },
-    { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "loot": "goblin" },
-    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "loot": "goblin" },
+    { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 6, "defense": 1, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "range": 6, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "loot": "goblin", "risesAs": "goblin_zombie" },
 
-    // Placeholder undead until the necromancer arrives: tough, fearless, slow to die.
-    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 6, "defense": 1, "fearless": true, "loot": "skeleton" },
-    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "range": 5, "fearless": true, "loot": "skeleton" }
+    // The undead: fearless (no morale), relentless. Skeletons pull themselves back together
+    // when raised; goblin corpses become slow, tough zombies.
+    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 6, "defense": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior" },
+    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
+    { "id": "goblin_zombie",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "speed": 50, "fearless": true },
+
+    // The necromancer: stays in his lair, raises the dead, casts bolts from behind his guards.
+    { "id": "necromancer", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "range": 6,
+      "fearless": true, "loot": "necromancer",
+      "raise": { "range": 7, "cooldown": 8, "maxMinions": 6 } }
   ]
 }

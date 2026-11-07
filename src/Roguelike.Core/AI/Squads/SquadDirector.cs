@@ -112,6 +112,11 @@ public static class SquadDirector
 
     private static void UpdatePatrol(World world, Squad squad)
     {
+        if (squad.Home is { } home)
+        {
+            squad.Destination = home;
+            return;
+        }
         var leader = squad.Leader!;
         if (squad.Destination is { } d && SadRogue.Primitives.Distance.Chebyshev.Calculate(leader.Position, d) > 1)
             return;

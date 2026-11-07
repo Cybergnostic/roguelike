@@ -40,6 +40,13 @@
       { "item": "short_sword",   "weight": 5 },
       { "item": "long_bow",      "weight": 2 }
     ],
+    // The necromancer always leaves something worth the fight.
+    "necromancer": [
+      { "item": "long_sword",     "weight": 3 },
+      { "item": "chain_mail",     "weight": 3 },
+      { "item": "long_bow",       "weight": 2 },
+      { "item": "healing_potion", "weight": 2 }
+    ],
     "floor": [
       { "item": "healing_potion", "weight": 15 },
       { "item": "dagger",         "weight": 8 },

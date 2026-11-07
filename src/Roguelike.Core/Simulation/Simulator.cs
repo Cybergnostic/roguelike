@@ -39,6 +39,11 @@ public static class Simulator
                 var key = Classify(world, e);
                 if (key is not null)
                     counts[key] = counts.GetValueOrDefault(key) + 1;
+                if (e is ActorDied d && d.ActorId == world.Player.Id && world.GetActor(d.KillerId) is { } killer)
+                {
+                    var by = $"player killed by: {killer.Kind}";
+                    counts[by] = counts.GetValueOrDefault(by) + 1;
+                }
             }
             foreach (var squad in world.Squads)
                 stateTurns[squad.State]++;
@@ -90,6 +95,8 @@ public static class Simulator
         ItemEquipped => "items equipped",
         PotionDrunk => "potions drunk",
         ReinforcementsCalled => "reinforcements called",
+        CorpseRaised => "corpses raised",
+        MinionCrumbled => "minions crumbled",
         _ => null,
     };
 }
