@@ -20,7 +20,7 @@ public sealed class AggressiveBot : IPlayerBot
     {
         var player = world.Player;
         var target = world.Actors
-            .Where(a => a.Faction != Faction.Player && !a.IsDead && world.PlayerCanSee(a))
+            .Where(a => world.AreHostile(player, a) && world.PlayerCanSee(a))
             .OrderBy(a => World.Distance(a.Position, player.Position))
             .FirstOrDefault();
 

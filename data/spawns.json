@@ -1,0 +1,29 @@
+{
+  // Level population. Each room except the player's start gets a squad with
+  // probability "roomOccupancy"; the squad template is picked by weight.
+  // Each member line adds between min and max of that monster (inclusive),
+  // each one only with probability "chance" (default 1).
+  "roomOccupancy": 0.45,
+  "squads": [
+    {
+      "name": "goblin war band",
+      "faction": "goblins",
+      "weight": 3,
+      "members": [
+        { "monster": "goblin_warrior", "min": 1, "max": 3 },
+        { "monster": "goblin_archer", "min": 0, "max": 2 },
+        { "monster": "goblin_shaman", "min": 0, "max": 1, "chance": 0.3 },
+        { "monster": "goblin_runner", "min": 0, "max": 1, "chance": 0.5 }
+      ]
+    },
+    {
+      "name": "skeleton patrol",
+      "faction": "undead",
+      "weight": 2,
+      "members": [
+        { "monster": "skeleton_warrior", "min": 2, "max": 3 },
+        { "monster": "skeleton_archer", "min": 0, "max": 1 }
+      ]
+    }
+  ]
+}

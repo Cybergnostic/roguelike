@@ -14,12 +14,12 @@ public sealed record ActorAttacked(int AttackerId, int TargetId, int Damage, boo
 
 public sealed record ActorHealed(int HealerId, int TargetId, int Amount) : GameEvent;
 
-public sealed record ActorDied(int ActorId, string Kind) : GameEvent;
+public sealed record ActorDied(int ActorId, string Kind, string FactionId) : GameEvent;
 
 public sealed record BumpedWall(int ActorId, Point At) : GameEvent;
 
-/// <summary>A squad noticed the player; <paramref name="SpotterId"/> raised the alarm.</summary>
-public sealed record SquadSpotted(int SquadId, int SpotterId) : GameEvent;
+/// <summary>A squad noticed an enemy (<paramref name="TargetId"/>); <paramref name="SpotterId"/> raised the alarm.</summary>
+public sealed record SquadSpotted(int SquadId, int SpotterId, int TargetId) : GameEvent;
 
 /// <summary>A squad's morale broke and it is fleeing.</summary>
 public sealed record SquadRouted(int SquadId, IReadOnlyList<int> MemberIds) : GameEvent;

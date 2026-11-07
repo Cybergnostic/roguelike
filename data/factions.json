@@ -1,0 +1,15 @@
+{
+  // Factions and how they feel about each other.
+  // Members of the same faction are always allied; pairs not listed are neutral.
+  // "player" must exist.
+  "factions": [
+    { "id": "player", "name": "you" },
+    { "id": "goblins", "name": "the goblins" },
+    { "id": "undead", "name": "the undead" }
+  ],
+  "relations": [
+    { "a": "player", "b": "goblins", "relation": "hostile" },
+    { "a": "player", "b": "undead", "relation": "hostile" },
+    { "a": "goblins", "b": "undead", "relation": "hostile" }
+  ]
+}

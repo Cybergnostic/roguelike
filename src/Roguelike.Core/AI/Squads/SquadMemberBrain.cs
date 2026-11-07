@@ -11,7 +11,6 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 {
     private const int ShamanHealCooldown = 5;
     private const int ShamanHealRange = 6;
-    private const int MaxHoldTurns = 8;
 
     private int _nextHealTurn;
 
@@ -36,23 +35,22 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     }
 
     // ---- Roles while engaged ----
+    // "Enemy" is anyone hostile to this actor's faction (the player, or another faction).
 
     private GameAction Warrior(World world, Actor self)
     {
-        var player = world.Player;
-        if (world.IsAdjacent(self.Position, player.Position))
-            return new AttackAction(player.Id);
+        if (world.AdjacentHostile(self) is { } adjacent)
+            return new AttackAction(adjacent.Id);
 
-        var step = world.StepDownhill(self, world.TowardPlayer);
+        var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
         if (step is null)
             return new WaitAction();
 
-        // Don't file into the player's corridor one at a time; wait at the mouth for a while,
+        // Don't file into the enemy's corridor one at a time; wait at the mouth for a while,
         // as long as someone can shoot at them in the meantime.
         bool wouldEnterChokepoint = world.IsChokepoint(self.Position + step.Value)
                                     && !world.IsChokepoint(self.Position);
-        if (wouldEnterChokepoint && Squad.HoldTurns > 0 && Squad.HoldTurns <= MaxHoldTurns
-            && Squad.WithRole(SquadRole.Archer).Any())
+        if (wouldEnterChokepoint && Squad.IsHoldingPassage)
             return new WaitAction();
 
         return new MoveAction(step.Value);
@@ -60,32 +58,30 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private GameAction Archer(World world, Actor self)
     {
-        var player = world.Player;
-        int distance = World.Distance(self.Position, player.Position);
-
-        if (distance <= 1)
+        if (world.AdjacentHostile(self) is { } adjacent)
         {
-            var away = world.StepDownhill(self, world.AwayFromPlayer);
-            return away is { } a ? new MoveAction(a) : new AttackAction(player.Id);
+            var away = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
+            return away is { } a ? new MoveAction(a) : new AttackAction(adjacent.Id);
         }
 
-        if (world.CanSeePlayer(self) && distance <= self.Range)
+        var target = world.NearestVisibleHostile(self);
+        if (target is not null && World.Distance(self.Position, target.Position) <= self.Range)
         {
-            if (world.HasClearShot(self.Position, player.Position))
-                return new RangedAttackAction(player.Id);
+            if (world.HasClearShot(self.Position, target.Position))
+                return new RangedAttackAction(target.Id);
 
             // An ally is in the way: shuffle sideways to a spot with a clear shot.
             foreach (var dir in World.EightWay)
             {
                 var p = self.Position + dir;
-                if (world.IsFree(p) && World.Distance(p, player.Position) > 1
-                    && world.HasClearShot(p, player.Position))
+                if (world.IsFree(p) && World.Distance(p, target.Position) > 1
+                    && world.HasClearShot(p, target.Position))
                     return new MoveAction(dir);
             }
             return new WaitAction();
         }
 
-        var step = world.StepDownhill(self, world.TowardPlayer);
+        var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
         return step is { } s ? new MoveAction(s) : new WaitAction();
     }
 
@@ -107,18 +103,19 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
 
         // Stay behind the line: back off if close, creep up if far.
-        int distance = World.Distance(self.Position, world.Player.Position);
+        var enemy = world.NearestVisibleHostile(self);
+        int distance = enemy is null ? int.MaxValue : World.Distance(self.Position, enemy.Position);
         if (distance <= 3)
         {
-            var away = world.StepDownhill(self, world.AwayFromPlayer);
+            var away = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
             if (away is { } a)
                 return new MoveAction(a);
-            if (distance <= 1)
-                return new AttackAction(world.Player.Id);
+            if (world.AdjacentHostile(self) is { } adjacent)
+                return new AttackAction(adjacent.Id);
         }
         else if (distance > 5)
         {
-            var step = world.StepDownhill(self, world.TowardPlayer);
+            var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
             if (step is { } s)
                 return new MoveAction(s);
         }
@@ -146,12 +143,12 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private GameAction Flee(World world, Actor self)
     {
-        var step = world.StepDownhill(self, world.AwayFromPlayer);
+        var step = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
         if (step is { } s)
             return new MoveAction(s);
         // Cornered: fight back.
-        return world.IsAdjacent(self.Position, world.Player.Position)
-            ? new AttackAction(world.Player.Id)
+        return world.AdjacentHostile(self) is { } adjacent
+            ? new AttackAction(adjacent.Id)
             : new WaitAction();
     }
 

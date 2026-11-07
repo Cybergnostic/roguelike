@@ -1,0 +1,17 @@
+{
+  // Front-end only: how each kind of thing is drawn. The simulation never reads this.
+  // Glyphs are single characters (or a CP437 code as a number); colours are #RRGGBB.
+  "kinds": {
+    "player":           { "glyph": "@", "color": "#FFFFFF" },
+    "goblin_warrior":   { "glyph": "g", "color": "#6EC846" },
+    "goblin_archer":    { "glyph": "g", "color": "#DCC850" },
+    "goblin_shaman":    { "glyph": "g", "color": "#BE6EE6" },
+    "goblin_runner":    { "glyph": "g", "color": "#5AC8DC" },
+    "skeleton_warrior": { "glyph": "s", "color": "#E6E2D2" },
+    "skeleton_archer":  { "glyph": "s", "color": "#B4AA8C" }
+  },
+  "tiles": {
+    "wall":  { "glyph": "#", "color": "#8C8278" },
+    "floor": { "glyph": ".", "color": "#5A5A64" }
+  }
+}

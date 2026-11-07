@@ -57,7 +57,10 @@ loot (rarity tiers, +X gear).
 | **Simulation core has zero rendering/input/text** | Modularity; headless tests, bots, sims; swappable front ends | |
 | **Deterministic from seed + inputs** | Replays, bug repro, seeded dailies, balance sims | |
 | **Own `DistanceMap` (BFS) for chase maps** | ~0.09 ms vs ~1.1 ms for GoRogue `GoalMap` + `FleeMap` per update on 80x24, with identical results for uniform-cost Chebyshev; needed for per-faction maps | GoRogue `GoalMap` (kept only as the flee map source) |
-| **Monsters are data ids (`Kind`)** | Front end maps kind to glyph/colour (`Theme.cs`); core never knows what things look like | |
+| **Monsters are data ids (`Kind`)** | Front end maps kind to glyph/colour (`data/looks.json` via `Theme.cs`); core never knows what things look like | |
+| **Content in JSON (`data/`)** | Tuning without recompiling; modding later. Validated at load with file-specific errors | Hard-coded C# templates |
+| **Factions are data, relations table** | Adding a faction = data, not code. Unlisted pairs neutral, same faction allied | Enum of factions |
+| **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
 
 ---
 
@@ -65,13 +68,20 @@ loot (rarity tiers, +X gear).
 
 ```
 Roguelike.slnx
+data/                        game content (JSON with comments), copied next to every program
+  factions.json              factions + relations (hostile/neutral/allied)
+  monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless
+  spawns.json                room occupancy + weighted squad templates
+  looks.json                 front end only: glyph + colour per kind and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
+  Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
   World.cs                   all state; Step(action) -> events; spatial/AI helpers
   Map/GameMap.cs             tiles, explored, walkable/transparent views, player FOV, rooms
   Map/MapGenerator.cs        GoRogue rooms-and-mazes (will be replaced by history-driven gen)
   Map/DistanceMap.cs         fast BFS Dijkstra map (IGridView<double?>)
-  Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Brain
-  Entities/MonsterTemplates.cs  stat blocks (to become JSON data)
+  Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
+  Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
+  Entities/Faction.cs        Faction, Relation, FactionRelations
   Actions/                   GameAction records: Move, Attack, Wait, RangedAttack, Heal, CallForHelp
   Events/GameEvent.cs        structured events emitted during a turn
   AI/IBrain.cs               per-actor decision interface
@@ -101,13 +111,18 @@ docs/PROJECT.md              this file
    hash sets, when order affects outcomes). Tests verify same seed + inputs = same game.
 4. **AI layering:** `SquadDirector.Think` runs once per squad per turn (pooled perception,
    morale, state transitions, runner dispatch), then each actor's `IBrain.Decide` returns an action.
-5. **Perception:** `PlayerCanSee(actor)` is the player's view (UI, bots). `CanSeePlayer(actor)` is
-   the AI's view (false in observer mode). Currently symmetric via player FOV; per-monster
-   perception comes with multi-faction work.
-6. **Dijkstra maps:** `TowardPlayer` (DistanceMap, updated when the player moves), `AwayFromPlayer`
-   (GoRogue FleeMap, lazy: only recalculated when first requested after a player move).
-   `StepDownhill` prefers less crowded cells, which is what makes groups surround instead of queue.
-7. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
+5. **Hostility and perception:** `world.AreHostile(a, b)` (faction table; the observer-mode player is
+   nobody's enemy). `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
+   Bresenham line of sight. `world.PlayerCanSee(actor)`: the player's FOV (UI, bots only).
+   AI never asks "where is the player"; it asks `NearestVisibleHostile` / `AdjacentHostile`.
+6. **Dijkstra maps:** per faction, `TowardEnemiesOf(faction)` (DistanceMap) and
+   `AwayFromEnemiesOf(faction)` (SafetyMap), rebuilt lazily once per turn at the start of the
+   monsters' phase (stale within a turn, which is acceptable). `TowardPlayer` is kept for the debug
+   heatmap and tests. `StepDownhill` prefers less crowded cells, which makes groups surround
+   instead of queue.
+7. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
+   defaults to `ContentDatabase.Default`. Reference everything by id; validate new fields in `Load`.
+8. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
    non-player actor acts → remove dead → turn++ → regen → update FOV.
 
 ---
@@ -133,7 +148,8 @@ dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000]
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Restart after death: `R`. Quit: `Esc`.
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
-player position, squad list with morale), `F3` cycle heatmaps (toward player / flee map),
+target position, squad list with morale), `F3` cycle heatmaps (toward player, then per faction
+"toward enemies" and "flee"),
 `F5` spectator mode (invisible, invulnerable), `P` autoplay.
 
 ### API gotchas found so far
@@ -166,33 +182,38 @@ player position, squad list with morale), `F3` cycle heatmaps (toward player / f
 - **Readability**: sidebar with visible monsters' HP and intent; unseen events reported as sounds;
   unseen attackers are "something".
 - **Observation tools**: debug overlays, spectator mode, autoplay, headless `Roguelike.Sim` report.
+- **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
+  perception of any hostile; per-faction toward/flee maps; squads engage other factions.
+  Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
+  fight on their own. Unseen fights are reported as "You hear the clash of weapons."
 
-**Baseline sim** (50 seeds, aggressive bot that never retreats, 1000 turns max):
-player died 76% of games (avg turn of death ~94); ~19 goblins / 5.5 squads per level;
-squads spend 95% of time idle; ~1200 turns/s.
+**Sim baselines** (Release build):
+- Aggressive bot, 50 seeds × 1000 turns (before content/factions): player died 76%;
+  ~19 goblins per level; squads 95% idle; ~1200 turns/s.
+- Observer + idle bot, 30 seeds × 800 turns (after factions): ~12 monsters per level;
+  goblins lose 126 dead vs undead 35; 27 routs; squads 92% idle; ~1600 turns/s.
 
 **Known issues / tech debt**
-- Balance untuned: too many goblins per level; map gen is mostly maze (GoRogue rooms-and-mazes).
-- Squads mostly idle: nothing to do without other factions. The strategic layer will fix it.
+- Balance untuned: skeletons beat goblins about 3.5:1; map gen is mostly maze (GoRogue rooms-and-mazes).
+- Squads mostly idle (92%): patrols are random and rarely meet. The strategic layer (raids toward
+  enemy territory) will fix it.
+- Engaged squads follow `TowardEnemiesOf`, which leads to the nearest enemy even if unseen
+  (omniscient chase). Fine while engaged; revisit with stealth.
+- Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
 - Remaining per-turn cost is mostly A* for patrolling squads (each follower re-plans each turn).
   Options: cache paths, or per-squad distance maps.
 - `ActorAt` is a linear scan; switch to a spatial index (GoRogue `SpatialMap`) when actor counts grow.
 - `GameMap.Walkable` is a lambda view; make it an array when terrain becomes mutable (doors, digging).
-- Monster perception is symmetric with the player's FOV; needs per-actor perception for
-  monster-vs-monster fights and stealth.
-- Monster stats are C# code; should move to JSON.
+- Monster sight is radius + Bresenham line; the player's FOV is shadowcasting. They can disagree
+  slightly at edges. Stealth will need a proper model (noise, light, facing).
 
 ---
 
 ## 7. Roadmap
 
 1. ~~Observation tools~~ (done 2026-11-07)
-2. **Multi-faction foundation** ← next
-   - Faction relations table (hostile/neutral/allied; room for truces and bribes later).
-   - Per-actor/per-squad perception of *any* hostile, not just the player.
-   - Per-faction Dijkstra maps ("toward enemies of faction X"), using `DistanceMap`.
-   - Monster/content definitions in JSON data files.
-3. **Minimal player kit**: inventory, bow, healing potions, armour, so playtests and balance mean something.
+2. ~~Multi-faction foundation~~ (done 2026-11-07)
+3. **Minimal player kit** ← next: inventory, bow, healing potions, armour, so playtests and balance mean something.
 4. **Necromancer faction**
    - Undead have **no morale** (never flee, slow, relentless): a deliberate contrast to goblins.
    - **Corpses** as objects left by every death; the necromancer raises corpses in range, so goblins

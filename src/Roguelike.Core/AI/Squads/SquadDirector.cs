@@ -19,11 +19,21 @@ public static class SquadDirector
         if (squad.IsWipedOut)
             return;
 
-        var player = world.Player;
-        var spotter = player.IsDead ? null : squad.Members.FirstOrDefault(world.CanSeePlayer);
-        if (spotter is not null)
+        // Pool perception: the first member who sees an enemy tells the others.
+        Entities.Actor? spotter = null, target = null;
+        foreach (var member in squad.Members)
         {
-            squad.LastKnownTarget = player.Position;
+            target = world.NearestVisibleHostile(member);
+            if (target is not null)
+            {
+                spotter = member;
+                break;
+            }
+        }
+        if (target is not null)
+        {
+            squad.TargetId = target.Id;
+            squad.LastKnownTarget = target.Position;
             squad.LastSeenTurn = world.Turn;
         }
         int sinceSeen = squad.LastSeenTurn < 0 ? int.MaxValue : world.Turn - squad.LastSeenTurn;
@@ -32,7 +42,7 @@ public static class SquadDirector
         {
             case SquadState.Idle or SquadState.Alert when spotter is not null:
                 squad.State = SquadState.Engage;
-                world.Emit(new SquadSpotted(squad.Id, spotter.Id));
+                world.Emit(new SquadSpotted(squad.Id, spotter.Id, target!.Id));
                 DispatchRunner(world, squad);
                 break;
 
@@ -52,14 +62,15 @@ public static class SquadDirector
                 break;
         }
 
-        if (squad.State != SquadState.Flee && squad.Morale < Squad.BreakingPoint)
+        if (!squad.IsFearless && squad.State != SquadState.Flee && squad.Morale < Squad.BreakingPoint)
         {
             squad.State = SquadState.Flee;
             world.Emit(new SquadRouted(squad.Id, squad.Members.Select(m => m.Id).ToList()));
         }
 
-        // Warriors hold the mouth of a corridor the player is standing in, giving archers time.
-        squad.HoldTurns = squad.State == SquadState.Engage && world.IsChokepoint(player.Position)
+        // Warriors hold the mouth of a corridor the enemy is standing in, giving archers time.
+        squad.HoldTurns = squad.State == SquadState.Engage && spotter is not null
+                          && world.IsChokepoint(squad.LastKnownTarget!.Value)
             ? squad.HoldTurns + 1
             : 0;
 

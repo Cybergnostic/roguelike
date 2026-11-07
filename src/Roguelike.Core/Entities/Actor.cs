@@ -3,12 +3,6 @@ using SadRogue.Primitives;
 
 namespace Roguelike.Core.Entities;
 
-public enum Faction
-{
-    Player,
-    Goblins,
-}
-
 /// <summary>
 /// Anything that takes turns. <see cref="Kind"/> is a data id ("goblin"); the front end
 /// decides what a kind looks like, so the core never mentions glyphs or colours.
@@ -27,6 +21,9 @@ public sealed class Actor
 
     /// <summary>Maximum ranged attack distance; 0 means melee only.</summary>
     public int Range { get; init; }
+
+    /// <summary>Ignores morale: never routs.</summary>
+    public bool Fearless { get; init; }
 
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
@@ -48,6 +45,4 @@ public sealed class Actor
         Defense = defense;
         Brain = brain;
     }
-
-    public bool IsHostileTo(Actor other) => Faction != other.Faction;
 }

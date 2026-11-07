@@ -16,22 +16,32 @@ namespace Roguelike.App;
 /// </summary>
 public sealed partial class GameScreen
 {
-    private enum Heatmap { Off, TowardPlayer, AwayFromPlayer }
 
     private const double AutoplaySecondsPerTurn = 0.12;
 
     private bool _reveal;
     private bool _showSquads;
-    private Heatmap _heatmap;
+    private int _heatmap; // 0 = off; otherwise an index into HeatmapChoices()
     private bool _autoplay;
     private double _autoplayTimer;
 
-    private string HeatmapName => _heatmap switch
+    /// <summary>Selectable Dijkstra maps: toward the player, then per faction "toward enemies" and "flee".</summary>
+    private List<(string Name, Func<IGridView<double?>> View)> HeatmapChoices()
     {
-        Heatmap.TowardPlayer => "toward player",
-        Heatmap.AwayFromPlayer => "flee map",
-        _ => "off",
-    };
+        var choices = new List<(string, Func<IGridView<double?>>)>
+        {
+            ("off", () => null!),
+            ("toward player", () => _world.TowardPlayer),
+        };
+        foreach (var faction in _world.Content.Factions.Values.Where(f => f.Id != "player"))
+        {
+            choices.Add(($"{faction.Id}: toward enemies", () => _world.TowardEnemiesOf(faction)));
+            choices.Add(($"{faction.Id}: flee", () => _world.AwayFromEnemiesOf(faction)));
+        }
+        return choices;
+    }
+
+    private string HeatmapName => HeatmapChoices()[_heatmap].Name;
 
     /// <summary>From --spectate: start the first game watching, with every debug view on.</summary>
     public static bool StartSpectating { get; set; }
@@ -52,7 +62,7 @@ public sealed partial class GameScreen
         else if (keyboard.IsKeyPressed(Keys.F2))
             _showSquads = !_showSquads;
         else if (keyboard.IsKeyPressed(Keys.F3))
-            _heatmap = (Heatmap)(((int)_heatmap + 1) % Enum.GetValues<Heatmap>().Length);
+            _heatmap = (_heatmap + 1) % HeatmapChoices().Count;
         else if (keyboard.IsKeyPressed(Keys.F5))
         {
             _world.ObserverMode = !_world.ObserverMode;
@@ -94,14 +104,9 @@ public sealed partial class GameScreen
     /// <summary>Background colour per cell for the selected Dijkstra map, or null when off.</summary>
     private Func<Point, Color?>? HeatmapView()
     {
-        IGridView<double?>? view = _heatmap switch
-        {
-            Heatmap.TowardPlayer => _world.TowardPlayer,
-            Heatmap.AwayFromPlayer => _world.AwayFromPlayer,
-            _ => null,
-        };
-        if (view is null)
+        if (_heatmap == 0)
             return null;
+        var view = HeatmapChoices()[_heatmap].View();
 
         double min = double.MaxValue, max = double.MinValue;
         foreach (var p in view.Positions())
@@ -162,7 +167,7 @@ public sealed partial class GameScreen
     private static string StateLabel(Squad squad) => squad.State switch
     {
         SquadState.Engage when squad.HelpTargetSquadId is not null => "fighting, runner out",
-        SquadState.Engage when squad.HoldTurns > 0 => "holding passage",
+        SquadState.Engage when squad.IsHoldingPassage => "holding passage",
         SquadState.Engage => "fighting",
         SquadState.Alert => "searching",
         SquadState.Flee => "fleeing",

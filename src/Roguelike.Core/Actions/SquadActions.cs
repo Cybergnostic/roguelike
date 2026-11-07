@@ -19,7 +19,7 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
         target.Hp -= damage;
         world.Emit(new ActorAttacked(actor.Id, target.Id, damage, Ranged: true));
         if (target.IsDead)
-            world.Emit(new ActorDied(target.Id, target.Kind));
+            world.Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
         return true;
     }
 }
@@ -55,6 +55,7 @@ public sealed record CallForHelpAction(int FromSquadId, int ToSquadId) : GameAct
         if (to.State is SquadState.Idle or SquadState.Alert)
         {
             to.State = SquadState.Alert;
+            to.TargetId = from.TargetId;
             to.LastKnownTarget = from.LastKnownTarget;
             to.LastSeenTurn = world.Turn;
             to.Destination = from.LastKnownTarget;

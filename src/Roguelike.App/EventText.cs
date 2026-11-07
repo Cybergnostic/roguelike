@@ -11,6 +11,11 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 {
     public string? Describe(GameEvent e) => e switch
     {
+        // Fights the player isn't part of: describe if seen, otherwise it's a distant noise.
+        ActorAttacked a when a.AttackerId != world.Player.Id && a.TargetId != world.Player.Id
+                             && !isVisible(a.AttackerId) && !isVisible(a.TargetId) => "You hear the clash of weapons.",
+        ActorDied d when d.ActorId != world.Player.Id && !isVisible(d.ActorId) => null,
+
         ActorAttacked { Ranged: true } a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "shoot", "shoots")} at {Name(a.TargetId)} and misses.",
         ActorAttacked { Ranged: true } a => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "shoot", "shoots")} {Name(a.TargetId)} for {a.Damage}.",
         ActorAttacked a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "miss", "misses")} {Name(a.TargetId)}.",
@@ -23,7 +28,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ActorDied d when d.ActorId == world.Player.Id => "You die...",
         ActorDied d => $"The {d.Kind.Replace('_', ' ')} dies.",
 
-        SquadSpotted s => $"{Cap(Name(s.SpotterId))} spots you and shrieks an alarm!",
+        SquadSpotted s when s.TargetId == world.Player.Id => $"{Cap(Name(s.SpotterId))} spots you and raises the alarm!",
+        SquadSpotted s when isVisible(s.SpotterId) || isVisible(s.TargetId) =>
+            $"{Cap(Name(s.SpotterId))} spots {Name(s.TargetId)}!",
+        SquadSpotted => null,
 
         SquadRouted r when r.MemberIds.Any(isVisible) => "The goblins' nerve breaks - they flee!",
         SquadRouted => "You hear panicked shrieks in the distance.",

@@ -35,7 +35,7 @@ public sealed record MoveAction(Direction Direction) : GameAction
         var other = world.ActorAt(target);
         if (other is not null)
         {
-            if (!actor.IsHostileTo(other))
+            if (!world.AreHostile(actor, other))
                 return false;
             return new AttackAction(other.Id).Perform(world, actor);
         }
@@ -61,7 +61,7 @@ public sealed record AttackAction(int TargetId) : GameAction
         world.Emit(new ActorAttacked(actor.Id, target.Id, damage));
 
         if (target.IsDead)
-            world.Emit(new ActorDied(target.Id, target.Kind));
+            world.Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id));
         return true;
     }
 }

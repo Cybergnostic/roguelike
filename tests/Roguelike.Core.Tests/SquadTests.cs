@@ -41,12 +41,12 @@ public class SquadTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void EveryGoblinBelongsToASquad()
+    public void EveryMonsterBelongsToASquad()
     {
         var world = World.Create(3);
         Assert.NotEmpty(world.Squads);
-        foreach (var goblin in world.Actors.Where(a => a.Faction == Faction.Goblins))
-            Assert.NotNull(world.SquadOf(goblin));
+        foreach (var monster in world.Actors.Where(a => a != world.Player))
+            Assert.NotNull(world.SquadOf(monster));
     }
 
     [Fact]
@@ -65,8 +65,8 @@ public class SquadTests(ITestOutputHelper output)
     [Fact]
     public void LosingMembersLowersMoraleAndBreaksTheSquad()
     {
-        var world = FindWorld(w => w.Squads.Any(s => s.Members.Count >= 4));
-        var squad = world.Squads.First(s => s.Members.Count >= 4);
+        var world = FindWorld(w => w.Squads.Any(s => s.Members.Count >= 4 && !s.IsFearless));
+        var squad = world.Squads.First(s => s.Members.Count >= 4 && !s.IsFearless);
         RevealPlayerTo(world, squad, distance: 5);
 
         foreach (var m in squad.Members.Take(3))
@@ -109,7 +109,7 @@ public class SquadTests(ITestOutputHelper output)
         foreach (var key in results.SelectMany(r => r.EventCounts.Keys).Distinct().Order())
             output.WriteLine($"  {key}: {Count(key)}");
 
-        Assert.True(Count("archer shots") > 0);
+        Assert.True(Count("attacks on player (ranged)") > 0);
         Assert.True(Count("shaman heals") > 0);
         Assert.True(Count("squads routed") > 0);
         Assert.True(Count("reinforcements called") > 0);
@@ -120,7 +120,8 @@ public class SquadTests(ITestOutputHelper output)
     {
         var result = Simulator.Run(11, new AggressiveBot(), maxTurns: 300, observer: true);
         Assert.False(result.PlayerDied);
-        Assert.Equal(0, result.EventCounts.GetValueOrDefault("hits on player"));
+        Assert.Equal(0, result.EventCounts.GetValueOrDefault("attacks on player (melee)"));
+        Assert.Equal(0, result.EventCounts.GetValueOrDefault("attacks on player (ranged)"));
         Assert.Equal(0, result.EventCounts.GetValueOrDefault("squads spotted player"));
     }
 }

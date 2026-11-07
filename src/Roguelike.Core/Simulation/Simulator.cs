@@ -47,18 +47,21 @@ public static class Simulator
     }
 
     private static int CountMonsters(World world) =>
-        world.Actors.Count(a => a.Faction != Faction.Player && !a.IsDead);
+        world.Actors.Count(a => a != world.Player && !a.IsDead);
 
     /// <summary>Stable names for event categories; reports and tests key off these.</summary>
     public static string? Classify(World world, GameEvent e) => e switch
     {
-        ActorAttacked { Ranged: true } => "archer shots",
-        ActorAttacked a when a.TargetId == world.Player.Id => "hits on player",
-        ActorAttacked => "attacks on monsters",
+        ActorAttacked { Ranged: true } a when a.TargetId == world.Player.Id => "attacks on player (ranged)",
+        ActorAttacked a when a.TargetId == world.Player.Id => "attacks on player (melee)",
+        ActorAttacked a when a.AttackerId == world.Player.Id => "player attacks",
+        ActorAttacked { Ranged: true } => "ranged shots between factions",
+        ActorAttacked => "melee attacks between factions",
         ActorHealed => "shaman heals",
         ActorDied d when d.ActorId == world.Player.Id => "player deaths",
-        ActorDied => "monsters killed",
-        SquadSpotted => "squads spotted player",
+        ActorDied d => $"killed: {d.FactionId}",
+        SquadSpotted s when s.TargetId == world.Player.Id => "squads spotted player",
+        SquadSpotted => "squads spotted other factions",
         SquadRouted => "squads routed",
         ReinforcementsCalled => "reinforcements called",
         _ => null,

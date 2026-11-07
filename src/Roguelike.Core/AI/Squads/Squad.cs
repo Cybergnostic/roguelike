@@ -41,15 +41,26 @@ public sealed class Squad
     public SquadState State { get; set; } = SquadState.Idle;
     public int Morale { get; set; } = MaxMorale;
 
-    /// <summary>Where the squad last knew the player to be, and when.</summary>
+    /// <summary>The enemy the squad is focused on, where it was last seen, and when.</summary>
+    public int? TargetId { get; set; }
     public Point? LastKnownTarget { get; set; }
     public int LastSeenTurn { get; set; } = -1;
 
     /// <summary>Where the squad is heading while idle (patrol) or alert (investigating).</summary>
     public Point? Destination { get; set; }
 
-    /// <summary>Consecutive turns spent holding a corridor mouth instead of charging in.</summary>
+    /// <summary>Consecutive turns the enemy has stood in a chokepoint while the squad is engaged.</summary>
     public int HoldTurns { get; set; }
+
+    /// <summary>How long warriors will wait at a corridor mouth before charging in anyway.</summary>
+    public const int MaxHoldTurns = 8;
+
+    /// <summary>
+    /// Warriors wait at the mouth of the enemy's corridor instead of filing in one at a time,
+    /// but only while someone can shoot at the enemy meanwhile, and only for a while.
+    /// </summary>
+    public bool IsHoldingPassage =>
+        State == SquadState.Engage && HoldTurns is > 0 and <= MaxHoldTurns && WithRole(SquadRole.Archer).Any();
 
     /// <summary>Squad the runner is fetching; null when no mission is pending.</summary>
     public int? HelpTargetSquadId { get; set; }
@@ -65,6 +76,9 @@ public sealed class Squad
     }
 
     public bool IsWipedOut => Members.Count == 0;
+
+    /// <summary>Squads made only of fearless members (e.g. undead) ignore morale.</summary>
+    public bool IsFearless => Members.Count > 0 && Members.All(m => m.Fearless);
 
     public SquadRole RoleOf(Actor actor) => Roles.GetValueOrDefault(actor.Id, SquadRole.Warrior);
 

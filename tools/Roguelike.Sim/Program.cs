@@ -52,11 +52,12 @@ Console.WriteLine($"  monsters surviving     {results.Sum(r => r.MonstersAtEnd),
 Console.WriteLine();
 
 Console.WriteLine("Events (total, per game)");
-var keys = results.SelectMany(r => r.EventCounts.Keys).Distinct().Order();
+var keys = results.SelectMany(r => r.EventCounts.Keys).Distinct().Order().ToList();
+int width = keys.Count == 0 ? 0 : keys.Max(k => k.Length);
 foreach (var key in keys)
 {
     int total = results.Sum(r => r.EventCounts.GetValueOrDefault(key));
-    Console.WriteLine($"  {key,-22} {total,6}  {(double)total / n,7:0.0}");
+    Console.WriteLine($"  {key.PadRight(width)} {total,6}  {(double)total / n,7:0.0}");
 }
 Console.WriteLine();
 

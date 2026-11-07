@@ -119,9 +119,11 @@ public sealed partial class GameScreen : ScreenObject
             (_world.GetActor(id) is { } a ? fov[a.Position] : before.TryGetValue(id, out var b) && fov[b.Position]);
         var text = new EventText(_world, id => $"the {before.GetValueOrDefault(id).Name ?? "thing"}", IsVisible);
 
+        var said = new HashSet<string>();
         foreach (var e in events)
         {
-            if (text.Describe(e) is not { } line)
+            // One copy of each line per turn ("You hear the clash of weapons." can fire a lot).
+            if (text.Describe(e) is not { } line || !said.Add(line))
                 continue;
             var color = e switch
             {
@@ -256,19 +258,24 @@ public sealed partial class GameScreen : ScreenObject
         {
             SquadState.Flee => "fleeing in panic",
             SquadState.Idle => "patrolling",
-            SquadState.Alert => "searching for you",
+            SquadState.Alert => squad.TargetId == _world.Player.Id ? "searching for you" : "searching",
             SquadState.Engage => role switch
             {
                 SquadRole.Runner when squad.HelpTargetSquadId is not null => "running for help!",
-                SquadRole.Archer => "shooting at you",
+                SquadRole.Archer => $"shooting at {TargetName(squad)}",
                 SquadRole.Shaman => "supporting allies",
-                _ when squad.HoldTurns > 0 && !_world.IsAdjacent(actor.Position, _world.Player.Position)
+                _ when squad.IsHoldingPassage && _world.AdjacentHostile(actor) is null
                     => "holding the passage",
-                _ => "attacking you",
+                _ => $"attacking {TargetName(squad)}",
             },
             _ => "",
         };
     }
+
+    private string TargetName(Squad squad) =>
+        squad.TargetId == _world.Player.Id ? "you"
+        : squad.TargetId is { } id && _world.GetActor(id) is { } t ? t.Name.Split(' ')[0] + "s"
+        : "enemies";
 
     private void DrawStatus()
     {
@@ -283,7 +290,7 @@ public sealed partial class GameScreen : ScreenObject
         if (_world.ObserverMode) flags.Add(_autoplay ? "SPECTATING (auto)" : "SPECTATING");
         if (_reveal) flags.Add("REVEAL");
         if (_showSquads) flags.Add("SQUADS");
-        if (_heatmap != Heatmap.Off) flags.Add($"HEAT: {HeatmapName}");
+        if (_heatmap != 0) flags.Add($"HEAT: {HeatmapName}");
         var text = string.Join("  ", flags);
         _status.Print(Width - text.Length - 1, 0, text, Theme.Warning);
     }

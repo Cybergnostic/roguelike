@@ -1,5 +1,6 @@
 using GoRogue.Pathing;
 using Roguelike.Core.Actions;
+using Roguelike.Core.Content;
 using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
@@ -22,6 +23,8 @@ public sealed class World
     public static readonly Direction[] EightWay = [.. AdjacencyRule.EightWay.DirectionsOfNeighbors()];
 
     public ulong Seed { get; }
+    public ContentDatabase Content { get; }
+    public FactionRelations Relations => Content.Relations;
     public IEnhancedRandom Rng { get; }
     public GameMap Map { get; }
     public Actor Player { get; }
@@ -29,30 +32,19 @@ public sealed class World
     public IReadOnlyList<Actor> Actors => _actors;
     public IReadOnlyList<Squad> Squads => _squads;
 
-    /// <summary>Dijkstra map toward the player, shared by every monster that is chasing.</summary>
+    /// <summary>Distance map toward the player (debug heatmap, tests, bots).</summary>
     public DistanceMap TowardPlayer { get; }
 
-    /// <summary>
-    /// Brogue-style safety map: following it downhill moves away from the player intelligently
-    /// (toward exits, not into corners). Expensive, so it is only recalculated when first
-    /// asked for after the player has moved.
-    /// </summary>
-    public FleeMap AwayFromPlayer
+    /// <summary>Per-faction "toward enemies" and "away from enemies" maps, rebuilt lazily each turn.</summary>
+    private sealed class FactionMaps(GameMap map)
     {
-        get
-        {
-            if (_fleeDirty)
-            {
-                _fleeSource.Update(); // FleeMap recalculates itself from its source
-                _fleeDirty = false;
-            }
-            return _awayFromPlayer;
-        }
+        public readonly DistanceMap Toward = new(map.Walkable);
+        public readonly SafetyMap Away = new(map.Walkable);
+        public bool TowardDirty = true;
+        public bool AwayDirty = true;
     }
 
-    private readonly GoalMap _fleeSource;
-    private readonly FleeMap _awayFromPlayer;
-    private bool _fleeDirty = true;
+    private readonly Dictionary<Faction, FactionMaps> _factionMaps = [];
 
     private readonly List<Actor> _actors = [];
     private readonly List<Squad> _squads = [];
@@ -60,31 +52,28 @@ public sealed class World
     private readonly AStar _aStar;
     private int _nextId;
 
-    private World(ulong seed, int width, int height)
+    private World(ulong seed, int width, int height, ContentDatabase content)
     {
         Seed = seed;
+        Content = content;
         Rng = new MizuchiRandom(seed);
         Map = MapGenerator.RoomsAndMazes(width, height, Rng);
 
         if (Map.Rooms.Count < 2)
             throw new InvalidOperationException("Map generation produced too few rooms.");
 
-        Player = Spawn("player", Faction.Player, Map.Rooms[0].Center, maxHp: 30, attack: 6, defense: 1);
-        SpawnGoblinSquads();
+        Player = AddActor(new Actor(_nextId++, "player", content.PlayerFaction, Map.Rooms[0].Center,
+            maxHp: 30, attack: 6, defense: 1));
+        SpawnSquads();
 
-        var goals = new LambdaGridView<GoalState>(Map.Width, Map.Height, p =>
-            !Map.Walkable[p] ? GoalState.Obstacle
-            : p == Player.Position ? GoalState.Goal
-            : GoalState.Clear);
         TowardPlayer = new DistanceMap(Map.Walkable);
-        _fleeSource = new GoalMap(goals, SadRogue.Primitives.Distance.Chebyshev);
-        _awayFromPlayer = new FleeMap(_fleeSource);
         _aStar = new AStar(Map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
 
         UpdatePerception();
     }
 
-    public static World Create(ulong seed, int width = 80, int height = 24) => new(seed, width, height);
+    public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null) =>
+        new(seed, width, height, content ?? ContentDatabase.Default);
 
     /// <summary>Runs one player action and, if it used a turn, everyone else's turn.</summary>
     public IReadOnlyList<GameEvent> Step(GameAction playerAction)
@@ -109,6 +98,9 @@ public sealed class World
 
     private void RunNonPlayerTurns()
     {
+        foreach (var maps in _factionMaps.Values)
+            maps.TowardDirty = maps.AwayDirty = true;
+
         foreach (var squad in _squads)
             SquadDirector.Think(this, squad);
 
@@ -146,17 +138,92 @@ public sealed class World
     /// </summary>
     public bool ObserverMode { get; set; }
 
-    /// <summary>Whether the player can see this actor (interface, bots).</summary>
+    /// <summary>Whether the player can see this actor (interface, bots). Uses the player's FOV.</summary>
     public bool PlayerCanSee(Actor actor) => Map.PlayerFov.BooleanResultView[actor.Position];
-
-    /// <summary>
-    /// Whether this actor can see the player (AI). Symmetric approximation: a monster
-    /// sees the player iff the player sees its cell. Always false in observer mode.
-    /// </summary>
-    public bool CanSeePlayer(Actor actor) => !Player.IsDead && !ObserverMode && PlayerCanSee(actor);
 
     /// <summary>Observer-mode guard for attacks: the player can't be harmed while spectating.</summary>
     public bool IsUntouchable(Actor target) => ObserverMode && target == Player;
+
+    /// <summary>Hostile per the faction table. The player in observer mode is nobody's enemy.</summary>
+    public bool AreHostile(Actor a, Actor b) =>
+        a != b && !a.IsDead && !b.IsDead && !IsUntouchable(a) && !IsUntouchable(b)
+        && Relations.AreHostile(a.Faction, b.Faction);
+
+    /// <summary>Monster perception: within sight radius and an unobstructed line.</summary>
+    public bool CanSee(Actor observer, Actor target)
+    {
+        if (target.IsDead || IsUntouchable(target))
+            return false;
+        int dx = observer.Position.X - target.Position.X, dy = observer.Position.Y - target.Position.Y;
+        return dx * dx + dy * dy <= SightRadiusSquared && HasLineOfSight(observer.Position, target.Position);
+    }
+
+    private const int SightRadiusSquared = FovRadius * FovRadius + FovRadius; // ~ radius 8.5
+
+    /// <summary>The closest hostile actor this actor can see, or null.</summary>
+    public Actor? NearestVisibleHostile(Actor self)
+    {
+        Actor? best = null;
+        int bestDistance = int.MaxValue;
+        foreach (var other in _actors)
+        {
+            if (!AreHostile(self, other))
+                continue;
+            int d = Distance(self.Position, other.Position);
+            if (d < bestDistance && CanSee(self, other))
+            {
+                best = other;
+                bestDistance = d;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>A hostile actor next to this one (the weakest, if several), or null.</summary>
+    public Actor? AdjacentHostile(Actor self)
+    {
+        Actor? best = null;
+        foreach (var dir in EightWay)
+        {
+            if (ActorAt(self.Position + dir) is { } other && AreHostile(self, other)
+                && (best is null || other.Hp < best.Hp))
+                best = other;
+        }
+        return best;
+    }
+
+    /// <summary>Dijkstra map toward every actor hostile to <paramref name="faction"/>.</summary>
+    public DistanceMap TowardEnemiesOf(Faction faction)
+    {
+        var maps = MapsFor(faction);
+        if (maps.TowardDirty)
+        {
+            maps.Toward.Update(_actors
+                .Where(a => !a.IsDead && !IsUntouchable(a) && Relations.AreHostile(faction, a.Faction))
+                .Select(a => a.Position));
+            maps.TowardDirty = false;
+        }
+        return maps.Toward;
+    }
+
+    /// <summary>Flee map away from every actor hostile to <paramref name="faction"/>.</summary>
+    public SafetyMap AwayFromEnemiesOf(Faction faction)
+    {
+        var maps = MapsFor(faction);
+        if (maps.AwayDirty)
+        {
+            maps.Away.Update(TowardEnemiesOf(faction));
+            maps.AwayDirty = false;
+        }
+        return maps.Away;
+    }
+
+    private FactionMaps MapsFor(Faction faction)
+    {
+        if (!_factionMaps.TryGetValue(faction, out var maps))
+            _factionMaps[faction] = maps = new FactionMaps(Map);
+        return maps;
+    }
 
     /// <summary>A corridor cell or doorway: walls on both sides along one axis.</summary>
     public bool IsChokepoint(Point p)
@@ -195,7 +262,7 @@ public sealed class World
             var p = self.Position + dir;
             if (!IsFree(p) || map[p] is not { } value || value >= here)
                 continue;
-            int crowding = EightWay.Count(d => ActorAt(p + d) is { } a && a != self && !a.IsHostileTo(self));
+            int crowding = EightWay.Count(d => ActorAt(p + d) is { } a && a != self && !AreHostile(a, self));
             if (value < bestValue - 1e-9 || (Math.Abs(value - bestValue) < 1e-9 && crowding < bestCrowding))
             {
                 best = dir;
@@ -236,7 +303,6 @@ public sealed class World
     {
         UpdateFov();
         TowardPlayer.Update([Player.Position]);
-        _fleeDirty = true;
     }
 
     private void UpdateFov()
@@ -246,39 +312,48 @@ public sealed class World
             Map.Explored[p] = true;
     }
 
-    private Actor Spawn(string kind, Faction faction, Point at, int maxHp, int attack, int defense, int range = 0)
+    private Actor AddActor(Actor actor)
     {
-        var actor = new Actor(_nextId++, kind, faction, at, maxHp, attack, defense) { Range = range };
         _actors.Add(actor);
         return actor;
     }
 
-    private Actor Spawn(MonsterTemplate t, Point at) =>
-        Spawn(t.Kind, t.Faction, at, t.MaxHp, t.Attack, t.Defense, t.Range);
+    private Actor Spawn(MonsterDef def, Point at) =>
+        AddActor(new Actor(_nextId++, def.Id, Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
+        {
+            Range = def.Range,
+            Fearless = def.Fearless,
+        });
 
-    private void SpawnGoblinSquads()
+    /// <summary>Populates rooms (except the start) with squads, per spawns.json.</summary>
+    private void SpawnSquads()
     {
+        var templates = Content.SquadTemplates;
+        int totalWeight = templates.Sum(t => t.Weight);
+        if (totalWeight <= 0)
+            return;
+
         foreach (var room in Map.Rooms.Skip(1))
         {
-            if (Rng.NextInt(3) == 0)
+            if (Rng.NextDouble() >= Content.RoomOccupancy)
                 continue;
 
-            var composition = new List<MonsterTemplate>();
-            int warriors = Rng.NextInt(1, 4);
-            for (int i = 0; i < warriors; i++) composition.Add(MonsterTemplates.GoblinWarrior);
-            int archers = Rng.NextInt(0, 3);
-            for (int i = 0; i < archers; i++) composition.Add(MonsterTemplates.GoblinArcher);
-            if (Rng.NextInt(4) == 0) composition.Add(MonsterTemplates.GoblinShaman);
-            if (composition.Count >= 3 && Rng.NextBool()) composition.Add(MonsterTemplates.GoblinRunner);
+            int roll = Rng.NextInt(totalWeight);
+            var template = templates.First(t => (roll -= t.Weight) < 0);
 
-            var squad = new Squad(_squads.Count, Faction.Goblins);
-            foreach (var template in composition)
+            var squad = new Squad(_squads.Count, Content.Factions[template.Faction]);
+            foreach (var member in template.Members)
             {
-                if (RandomFreeFloor(room) is not { } p)
-                    continue;
-                var goblin = Spawn(template, p);
-                goblin.Brain = new SquadMemberBrain(squad);
-                squad.Add(goblin, template.Role);
+                int count = Rng.NextInt(member.Min, member.Max + 1);
+                for (int i = 0; i < count; i++)
+                {
+                    if (Rng.NextDouble() >= member.Chance || RandomFreeFloor(room) is not { } p)
+                        continue;
+                    var def = Content.Monsters[member.Monster];
+                    var monster = Spawn(def, p);
+                    monster.Brain = new SquadMemberBrain(squad);
+                    squad.Add(monster, def.Role);
+                }
             }
             if (!squad.IsWipedOut)
                 _squads.Add(squad);

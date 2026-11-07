@@ -1,11 +1,14 @@
+using System.Globalization;
+using System.Text.Json;
 using Roguelike.Core.Map;
 using SadRogue.Primitives;
 
 namespace Roguelike.App;
 
 /// <summary>
-/// The only place that knows what things look like. Swap this for a tileset
-/// (or load it from a data file) without touching the simulation.
+/// The only place that knows what things look like. Glyphs and colours for kinds and
+/// tiles come from data/looks.json; swap that (or this class) for a tileset later
+/// without touching the simulation.
 /// </summary>
 public static class Theme
 {
@@ -21,25 +24,20 @@ public static class Theme
     public static readonly Color BarEmpty = new(40, 40, 50);
     public static readonly Color FleeingBackground = new(60, 40, 0);
 
-    public static Look ForTile(Tile tile) => tile switch
-    {
-        Tile.Wall => new('#', new Color(140, 130, 120)),
-        Tile.Floor => new('.', new Color(90, 90, 100)),
-        _ => new('?', Color.Magenta),
-    };
+    private static readonly Look Unknown = new('?', Color.Magenta);
+    private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles) Looks =
+        LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
-    public static Look ForKind(string kind) => kind switch
-    {
-        "player" => new('@', Color.White),
-        "goblin_warrior" => new('g', new Color(110, 200, 70)),
-        "goblin_archer" => new('g', new Color(220, 200, 80)),
-        "goblin_shaman" => new('g', new Color(190, 110, 230)),
-        "goblin_runner" => new('g', new Color(90, 200, 220)),
-        _ => new('?', Color.Magenta),
-    };
+    public static Look ForTile(Tile tile) =>
+        Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
 
-    /// <summary>Debug reveal: cells the player hasn't seen, shown dimmer than remembered ones' bright twin.</summary>
+    public static Look ForKind(string kind) => Looks.Kinds.GetValueOrDefault(kind, Unknown);
+
+    /// <summary>Debug reveal: cells the player hasn't seen, dimmer than visible ones.</summary>
     public static Color Revealed(Color c) => new((byte)(c.R * 0.55), (byte)(c.G * 0.55), (byte)(c.B * 0.65));
+
+    /// <summary>How remembered-but-not-visible cells are drawn.</summary>
+    public static Color Remembered(Color c) => new((byte)(c.R / 3), (byte)(c.G / 3), (byte)(c.B / 2));
 
     private static readonly Color[] SquadPalette =
     [
@@ -68,6 +66,31 @@ public static class Theme
             (int)(hot.B + (cold.B - hot.B) * t));
     }
 
-    /// <summary>How remembered-but-not-visible cells are drawn.</summary>
-    public static Color Remembered(Color c) => new((byte)(c.R / 3), (byte)(c.G / 3), (byte)(c.B / 2));
+    private static (Dictionary<string, Look>, Dictionary<string, Look>) LoadLooks(string path)
+    {
+        var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+        using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
+        return (ReadSection(doc.RootElement, "kinds"), ReadSection(doc.RootElement, "tiles"));
+    }
+
+    private static Dictionary<string, Look> ReadSection(JsonElement root, string name)
+    {
+        var result = new Dictionary<string, Look>();
+        if (!root.TryGetProperty(name, out var section))
+            return result;
+        foreach (var entry in section.EnumerateObject())
+        {
+            var g = entry.Value.GetProperty("glyph");
+            int glyph = g.ValueKind == JsonValueKind.Number ? g.GetInt32() : g.GetString()![0];
+            result[entry.Name] = new Look(glyph, ParseColor(entry.Value.GetProperty("color").GetString()!));
+        }
+        return result;
+    }
+
+    private static Color ParseColor(string hex)
+    {
+        hex = hex.TrimStart('#');
+        int rgb = int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        return new Color((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+    }
 }
