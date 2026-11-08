@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-08 (character system, step 5 part 1)
+Last updated: 2026-11-08 (sim speed-up, difficulty pass, rarity tiers and affixes)
 
 ---
 
@@ -334,6 +334,19 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
+- **With rarity tiers and affixes** (2026-11-08, commit 24c231b), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **34.7%**, died 62%, timed out 4%: items add about 14 points over the item-less baseline
+    below. A bit above the 20–30% target (the 200-game sample said 29%); retune when the content
+    changes, not before.
+  - Death rate by depth: 9.3, 9.0, 7.1, 4.2, 5.1, 6.5, 7.7, 11.1, 15.8, 18.6%.
+  - Per game: 8.8 magic, 2.6 rare and 0.6 legendary drops; lifesteal fires 15 times, thorns 8.6, cleave 7.5.
+  - On arrival at depth 10 the character averages 68 HP (61 without affixes), accuracy 4.3, evasion 4.7.
+  - About 3900 turns/s for this run (1000 games in 25 minutes).
+- **After the difficulty pass** (2026-11-08, before affixes), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **21.1%**, died 75%, timed out 4%. Average turn of death about 3800.
+  - Death rate by depth: 9.3, 9.6, 5.4, 4.7, 7.5, 7.2, 11.8, 18.7, 23.8, **34.6%**: rising, as intended.
+  - On arrival at depth 10 the character averages 61 HP, melee 16, defence 6.9, 3.5 potions.
+  - Killers: goblin archer 239, goblin warrior 159, skeleton archer 126, necromancer 115, skeleton warrior 88.
 - **Tactical bot, full dungeon** (2026-11-08), 1000 games (seeds 1000–1999), 20000-turn cap, ~48 min:
   - Won **67%**, died 29%, timed out 4%. A won game takes about 7900 turns and earns about 5900 XP.
   - Deaths by depth: D1 **19.6%**, D2 4.1%, then about 1% per level down to D10 (1.5%).
