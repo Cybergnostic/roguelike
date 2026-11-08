@@ -1,24 +1,27 @@
 {
   // Item types. category: weapon | bow | armor | potion.
   // weapon/bow "attack" and armor "defense" are bonuses; +X enchantment adds on top.
+  // "minDepth": the shallowest dungeon level where it can be generated (default 1). Good gear
+  // waits deeper down; monsters with "lootDepthBonus" (bosses, old dwarven dead) drop from deeper.
   "items": [
     { "id": "dagger",          "name": "dagger",          "category": "weapon", "attack": 3 },
     { "id": "short_sword",     "name": "short sword",     "category": "weapon", "attack": 4 },
-    { "id": "long_sword",      "name": "long sword",      "category": "weapon", "attack": 6 },
+    { "id": "long_sword",      "name": "long sword",      "category": "weapon", "attack": 6, "minDepth": 2 },
     { "id": "short_bow",       "name": "short bow",       "category": "bow",    "attack": 3, "range": 6 },
-    { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8 },
+    { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8, "minDepth": 2 },
     { "id": "leather_armor",   "name": "leather armor",   "category": "armor",  "defense": 1 },
-    { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3 },
+    { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3, "minDepth": 3 },
     { "id": "healing_potion",  "name": "potion of healing", "plural": "potions of healing", "category": "potion", "heal": 15 }
   ],
 
   // Rolled for every generated weapon, bow or armor: the classic +X (negative = cursed).
+  // "minDepth" keeps the big pluses for deeper levels.
   "enchantments": [
     { "value": -1, "weight": 5 },
     { "value": 0,  "weight": 65 },
     { "value": 1,  "weight": 20 },
-    { "value": 2,  "weight": 8 },
-    { "value": 3,  "weight": 2 }
+    { "value": 2,  "weight": 8, "minDepth": 2 },
+    { "value": 3,  "weight": 2, "minDepth": 4 }
   ],
 
   // Loot tables: one entry is picked by weight; "item": null means nothing.

@@ -74,7 +74,6 @@ public sealed record AttackAction(int TargetId) : GameAction
 
     private static void Strike(World world, Actor actor, Actor target)
     {
-        int roll = world.Rng.NextInt(1, Math.Max(1, actor.Attack) + 1);
-        world.Damage(actor, target, Math.Max(0, roll - target.Defense), ranged: false);
+        world.ResolveAttack(actor, target, ranged: false);
     }
 }

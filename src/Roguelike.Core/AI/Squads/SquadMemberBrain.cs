@@ -116,9 +116,15 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             return new WaitAction();
         }
 
+        // Close in, but never into melee reach: a shooter that can't shoot waits instead.
         var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
-        return step is { } s ? new MoveAction(s) : new WaitAction();
+        if (step is not { } s || NextToHostile(world, self, self.Position + s))
+            return new WaitAction();
+        return new MoveAction(s);
     }
+
+    private static bool NextToHostile(World world, Actor self, Point p) =>
+        World.EightWay.Any(d => world.ActorAt(p + d) is { } other && other != self && world.AreHostile(self, other));
 
     private GameAction Shaman(World world, Actor self)
     {

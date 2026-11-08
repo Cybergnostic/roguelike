@@ -2,12 +2,13 @@
   // The six attributes (D&D style; to be revisited). modifier = floor((score - 10) / 2), so 10-11
   // is +0, 12-13 is +1, 8-9 is -1. "perModifier" is what each modifier point adds to derived stats.
   // Fractions add up before rounding down. Stats: maxHp, meleeAttack, rangedAttack, defense,
-  // range, regen (fewer turns per HP), potionHealing (%), xpGain (%).
+  // range, regen (fewer turns per HP), potionHealing (%), xpGain (%), accuracy, evasion
+  // (each point of accuracy/evasion is 5% hit chance, see combat.json).
   "attributes": [
     { "id": "str", "name": "Strength",     "description": "Melee damage.",
       "perModifier": { "meleeAttack": 1 } },
-    { "id": "dex", "name": "Dexterity",    "description": "Bow damage, and dodging blows.",
-      "perModifier": { "rangedAttack": 1, "defense": 0.5 } },
+    { "id": "dex", "name": "Dexterity",    "description": "Hit more often, dodge more often, shoot a little harder.",
+      "perModifier": { "accuracy": 1, "evasion": 1, "rangedAttack": 0.5 } },
     { "id": "con", "name": "Constitution", "description": "Hit points.",
       "perModifier": { "maxHp": 3 } },
     { "id": "int", "name": "Intelligence", "description": "Learn faster: more XP from everything.",

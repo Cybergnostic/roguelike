@@ -42,7 +42,8 @@ public class CharacterTests
         Assert.Equal(def.MaxHp + 3 * c.ModifierOf("con"), player.MaxHp);
         Assert.Equal(player.MaxHp, player.Hp);
         Assert.Equal(def.Attack + player.Equipment!.Weapon!.AttackBonus + c.ModifierOf("str"), player.Attack);
-        Assert.Equal(def.Attack + player.Equipment.Bow!.AttackBonus + c.ModifierOf("dex"), player.RangedAttack);
+        Assert.Equal(def.Attack + player.Equipment.Bow!.AttackBonus + player.Bonus(Stat.RangedAttack), player.RangedAttack);
+        Assert.Equal(c.ModifierOf("dex"), player.Bonus(Stat.Accuracy));
     }
 
     [Fact]
@@ -145,10 +146,10 @@ public class CharacterTests
         var world = World.Create(1);
         var c = CharacterOf(world);
         c.Gain(10_000);
-        int defense = world.Player.Defense; // Dex 12: +1 modifier, 0.5 defence, rounds to 0
+        int ranged = world.Player.RangedAttack; // Dex 12: +1 modifier, 0.5 ranged attack, rounds to 0
         world.Step(new RaiseAttributeAction("dex"));
-        world.Step(new RaiseAttributeAction("dex")); // Dex 14: +2, 1 defence
-        Assert.Equal(defense + 1, world.Player.Defense);
+        world.Step(new RaiseAttributeAction("dex")); // Dex 14: +2, 1 ranged attack
+        Assert.Equal(ranged + 1, world.Player.RangedAttack);
     }
 
     [Fact]

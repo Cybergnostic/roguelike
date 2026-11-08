@@ -1,0 +1,14 @@
+{
+  // How an attack resolves:
+  // 1. Hit chance = baseHitChance + hitChancePerPoint x (attacker accuracy - target evasion),
+  //    clamped to [minHitChance, maxHitChance]. Shooting an adjacent target costs pointBlankPenalty
+  //    accuracy (bows are for range).
+  // 2. On a hit: damage = roll 1..attack, minus a random 0..defence absorbed by armour,
+  //    but at least minDamage. Armour softens blows; it never makes anyone untouchable.
+  "baseHitChance": 75,
+  "hitChancePerPoint": 5,
+  "minHitChance": 5,
+  "maxHitChance": 95,
+  "pointBlankPenalty": 4,
+  "minDamage": 1
+}

@@ -31,7 +31,8 @@ public sealed record ItemDef(
     int Attack = 0,
     int Defense = 0,
     int Range = 0,
-    int Heal = 0)
+    int Heal = 0,
+    int MinDepth = 1)
 {
     public bool IsEquipment => Category is ItemCategory.Weapon or ItemCategory.Bow or ItemCategory.Armor;
     public bool IsStackable => Category == ItemCategory.Potion;

@@ -5,6 +5,7 @@ using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
 using Roguelike.Core.Items;
+using Roguelike.Core.Simulation;
 using SadRogue.Primitives;
 using SadRogue.Primitives.GridViews;
 
@@ -20,7 +21,9 @@ using SadRogue.Primitives.GridViews;
 //   explore [max]                 walk to the nearest unexplored area until something shows up
 //   go X Y                        travel to a cell, stopping if an enemy appears
 //   attack ID   fire ID           melee an adjacent monster / shoot one
-//   fight ID [max]                shoot (or melee if no shot) until it dies; stops when neither works
+//   fight ID [max]                shoot (melee when adjacent) until it dies; stops when neither works
+// The interpreter is Roguelike.Core.Simulation.CommandPlayer, shared with the game window's
+// --follow mode, so you can watch a scripted game in the real UI.
 //   pickup   drink   equip ITEM   drop ITEM
 //   raise ATTR   learn SKILL      spend XP (free)
 
@@ -42,6 +45,7 @@ for (int i = 0; i < args.Length; i++)
 var world = World.Create(seed);
 var log = new List<string>();
 var names = new Dictionary<int, string>();
+var commands = new CommandPlayer(world);
 int lineNo = 0;
 string? stopReason = null;
 
@@ -58,7 +62,9 @@ foreach (var raw in lines)
         break;
     }
     log.Add($"> {line}");
-    stopReason = Run(line.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    foreach (var action in commands.Run(line))
+        Do(action);
+    stopReason = commands.StopReason;
     if (stopReason is not null)
         log.Add($"  [stopped: {stopReason}]");
 }
@@ -68,126 +74,14 @@ return 0;
 
 // ---------------------------------------------------------------------------------------
 
-string? Run(string[] c)
-{
-    var p = world.Player;
-    int Arg(int i, int dflt) => c.Length > i && int.TryParse(c[i], out var v) ? v : dflt;
-    switch (c[0])
-    {
-        case "n" or "s" or "e" or "w" or "ne" or "nw" or "se" or "sw":
-        {
-            var dir = c[0] switch
-            {
-                "n" => Direction.Up, "s" => Direction.Down, "e" => Direction.Right, "w" => Direction.Left,
-                "ne" => Direction.UpRight, "nw" => Direction.UpLeft, "se" => Direction.DownRight, _ => Direction.DownLeft,
-            };
-            return Repeat(Arg(1, 1), () => new MoveAction(dir), interruptible: Arg(1, 1) > 1);
-        }
-        case "wait": return Repeat(Arg(1, 1), () => new WaitAction(), interruptible: Arg(1, 1) > 1);
-        case "rest":
-            return Repeat(Arg(1, 200), () => p.Hp >= p.MaxHp ? null : new WaitAction(), interruptible: true);
-        case "explore": return Repeat(Arg(1, 300), ExploreStep, interruptible: true, stopOnItems: true);
-        case "go":
-        {
-            var goal = new Point(Arg(1, 0), Arg(2, 0));
-            return Repeat(200, () => world.StepToward(p, goal) is { } d ? new MoveAction(d) : null, interruptible: true);
-        }
-        case "fight":
-        {
-            int id = Arg(1, -1);
-            for (int i = 0; i < Arg(2, 12); i++)
-            {
-                if (p.IsDead) return "you died";
-                if (world.GetActor(id) is not { IsDead: false } t) return null;
-                int turn = world.Turn;
-                if (p.Equipment?.Bow is not null && World.Distance(p.Position, t.Position) <= p.Range && world.HasClearShot(p.Position, t.Position))
-                    Do(new FireAction(id));
-                else if (world.IsAdjacent(p.Position, t.Position))
-                    Do(new AttackAction(id));
-                else
-                    return "no shot and not adjacent";
-                if (world.Turn == turn) return "blocked";
-            }
-            return "target still alive";
-        }
-        case "attack": return Do(new AttackAction(Arg(1, -1)));
-        case "fire": return Do(new FireAction(Arg(1, -1)));
-        case "pickup": return Do(new PickUpAction());
-        case "drink":
-            return p.Inventory!.Items.FirstOrDefault(i => i.Def.Category == ItemCategory.Potion) is { } potion
-                ? Do(new DrinkAction(potion.Id)) : "no potion";
-        case "equip": return Do(new EquipAction(Arg(1, -1)));
-        case "drop": return Do(new DropAction(Arg(1, -1)));
-        case "raise": return Do(new RaiseAttributeAction(c[1]));
-        case "learn": return Do(new LearnSkillAction(c[1]));
-        default: return $"unknown command '{c[0]}'";
-    }
-}
-
 string? Do(GameAction action)
 {
     foreach (var a in world.Actors)
         names[a.Id] = a.Name;
-    int hpBefore = world.Player.Hp;
     var events = world.Step(action);
     foreach (var e in events)
         if (Describe(e) is { } text)
             log.Add("  " + text);
-    return null;
-}
-
-/// <summary>Repeats an action; interruptible runs stop when a new enemy comes into view or you get hurt.</summary>
-string? Repeat(int count, Func<GameAction?> next, bool interruptible, bool stopOnItems = false)
-{
-    var seen = VisibleHostiles().Select(a => a.Id).ToHashSet();
-    var itemsSeen = VisibleItems().Select(f => f.Item.Id).ToHashSet();
-    for (int i = 0; i < count; i++)
-    {
-        if (world.Player.IsDead)
-            return "you died";
-        var action = next();
-        if (action is null)
-            return i == 0 ? "nothing to do" : null;
-        int hp = world.Player.Hp;
-        int turn = world.Turn;
-        Do(action);
-        if (!interruptible)
-            continue;
-        if (world.Player.Hp < hp)
-            return "you were hurt";
-        if (VisibleHostiles().FirstOrDefault(a => !seen.Contains(a.Id)) is { } enemy)
-            return $"{enemy.Name} [{enemy.Id}] comes into view";
-        if (stopOnItems && VisibleItems().FirstOrDefault(f => !itemsSeen.Contains(f.Item.Id)) is { } item)
-            return $"you spot {ItemName(item.Item)} at {item.Position.X},{item.Position.Y}";
-        if (world.Turn == turn)
-            return "blocked";
-    }
-    return null;
-}
-
-GameAction? ExploreStep()
-{
-    // Nearest reachable walkable cell next to unexplored, walkable-unknown territory.
-    var map = world.Map;
-    var start = world.Player.Position;
-    var dist = new Dictionary<Point, int> { [start] = 0 };
-    var queue = new Queue<Point>();
-    queue.Enqueue(start);
-    while (queue.Count > 0)
-    {
-        var cur = queue.Dequeue();
-        if (cur != start && World.EightWay.Any(d => map.InBounds(cur + d) && !map.Explored[cur + d]))
-            return world.StepToward(world.Player, cur) is { } dir ? new MoveAction(dir) : null;
-        foreach (var d in World.EightWay)
-        {
-            var nb = cur + d;
-            if (map.InBounds(nb) && map.Walkable[nb] && map.Explored[nb] && !dist.ContainsKey(nb))
-            {
-                dist[nb] = dist[cur] + 1;
-                queue.Enqueue(nb);
-            }
-        }
-    }
     return null;
 }
 
@@ -207,6 +101,7 @@ bool Seen(int id) => id == world.Player.Id
 string? Describe(GameEvent e) => e switch
 {
     ActorAttacked a when !Seen(a.AttackerId) && !Seen(a.TargetId) => null,
+    ActorAttacked { Missed: true } a => $"{Name(a.AttackerId)} {(a.Ranged ? "shoots at" : "swings at")} {Name(a.TargetId)} and misses",
     ActorAttacked a => $"{Name(a.AttackerId)} {(a.Ranged ? "shoots" : "hits")} {Name(a.TargetId)} for {a.Damage}",
     ActorDied d when d.ActorId == world.Player.Id => "YOU DIE",
     ActorDied d => Seen(d.ActorId) || d.KillerId == world.Player.Id ? $"{Name(d.ActorId)} dies" : "(somewhere, something dies)",
@@ -313,7 +208,7 @@ void Print()
     sb.AppendLine();
 
     var zone = map.ZoneAt(p.Position)?.Name ?? "open dungeon";
-    sb.AppendLine($"Turn {world.Turn}  at {p.Position.X},{p.Position.Y} ({zone})  HP {p.Hp}/{p.MaxHp}  Melee {p.Attack}  Bow {p.RangedAttack} r{p.Range}  Def {p.Defense}");
+    sb.AppendLine($"Turn {world.Turn}  at {p.Position.X},{p.Position.Y} ({zone})  HP {p.Hp}/{p.MaxHp}  Melee {p.Attack}  Bow {p.RangedAttack} r{p.Range}  Def {p.Defense}  Acc {p.Accuracy}  Eva {p.Evasion}");
     sb.AppendLine($"XP {c.Xp} to spend ({c.TotalXp} total).  Attr point costs {c.RaiseCost}.  " +
         $"Attrs: {string.Join(" ", world.Content.Attributes.Select(a => $"{a.Id} {c.Score(a.Id)}"))}");
     var skills = world.Content.Skills.Values.Select(s => $"{s.Id} {c.Rank(s.Id)}/{s.Ranks}" +
@@ -333,7 +228,8 @@ void Print()
     foreach (var a in visible)
         sb.AppendLine($"  [{a.Id}] {Letter(a.Kind)} {a.Name} at {a.Position.X},{a.Position.Y} dist {World.Distance(a.Position, p.Position)}" +
                       $"  HP {a.Hp}/{a.MaxHp} atk {a.Attack} def {a.Defense}{(a.Range > 0 ? $" range {a.Range}" : "")}" +
-                      $"  {Intent(a)}{(world.HasClearShot(p.Position, a.Position) && World.Distance(p.Position, a.Position) <= p.Range ? "  (clear shot)" : "")}");
+                      $"  {Intent(a)}{(world.HasClearShot(p.Position, a.Position) && World.Distance(p.Position, a.Position) <= p.Range ? "  (clear shot)" : "")}" +
+                      $"  [you hit: melee {world.HitChance(p, a, false)}% bow {world.HitChance(p, a, true)}%; it hits you {world.HitChance(a, p, a.Range > 0 && !world.IsAdjacent(a.Position, p.Position))}%]");
     if (p.IsDead)
         sb.AppendLine("*** YOU ARE DEAD ***");
     Console.Write(sb);

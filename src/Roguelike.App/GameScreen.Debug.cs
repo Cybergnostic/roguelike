@@ -92,6 +92,11 @@ public sealed partial class GameScreen
     public override void Update(TimeSpan delta)
     {
         base.Update(delta);
+        if (IsFollowing)
+        {
+            UpdateFollow(delta);
+            return;
+        }
         if (!_autoplay || _world.Player.IsDead)
             return;
 

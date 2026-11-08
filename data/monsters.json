@@ -5,22 +5,24 @@
   // "speed": energy per turn; 100 acts every turn, 50 every other turn (default 100).
   // "risesAs": what this monster's corpse becomes when a necromancer raises it.
   // "xp": what killing one is worth to the player.
+  // "accuracy"/"evasion": +/- hit chance (see combat.json); default 0.
+  // "lootDepthBonus": its loot is rolled as if this many levels deeper (bosses, ancient dead).
   // "raise" (necromancers): reach in cells (needs line of sight), turns between raisings,
   // and how many servants it can control at once. Its servants crumble when it dies.
   "monsters": [
     { "id": "goblin_warrior", "faction": "goblins", "role": "warrior", "maxHp": 9, "attack": 5, "defense": 1, "xp": 10, "loot": "goblin", "risesAs": "goblin_zombie" },
-    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "xp": 10, "range": 6, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "xp": 10, "accuracy": 1, "range": 6, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "xp": 15, "loot": "goblin", "risesAs": "goblin_zombie" },
-    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "xp": 8, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "xp": 8, "evasion": 2, "loot": "goblin", "risesAs": "goblin_zombie" },
 
     // The undead: fearless (no morale), relentless. Skeletons pull themselves back together
     // when raised; goblin corpses become slow, tough zombies.
-    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 6, "defense": 1, "xp": 12, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior" },
-    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "xp": 12, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
-    { "id": "goblin_zombie",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "speed": 50, "fearless": true },
+    { "id": "skeleton_warrior", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 6, "defense": 1, "xp": 12, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior" },
+    { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "xp": 12, "lootDepthBonus": 1, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
+    { "id": "goblin_zombie",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "accuracy": -1, "evasion": -3, "speed": 50, "fearless": true },
 
     // The necromancer: stays in his lair, raises the dead, casts bolts from behind his guards.
-    { "id": "necromancer", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "xp": 80, "range": 6,
+    { "id": "necromancer", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "xp": 80, "lootDepthBonus": 2, "range": 6,
       "fearless": true, "loot": "necromancer",
       "raise": { "range": 7, "cooldown": 8, "maxMinions": 6 } }
   ]

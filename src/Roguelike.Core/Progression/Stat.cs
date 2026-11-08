@@ -12,8 +12,12 @@ public enum Stat
     MeleeAttack,
     /// <summary>Added to the ranged attack roll's maximum.</summary>
     RangedAttack,
-    /// <summary>Subtracted from each hit taken.</summary>
+    /// <summary>Armour: absorbs a random 0..Defense of each hit taken (a hit still does at least 1).</summary>
     Defense,
+    /// <summary>Chance to hit: each point is worth combat.json's hitChancePerPoint against the target's evasion.</summary>
+    Accuracy,
+    /// <summary>Chance to be missed: each point cancels a point of the attacker's accuracy.</summary>
+    Evasion,
     /// <summary>Extra bow range, in cells.</summary>
     Range,
     /// <summary>Fewer turns per HP regained.</summary>

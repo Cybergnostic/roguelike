@@ -13,7 +13,17 @@ namespace Roguelike.Core.Content;
 public sealed record MonsterDef(
     string Id, string Faction, SquadRole Role,
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
-    int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0);
+    int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
+    int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0);
+
+/// <summary>
+/// How attacks resolve (combat.json). Hit chance = BaseHitChance + HitChancePerPoint × (accuracy −
+/// evasion), clamped to MinHitChance..MaxHitChance; ranged attacks on an adjacent target lose
+/// PointBlankPenalty accuracy. A hit rolls 1..attack, armour absorbs 0..defence, and at least
+/// MinDamage gets through.
+/// </summary>
+public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
+    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -21,7 +31,8 @@ public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
 /// <summary>One weighted loot table line; a null item means "nothing".</summary>
 public sealed record LootEntry(string? Item, int Weight);
 
-public sealed record EnchantmentWeight(int Value, int Weight);
+/// <summary>One +X outcome; MinDepth: the shallowest dungeon level it can appear on.</summary>
+public sealed record EnchantmentWeight(int Value, int Weight, int MinDepth = 1);
 
 public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, int Enchantment = 0);
 
@@ -30,7 +41,8 @@ public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, in
 /// (0 = no regeneration). Attributes: starting scores by id (missing ones start at 10).
 /// </summary>
 public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit,
-    int RegenInterval = 8, IReadOnlyDictionary<string, int>? Attributes = null, XpRules? Xp = null);
+    int RegenInterval = 8, IReadOnlyDictionary<string, int>? Attributes = null, XpRules? Xp = null,
+    int Accuracy = 0, int Evasion = 0);
 
 /// <summary>
 /// XP besides kills: SightFraction of a monster's kill XP the first time you see its kind,
@@ -94,6 +106,7 @@ public sealed class ContentDatabase
     public IReadOnlyDictionary<string, IReadOnlyList<LootEntry>> LootTables { get; }
     public PlayerDef Player { get; }
     public XpRules Xp => Player.Xp ?? new XpRules();
+    public CombatRules Combat { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
@@ -122,8 +135,9 @@ public sealed class ContentDatabase
         Dictionary<string, Faction> factions, FactionRelations relations,
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
-        List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees)
+        List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat)
     {
+        Combat = combat;
         Attributes = attributes;
         AttributeRaise = raise;
         SkillTrees = trees;
@@ -151,6 +165,10 @@ public sealed class ContentDatabase
         var player = Read<PlayerDef>(directory, "player.json");
         var (attributes, raise) = LoadAttributes(Read<AttributeFile>(directory, "attributes.json"));
         var trees = LoadSkills(Read<SkillFile>(directory, "skills.json"));
+        var combat = Read<CombatRules>(directory, "combat.json");
+        if (combat.MinHitChance < 0 || combat.MaxHitChance > 100 || combat.MinHitChance > combat.MaxHitChance
+            || combat.HitChancePerPoint < 0 || combat.MinDamage < 0)
+            throw Error("combat.json", "hit chances must satisfy 0 <= min <= max <= 100; per-point and minDamage >= 0");
         foreach (var id in player.Attributes?.Keys ?? Enumerable.Empty<string>())
             if (attributes.All(a => a.Id != id))
                 throw Error("player.json", $"unknown attribute '{id}'");
@@ -165,8 +183,11 @@ public sealed class ContentDatabase
             foreach (var entry in entries)
                 if (entry.Item is not null && !items.ContainsKey(entry.Item))
                     throw Error("items.json", $"loot table '{table}' uses unknown item '{entry.Item}'");
-        if (itemFile.Enchantments.Sum(e => e.Weight) <= 0)
-            throw Error("items.json", "enchantments need a positive total weight");
+        if (itemFile.Enchantments.Where(e => e.MinDepth <= 1).Sum(e => e.Weight) <= 0)
+            throw Error("items.json", "enchantments need a positive total weight at depth 1");
+        foreach (var (table, entries) in itemFile.LootTables)
+            if (entries.Sum(e => e.Weight) <= 0)
+                throw Error("items.json", $"loot table '{table}' needs a positive total weight");
 
         if (player.RegenInterval < 0)
             throw Error("player.json", "regenInterval can't be negative");
@@ -252,7 +273,7 @@ public sealed class ContentDatabase
         }
 
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees);
+            attributes, raise, trees, combat);
     }
 
     private static (List<AttributeDef>, AttributeRaiseRules) LoadAttributes(AttributeFile file)

@@ -11,7 +11,8 @@ public abstract record GameEvent;
 
 public sealed record ActorMoved(int ActorId, Point From, Point To) : GameEvent;
 
-public sealed record ActorAttacked(int AttackerId, int TargetId, int Damage, bool Ranged = false) : GameEvent;
+/// <summary>An attack. Missed: it didn't connect (Damage is then 0).</summary>
+public sealed record ActorAttacked(int AttackerId, int TargetId, int Damage, bool Ranged = false, bool Missed = false) : GameEvent;
 
 public sealed record ActorHealed(int HealerId, int TargetId, int Amount) : GameEvent;
 

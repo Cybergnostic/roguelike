@@ -62,7 +62,11 @@ public sealed partial class GameScreen : ScreenObject
         StartSeed = null;
         var world = World.Create(seed, MapWidth, MapHeight);
         _messages.Clear();
+        _commands = null; // follow mode drives the new world from here on
+        _following = null;
         AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
+        if (FollowFile is not null)
+            AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
         AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Quit: Esc.", Theme.Text);
         AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
@@ -100,6 +104,9 @@ public sealed partial class GameScreen : ScreenObject
             }
             return true;
         }
+
+        if (IsFollowing)
+            return true; // the command file is playing; only debug keys and Esc work
 
         GameAction? action = null;
         foreach (var (key, dir) in MoveKeys)

@@ -86,9 +86,10 @@ public sealed class World
     private readonly AStar _aStar;
     private int _nextId;
 
-    private World(ulong seed, int width, int height, ContentDatabase content)
+    private World(ulong seed, int width, int height, ContentDatabase content, int depth)
     {
         Seed = seed;
+        Depth = depth;
         Content = content;
         Rng = new MizuchiRandom(seed);
         Map = MapGenerator.RoomsAndMazes(width, height, Rng);
@@ -106,8 +107,11 @@ public sealed class World
         UpdatePerception();
     }
 
-    public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null) =>
-        new(seed, width, height, content ?? ContentDatabase.Default);
+    public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null, int depth = 1) =>
+        new(seed, width, height, content ?? ContentDatabase.Default, depth);
+
+    /// <summary>How deep this level is (1 = the first). Gates which items and +X values can appear.</summary>
+    public int Depth { get; }
 
     /// <summary>Runs one player action and, if it used a turn, everyone else's turn.</summary>
     public IReadOnlyList<GameEvent> Step(GameAction playerAction)
@@ -206,6 +210,33 @@ public sealed class World
 
     // ---- Combat ----
 
+    /// <summary>Chance (percent) that this attack connects, from accuracy against evasion.</summary>
+    public int HitChance(Actor attacker, Actor target, bool ranged)
+    {
+        var rules = Content.Combat;
+        int accuracy = attacker.Accuracy - (ranged && IsAdjacent(attacker.Position, target.Position) ? rules.PointBlankPenalty : 0);
+        return Math.Clamp(rules.BaseHitChance + rules.HitChancePerPoint * (accuracy - target.Evasion),
+            rules.MinHitChance, rules.MaxHitChance);
+    }
+
+    /// <summary>
+    /// One melee blow or shot: roll to hit (accuracy vs evasion), then damage 1..attack minus a
+    /// random 0..defence absorbed by armour, never below the minimum damage. Armour softens hits;
+    /// it can't make anyone untouchable.
+    /// </summary>
+    public void ResolveAttack(Actor attacker, Actor target, bool ranged)
+    {
+        if (Rng.NextInt(100) >= HitChance(attacker, target, ranged))
+        {
+            Emit(new ActorAttacked(attacker.Id, target.Id, 0, ranged, Missed: true));
+            return;
+        }
+        int power = ranged ? attacker.RangedAttack : attacker.Attack;
+        int roll = Rng.NextInt(1, Math.Max(1, power) + 1);
+        int absorbed = Rng.NextInt(0, Math.Max(0, target.Defense) + 1);
+        Damage(attacker, target, Math.Max(Content.Combat.MinDamage, roll - absorbed), ranged);
+    }
+
     /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
     public void Damage(Actor attacker, Actor target, int damage, bool ranged)
     {
@@ -218,7 +249,8 @@ public sealed class World
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
             GrantXp(XpSource.Kill, target.Kind, killed.Xp);
         LeaveCorpse(target);
-        if (target.LootTable is { } table && RollLoot(table) is { } loot)
+        int lootDepth = Depth + (Content.Monsters.TryGetValue(target.Kind, out var victimDef) ? victimDef.LootDepthBonus : 0);
+        if (target.LootTable is { } table && RollLoot(table, lootDepth) is { } loot)
         {
             PlaceOnFloor(loot, target.Position);
             Emit(new LootDropped(target.Id, loot, target.Position));
@@ -277,25 +309,34 @@ public sealed class World
     public bool TakeFromFloor(Item item) => _floorItems.RemoveAll(f => f.Item == item) > 0;
 
     /// <summary>Makes a new item. Equipment rolls its +X unless one is given.</summary>
-    public Item CreateItem(ItemDef def, int? enchantment = null, int count = 1) =>
+    public Item CreateItem(ItemDef def, int? enchantment = null, int count = 1, int? depth = null) =>
         new(_nextItemId++, def)
         {
-            Enchantment = enchantment ?? (def.IsEquipment ? RollEnchantment() : 0),
+            Enchantment = enchantment ?? (def.IsEquipment ? RollEnchantment(depth ?? Depth) : 0),
             Count = count,
         };
 
-    /// <summary>Picks one entry from a loot table; null when it rolls "nothing".</summary>
-    public Item? RollLoot(string table)
+    /// <summary>
+    /// Picks one entry from a loot table, as found at <paramref name="depth"/> (default: this level).
+    /// Items deeper than that are left out of the draw. Null when it rolls "nothing".
+    /// </summary>
+    public Item? RollLoot(string table, int? depth = null)
     {
-        var entries = Content.LootTables[table];
-        int roll = Rng.NextInt(entries.Sum(e => e.Weight));
+        int d = depth ?? Depth;
+        var entries = Content.LootTables[table]
+            .Where(e => e.Item is null || Content.Items[e.Item].MinDepth <= d)
+            .ToList();
+        int total = entries.Sum(e => e.Weight);
+        if (total <= 0)
+            return null;
+        int roll = Rng.NextInt(total);
         var entry = entries.First(e => (roll -= e.Weight) < 0);
-        return entry.Item is null ? null : CreateItem(Content.Items[entry.Item]);
+        return entry.Item is null ? null : CreateItem(Content.Items[entry.Item], depth: d);
     }
 
-    private int RollEnchantment()
+    private int RollEnchantment(int depth)
     {
-        var table = Content.Enchantments;
+        var table = Content.Enchantments.Where(e => e.MinDepth <= depth).ToList();
         int roll = Rng.NextInt(table.Sum(e => e.Weight));
         return table.First(e => (roll -= e.Weight) < 0).Value;
     }
@@ -518,6 +559,8 @@ public sealed class World
     private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
         AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
         {
+            BaseAccuracy = def.Accuracy,
+            BaseEvasion = def.Evasion,
             BaseRange = def.Range,
             Fearless = def.Fearless,
             LootTable = def.Loot,
@@ -531,6 +574,8 @@ public sealed class World
         var player = AddActor(new Actor(_nextId++, "player", Content.PlayerFaction, at, def.MaxHp, def.Attack, def.Defense)
         {
             Character = new Character(Content, def.Attributes),
+            BaseAccuracy = def.Accuracy,
+            BaseEvasion = def.Evasion,
             Inventory = new Inventory(def.InventoryCapacity),
             Equipment = new Equipment(),
         });

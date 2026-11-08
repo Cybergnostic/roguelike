@@ -14,8 +14,7 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
             || !world.HasClearShot(actor.Position, target.Position))
             return false;
 
-        int roll = world.Rng.NextInt(1, Math.Max(1, actor.RangedAttack) + 1);
-        world.Damage(actor, target, Math.Max(0, roll - target.Defense), ranged: true);
+        world.ResolveAttack(actor, target, ranged: true);
         return true;
     }
 }

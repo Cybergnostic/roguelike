@@ -34,6 +34,13 @@ public sealed class Actor
     /// <summary>Natural ranged distance (monster archers); a bow overrides it.</summary>
     public int BaseRange { get; init; }
 
+    /// <summary>Natural accuracy and evasion (monsters.json, player.json), before attributes and skills.</summary>
+    public int BaseAccuracy { get; init; }
+    public int BaseEvasion { get; init; }
+
+    public int Accuracy => BaseAccuracy + Bonus(Stat.Accuracy);
+    public int Evasion => BaseEvasion + Bonus(Stat.Evasion);
+
     /// <summary>Ignores morale: never routs.</summary>
     public bool Fearless { get; init; }
 

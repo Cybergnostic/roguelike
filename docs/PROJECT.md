@@ -78,7 +78,8 @@ data/                        game content (JSON with comments), copied next to e
                              risesAs (corpse → undead), raise (necromancers), xp (kill reward)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
-  items.json                 item types, +X enchantment weights, loot tables
+  items.json                 item types (minDepth), +X enchantment weights (minDepth), loot tables
+  combat.json                hit chance (accuracy vs evasion), point-blank penalty, minimum damage
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
   skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
@@ -116,7 +117,8 @@ src/Roguelike.App/           SadConsole front end
   EventText.cs               events -> log messages (unseen things become sounds)
 tools/Roguelike.Sim/         headless simulation report CLI
 tools/Roguelike.Play/        text front end for playing by hand or by an AI agent: replays a command file
-                             from a seed, prints the view, monsters (with ids), stats and log
+                             from a seed, prints the view, monsters (ids, hit chances), stats and log.
+                             Commands are interpreted by Core's Simulation/CommandPlayer
 tools/scripts/sendkey.py     send keys to the game window (UI checks without stealing focus)
 tests/Roguelike.Core.Tests/  xUnit: determinism, map connectivity, squad behaviour, observer mode
 docs/PROJECT.md              this file
@@ -144,7 +146,11 @@ docs/PROJECT.md              this file
    monsters' phase (stale within a turn, which is acceptable). `TowardPlayer` is kept for the debug
    heatmap and tests. `StepDownhill` prefers less crowded cells, which makes groups surround
    instead of queue.
-7. **Combat goes through `world.Damage`** (HP, events, death, loot drop). Failed player actions emit
+7. **Attacks go through `world.ResolveAttack`**: hit roll (75% + 5% × (accuracy − evasion), clamped
+   5–95; −4 accuracy for shooting an adjacent target), then damage 1..attack minus a random 0..defence,
+   at least 1 (combat.json). Misses emit `ActorAttacked { Missed: true }`. `world.Damage` applies HP
+   loss, death, XP and loot. Loot is rolled at `world.Depth` (+ the victim's `lootDepthBonus`): items
+   and +X values deeper than that are left out. Failed player actions emit
    `ActionFailed(reason)` and return false (no turn used); the front end words the reason.
 8. **Stats are derived:** `Attack`/`Defense`/`RangedAttack`/`Range`/`MaxHp` = base + equipment (+X
    included) + `actor.Bonus(Stat)` from the `Character` (attributes per modifier point, skills per
@@ -185,7 +191,10 @@ dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
 dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
-`Roguelike.Play` is for playtesting by an agent: append commands to the file (`explore`, `go X Y`,
+**Watching an agent play:** start the window with
+`dotnet run --project src/Roguelike.App -- --seed 42 --follow moves.txt`; it plays each command
+appended to the file (same interpreter), ~11 turns/s. The agent decides with `Roguelike.Play` on the
+same seed and file. `Roguelike.Play` is for playtesting by an agent: append commands to the file (`explore`, `go X Y`,
 `n`/`se`... `fight ID`, `fire ID`, `pickup`, `equip ITEM`, `drink`, `rest`, `learn SKILL`, `raise ATTR`;
 see the header of its Program.cs) and run again. Multi-turn commands stop when a new enemy appears.
 The report gives: death rate, survivors' lowest HP and close calls (<25% HP), share of floor
@@ -315,7 +324,10 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current** (character system), aggressive bot, 100 seeds × 1000 turns:
+- **Current** (combat pass), aggressive bot, 100 seeds × 1000 turns: player died **33%**; average
+  turn of death about 245; 13 of 67 survivors had a close call; about 320 XP per game.
+  Killers: skeleton archer 13, skeleton warrior 7, necromancer 6, goblin archer 5, goblin warrior 2.
+- Character system, aggressive bot, 100 seeds × 1000 turns:
   - Player died **25%** (was 36% before XP); average turn of death about 150, before much XP comes in.
   - XP earned about 320 per game (survivors 370): about 7 skill ranks and 1 attribute point.
   - 13 of 75 survivors had a close call. Within the 20–35% target, so no retune. The XP economy is
@@ -338,6 +350,18 @@ you, a quick way to see progression; spectating: time passes).
     bolt (4) and slower raising (cooldown 8) brought it down.
   - The bot attacks whatever is nearest; a human who goes for the necromancer first should do
     better.
+
+- **Combat pass** (2026-11-08, after the playtest below):
+  - Hit rolls: accuracy vs evasion (Dex gives both; zombies are easy to hit, runners hard). Armour
+    absorbs a random 0..defence, and every hit does at least 1: no more immunity.
+  - Shooting point-blank costs 4 accuracy (−20%).
+  - Gear by depth: long sword and long bow from depth 2, chain mail from depth 3, +2 from depth 2,
+    +3 from depth 4. The single level is depth 1. Skeletons drop as if 1 level deeper, the
+    necromancer 2 (the boss reward).
+  - Archers and the necromancer no longer step into melee reach while closing in.
+  - Retuned: player base HP 33 (36 at start) and natural evasion 1. Bot deaths 33% (was 45% right
+    after the change); average death turn about 245, so danger lasts the whole level.
+  - The play tool's commands moved to Core (`CommandPlayer`); the window can `--follow` a command file.
 
 **Playtest by Claude, seed 42 (2026-11-08)**, played turn by turn with `Roguelike.Play`:
 - Cleared the level by turn ~366 (warren fallen, necromancer dead), ending at full HP. The only real

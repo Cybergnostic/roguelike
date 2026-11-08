@@ -1,12 +1,14 @@
 {
   // The player's base stats (before attributes and equipment) and starting kit.
-  // With the attributes below this starts at 30 HP and attack 2.
-  "maxHp": 27,
+  // With the attributes below this starts at 36 HP and attack 2.
+  "maxHp": 33,
   "attack": 1,
   "defense": 0,
   "inventoryCapacity": 20,
   // Turns per 1 HP regained. Slow on purpose: potions and retreating should matter.
   "regenInterval": 12,
+  // Natural accuracy/evasion (see combat.json), before Dexterity.
+  "evasion": 1,
   // Starting attribute scores (see attributes.json). Missing ones start at 10.
   "attributes": { "str": 12, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 10 },
   // XP besides kills ("xp" in monsters.json): a share of a monster's XP the first time you

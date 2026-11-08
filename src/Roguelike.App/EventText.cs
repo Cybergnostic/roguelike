@@ -16,9 +16,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
                              && !isVisible(a.AttackerId) && !isVisible(a.TargetId) => "You hear the clash of weapons.",
         ActorDied d when d.ActorId != world.Player.Id && !isVisible(d.ActorId) => null,
 
-        ActorAttacked { Ranged: true } a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} at {Name(a.TargetId)} and misses.",
+        ActorAttacked { Ranged: true, Missed: true } a => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} at {Name(a.TargetId)} and {Verb(a.AttackerId, "miss", "misses")}.",
+        ActorAttacked { Missed: true } a => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "miss", "misses")} {Name(a.TargetId)}.",
+        ActorAttacked a when a.Damage == 0 => $"{Cap(Name(a.TargetId))}{(a.TargetId == world.Player.Id ? "r" : "'s")} armour turns the blow.",
         ActorAttacked { Ranged: true } a => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} {Name(a.TargetId)} for {a.Damage}.",
-        ActorAttacked a when a.Damage == 0 => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "miss", "misses")} {Name(a.TargetId)}.",
         ActorAttacked a => $"{Cap(Name(a.AttackerId))} {Verb(a.AttackerId, "hit", "hits")} {Name(a.TargetId)} for {a.Damage}.",
 
         ActorHealed h when isVisible(h.HealerId) || isVisible(h.TargetId) =>
