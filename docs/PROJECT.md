@@ -115,6 +115,8 @@ src/Roguelike.App/           SadConsole front end
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
 tools/Roguelike.Sim/         headless simulation report CLI
+tools/Roguelike.Play/        text front end for playing by hand or by an AI agent: replays a command file
+                             from a seed, prints the view, monsters (with ids), stats and log
 tools/scripts/sendkey.py     send keys to the game window (UI checks without stealing focus)
 tests/Roguelike.Core.Tests/  xUnit: determinism, map connectivity, squad behaviour, observer mode
 docs/PROJECT.md              this file
@@ -181,7 +183,11 @@ dotnet run --project src/Roguelike.App          # play
 dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
+dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
+`Roguelike.Play` is for playtesting by an agent: append commands to the file (`explore`, `go X Y`,
+`n`/`se`... `fight ID`, `fire ID`, `pickup`, `equip ITEM`, `drink`, `rest`, `learn SKILL`, `raise ATTR`;
+see the header of its Program.cs) and run again. Multi-turn commands stop when a new enemy appears.
 The report gives: death rate, survivors' lowest HP and close calls (<25% HP), share of floor
 inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
@@ -332,6 +338,24 @@ you, a quick way to see progression; spectating: time passes).
     bolt (4) and slower raising (cooldown 8) brought it down.
   - The bot attacks whatever is nearest; a human who goes for the necromancer first should do
     better.
+
+**Playtest by Claude, seed 42 (2026-11-08)**, played turn by turn with `Roguelike.Play`:
+- Cleared the level by turn ~366 (warren fallen, necromancer dead), ending at full HP. The only real
+  danger was the first fight (lost 10 of 30 HP); it was good: a warrior corking a corridor with
+  archers stuck behind him, the shaman healing, the band routing at low morale.
+- **Defence makes the player immune (critical).** Damage is roll(1..attack) − defence, and no
+  monster has attack above 6. A +3 chain mail (def 6) found at turn 130 meant every later hit did 0,
+  including the necromancer's court. Reachable without luck: chain mail 3 + Thick Skin 2 + Dex 14.
+  Fix the combat formula before item affixes add more defence.
+- **The bow dominates.** Shooting an adjacent enemy has no penalty and a good bow out-damages the
+  sword, so melee and its skills are pointless once you find one.
+- **The necromancer stepped adjacent to the player** (into a dead zombie's spot) instead of keeping
+  his distance behind his guards.
+- XP spent mid-fight on Toughness/Constitution heals instantly (free action); minor.
+- Attribute points are poor value next to skills (+1 score is half a modifier for 30+ XP); ended
+  with 175 unspent XP and nothing worth buying.
+- 100 quiet turns at the start; the living dungeon mostly reaches the player as off-screen noises.
+- Ended with 5 unused healing potions.
 
 **Known issues / tech debt**
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
