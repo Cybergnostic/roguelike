@@ -1,0 +1,30 @@
+{
+  // Skills bought with XP, grouped in trees. Later, classes will decide which trees you can learn.
+  // "cost": XP per rank (one entry per rank). "requires": skills you need at least rank 1 in first.
+  // "perRank": derived stat bonuses per rank (same stat names as attributes.json).
+  // "special": a named ability implemented in the rules ("cleave").
+  "trees": [
+    { "id": "warfare", "name": "Warfare", "skills": [
+      { "id": "weapon_training", "name": "Weapon Training", "description": "Hit harder in melee.",
+        "ranks": 3, "cost": [40, 60, 80], "perRank": { "meleeAttack": 1 } },
+      { "id": "toughness", "name": "Toughness", "description": "More hit points.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "maxHp": 5 } },
+      { "id": "cleave", "name": "Cleave", "description": "Kills carry on into the next foe.",
+        "ranks": 1, "cost": [90], "requires": ["weapon_training"], "special": "cleave" }
+    ]},
+    { "id": "archery", "name": "Archery", "skills": [
+      { "id": "steady_aim", "name": "Steady Aim", "description": "Bow shots hit harder.",
+        "ranks": 3, "cost": [40, 60, 80], "perRank": { "rangedAttack": 1 } },
+      { "id": "eagle_eye", "name": "Eagle Eye", "description": "Shoot farther.",
+        "ranks": 2, "cost": [35, 55], "requires": ["steady_aim"], "perRank": { "range": 1 } }
+    ]},
+    { "id": "survival", "name": "Survival", "skills": [
+      { "id": "thick_skin", "name": "Thick Skin", "description": "Shrug off part of every hit.",
+        "ranks": 2, "cost": [60, 90], "perRank": { "defense": 1 } },
+      { "id": "field_medicine", "name": "Field Medicine", "description": "Potions heal more.",
+        "ranks": 2, "cost": [30, 45], "perRank": { "potionHealing": 25 } },
+      { "id": "second_wind", "name": "Second Wind", "description": "Recover hit points faster.",
+        "ranks": 2, "cost": [40, 60], "requires": ["field_medicine"], "perRank": { "regen": 2 } }
+    ]}
+  ]
+}

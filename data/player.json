@@ -1,11 +1,17 @@
 {
-  // The player's base stats (before equipment) and starting kit.
-  "maxHp": 30,
-  "attack": 2,
+  // The player's base stats (before attributes and equipment) and starting kit.
+  // With the attributes below this starts at 30 HP and attack 2.
+  "maxHp": 27,
+  "attack": 1,
   "defense": 0,
   "inventoryCapacity": 20,
   // Turns per 1 HP regained. Slow on purpose: potions and retreating should matter.
   "regenInterval": 12,
+  // Starting attribute scores (see attributes.json). Missing ones start at 10.
+  "attributes": { "str": 12, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 10 },
+  // XP besides kills ("xp" in monsters.json): a share of a monster's XP the first time you
+  // see its kind, and a reward for first entering a named place.
+  "xp": { "sightFraction": 0.5, "newZone": 25 },
   "kit": [
     { "item": "short_sword",    "equip": true },
     { "item": "leather_armor",  "equip": true },

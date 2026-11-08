@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Items;
+using Roguelike.Core.Progression;
 
 namespace Roguelike.Core.Content;
 
@@ -12,7 +13,7 @@ namespace Roguelike.Core.Content;
 public sealed record MonsterDef(
     string Id, string Faction, SquadRole Role,
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
-    int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null);
+    int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -24,9 +25,34 @@ public sealed record EnchantmentWeight(int Value, int Weight);
 
 public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, int Enchantment = 0);
 
-/// <summary>The player's base stats. RegenInterval: turns per 1 HP regained (0 = no regeneration).</summary>
+/// <summary>
+/// The player's base stats, before attributes and equipment. RegenInterval: turns per 1 HP regained
+/// (0 = no regeneration). Attributes: starting scores by id (missing ones start at 10).
+/// </summary>
 public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit,
-    int RegenInterval = 8);
+    int RegenInterval = 8, IReadOnlyDictionary<string, int>? Attributes = null, XpRules? Xp = null);
+
+/// <summary>
+/// XP besides kills: SightFraction of a monster's kill XP the first time you see its kind,
+/// and NewZone for first entering a named place.
+/// </summary>
+public sealed record XpRules(double SightFraction = 0, int NewZone = 0);
+
+/// <summary>One attribute (Strength...): what each point of its modifier adds to derived stats.</summary>
+public sealed record AttributeDef(string Id, string Name, string Description, IReadOnlyDictionary<Stat, double> PerModifier);
+
+/// <summary>Buying attribute points: the first costs BaseCost XP, each later one CostPerRaise more; scores stop at MaxScore.</summary>
+public sealed record AttributeRaiseRules(int BaseCost, int CostPerRaise, int MaxScore);
+
+/// <summary>
+/// A skill bought with XP. Cost[i] is the XP for rank i+1. Requires: skills needed (rank 1+) first.
+/// PerRank: derived stat bonuses per rank. Special: a named ability the rules know (see ContentDatabase.Specials).
+/// </summary>
+public sealed record SkillDef(string Id, string Name, string Tree, string Description, int Ranks, IReadOnlyList<int> Cost,
+    IReadOnlyList<string> Requires, IReadOnlyDictionary<Stat, double> PerRank, string? Special);
+
+/// <summary>A group of related skills. Later, classes will decide which trees a character can learn.</summary>
+public sealed record SkillTreeDef(string Id, string Name, IReadOnlyList<SkillDef> Skills);
 
 public sealed record SquadMemberDef(string Monster, int Min, int Max, double Chance = 1.0);
 
@@ -67,6 +93,14 @@ public sealed class ContentDatabase
     public IReadOnlyList<EnchantmentWeight> Enchantments { get; }
     public IReadOnlyDictionary<string, IReadOnlyList<LootEntry>> LootTables { get; }
     public PlayerDef Player { get; }
+    public XpRules Xp => Player.Xp ?? new XpRules();
+    public IReadOnlyList<AttributeDef> Attributes { get; }
+    public AttributeRaiseRules AttributeRaise { get; }
+    public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
+    public IReadOnlyDictionary<string, SkillDef> Skills { get; }
+
+    /// <summary>Special abilities skills can grant; each is implemented in the rules.</summary>
+    public static readonly IReadOnlyList<string> Specials = ["cleave"];
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
 
@@ -87,8 +121,13 @@ public sealed class ContentDatabase
     private ContentDatabase(
         Dictionary<string, Faction> factions, FactionRelations relations,
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
-        Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player)
+        Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
+        List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees)
     {
+        Attributes = attributes;
+        AttributeRaise = raise;
+        SkillTrees = trees;
+        Skills = trees.SelectMany(t => t.Skills).ToDictionary(s => s.Id);
         Factions = factions;
         Relations = relations;
         Monsters = monsters;
@@ -110,6 +149,13 @@ public sealed class ContentDatabase
         var spawnFile = Read<SpawnFile>(directory, "spawns.json");
         var itemFile = Read<ItemFile>(directory, "items.json");
         var player = Read<PlayerDef>(directory, "player.json");
+        var (attributes, raise) = LoadAttributes(Read<AttributeFile>(directory, "attributes.json"));
+        var trees = LoadSkills(Read<SkillFile>(directory, "skills.json"));
+        foreach (var id in player.Attributes?.Keys ?? Enumerable.Empty<string>())
+            if (attributes.All(a => a.Id != id))
+                throw Error("player.json", $"unknown attribute '{id}'");
+        if (player.Xp is { SightFraction: < 0 } or { NewZone: < 0 })
+            throw Error("player.json", "xp rewards can't be negative");
 
         var items = new Dictionary<string, ItemDef>();
         foreach (var item in itemFile.Items)
@@ -166,6 +212,8 @@ public sealed class ContentDatabase
                 throw Error("monsters.json", $"monster '{m.Id}' needs speed > 0");
             if (m.Role == SquadRole.Necromancer && m.Raise is null)
                 throw Error("monsters.json", $"necromancer '{m.Id}' needs a \"raise\" block");
+            if (m.Xp < 0)
+                throw Error("monsters.json", $"monster '{m.Id}' can't give negative xp");
             if (!monsters.TryAdd(m.Id, m))
                 throw Error("monsters.json", $"duplicate monster '{m.Id}'");
         }
@@ -203,8 +251,67 @@ public sealed class ContentDatabase
                     throw Error("spawns.json", $"squad '{s.Name}' lays out corpses of unknown monster '{c.Monster}'");
         }
 
-        return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player);
+        return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
+            attributes, raise, trees);
     }
+
+    private static (List<AttributeDef>, AttributeRaiseRules) LoadAttributes(AttributeFile file)
+    {
+        const string name = "attributes.json";
+        var list = new List<AttributeDef>();
+        foreach (var a in file.Attributes)
+        {
+            if (list.Any(x => x.Id == a.Id))
+                throw Error(name, $"duplicate attribute '{a.Id}'");
+            list.Add(new AttributeDef(a.Id, a.Name, a.Description ?? "", Stats(a.PerModifier, name, $"attribute '{a.Id}'")));
+        }
+        if (file.Raise.BaseCost <= 0 || file.Raise.CostPerRaise < 0 || file.Raise.MaxScore <= Character.BaseScore)
+            throw Error(name, "raise needs baseCost > 0, costPerRaise >= 0 and maxScore > 10");
+        return (list, file.Raise);
+    }
+
+    private static List<SkillTreeDef> LoadSkills(SkillFile file)
+    {
+        const string name = "skills.json";
+        var trees = new List<SkillTreeDef>();
+        var ids = new HashSet<string>();
+        foreach (var t in file.Trees)
+        {
+            var skills = new List<SkillDef>();
+            foreach (var s in t.Skills)
+            {
+                if (!ids.Add(s.Id))
+                    throw Error(name, $"duplicate skill '{s.Id}'");
+                if (s.Ranks <= 0 || s.Cost.Count != s.Ranks || s.Cost.Any(c => c <= 0))
+                    throw Error(name, $"skill '{s.Id}' needs ranks > 0 and one positive cost per rank");
+                if (s.Special is not null && !Specials.Contains(s.Special))
+                    throw Error(name, $"skill '{s.Id}' grants unknown special '{s.Special}' (known: {string.Join(", ", Specials)})");
+                skills.Add(new SkillDef(s.Id, s.Name, t.Id, s.Description ?? "", s.Ranks, s.Cost, s.Requires ?? [],
+                    Stats(s.PerRank, name, $"skill '{s.Id}'"), s.Special));
+            }
+            trees.Add(new SkillTreeDef(t.Id, t.Name, skills));
+        }
+        foreach (var s in trees.SelectMany(t => t.Skills))
+            foreach (var r in s.Requires)
+                if (!ids.Contains(r))
+                    throw Error(name, $"skill '{s.Id}' requires unknown skill '{r}'");
+        return trees;
+    }
+
+    /// <summary>Parses { "meleeAttack": 1 } into stat bonuses, naming the bad key on error.</summary>
+    private static Dictionary<Stat, double> Stats(Dictionary<string, double>? raw, string file, string owner)
+    {
+        var result = new Dictionary<Stat, double>();
+        foreach (var (key, value) in raw ?? [])
+        {
+            if (!Enum.TryParse<Stat>(key, ignoreCase: true, out var stat) || int.TryParse(key, out _))
+                throw Error(file, $"{owner} uses unknown stat '{key}' (known: {string.Join(", ", Enum.GetNames<Stat>().Select(Camel))})");
+            result[stat] = value;
+        }
+        return result;
+    }
+
+    private static string Camel(string s) => char.ToLowerInvariant(s[0]) + s[1..];
 
     private static T Read<T>(string directory, string file)
     {
@@ -233,6 +340,12 @@ public sealed class ContentDatabase
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
         int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
+    private sealed record AttributeFile(List<AttributeEntry> Attributes, AttributeRaiseRules Raise);
+    private sealed record AttributeEntry(string Id, string Name, string? Description, Dictionary<string, double>? PerModifier);
+    private sealed record SkillFile(List<SkillTreeEntry> Trees);
+    private sealed record SkillTreeEntry(string Id, string Name, List<SkillEntry> Skills);
+    private sealed record SkillEntry(string Id, string Name, string? Description, int Ranks, List<int> Cost,
+        List<string>? Requires, Dictionary<string, double>? PerRank, string? Special);
     private sealed record ItemFile(
         List<ItemDef> Items, List<EnchantmentWeight> Enchantments, Dictionary<string, List<LootEntry>> LootTables);
 }

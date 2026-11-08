@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Roguelike.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Game content; copied next to every program that uses the core. -->
     <None Include="..\..\data\**\*.json" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

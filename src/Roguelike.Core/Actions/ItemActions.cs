@@ -87,7 +87,8 @@ public sealed record DrinkAction(int ItemId) : GameAction
         if (item.Def.Category != ItemCategory.Potion)
             return PickUpAction.Fail(world, actor, FailureReason.NotDrinkable);
 
-        int healed = Math.Min(item.Def.Heal, actor.MaxHp - actor.Hp);
+        int heal = item.Def.Heal * (100 + actor.Bonus(Progression.Stat.PotionHealing)) / 100;
+        int healed = Math.Min(heal, actor.MaxHp - actor.Hp);
         actor.Hp += healed;
         item.Count--;
         if (item.Count <= 0)

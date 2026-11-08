@@ -12,7 +12,8 @@ namespace Roguelike.App;
 /// Developer views for watching the simulation:
 ///   F1 reveal map and all actors      F2 squad overlay and squad list
 ///   F3 cycle Dijkstra-map heatmaps    F5 spectator mode (invisible, invulnerable)
-///   P  autoplay turns                 Space advances one turn
+///   P  autoplay (spectating: time passes; playing: the aggressive bot plays for you)
+///   Space advances one turn while spectating
 /// </summary>
 public sealed partial class GameScreen
 {
@@ -23,6 +24,7 @@ public sealed partial class GameScreen
     private bool _showSquads;
     private int _heatmap; // 0 = off; otherwise an index into HeatmapChoices()
     private bool _autoplay;
+    private readonly Roguelike.Core.Simulation.AggressiveBot _autoplayBot = new();
     private double _autoplayTimer;
 
     /// <summary>Selectable Dijkstra maps: toward the player, then per faction "toward enemies" and "flee".</summary>
@@ -97,7 +99,8 @@ public sealed partial class GameScreen
         if (_autoplayTimer < AutoplaySecondsPerTurn)
             return;
         _autoplayTimer = 0;
-        PlayTurn(new WaitAction());
+        // Spectating, the dungeon just runs; otherwise the sim's bot plays the character.
+        PlayTurn(_world.ObserverMode ? new WaitAction() : _autoplayBot.Decide(_world));
         Draw();
     }
 

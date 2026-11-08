@@ -16,7 +16,8 @@ public sealed record GameResult(
     IReadOnlyDictionary<string, int> EventCounts,
     IReadOnlyDictionary<SquadState, int> SquadStateTurns,
     double LowestHpFraction,
-    double RoomFloorFraction);
+    double RoomFloorFraction,
+    int PlayerXp = 0);
 
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
@@ -54,7 +55,7 @@ public static class Simulator
 
         return new GameResult(seed, world.Player.IsDead, world.Turn,
             squadsAtStart, world.Squads.Count, monstersAtStart, CountMonsters(world),
-            counts, stateTurns, lowestHp, RoomFloorFraction(world));
+            counts, stateTurns, lowestHp, RoomFloorFraction(world), world.Player.Character?.TotalXp ?? 0);
     }
 
     /// <summary>Share of walkable cells that lie inside rooms (the rest is corridor and maze).</summary>
@@ -101,6 +102,10 @@ public static class Simulator
         RaidLaunched => "raids launched",
         SquadMustered => "squads mustered",
         MinionCrumbled => "minions crumbled",
+        XpGained x => $"xp events: {x.Source.ToString().ToLowerInvariant()}",
+        AttributeRaised => "attribute points bought",
+        SkillLearned => "skill ranks learned",
+        SpecialUsed u => $"specials used: {u.Special}",
         _ => null,
     };
 }

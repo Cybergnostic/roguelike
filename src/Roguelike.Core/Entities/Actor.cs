@@ -1,5 +1,6 @@
 using Roguelike.Core.AI;
 using Roguelike.Core.Items;
+using Roguelike.Core.Progression;
 using SadRogue.Primitives;
 
 namespace Roguelike.Core.Entities;
@@ -15,8 +16,16 @@ public sealed class Actor
     public Faction Faction { get; }
     public Point Position { get; set; }
 
-    public int MaxHp { get; }
+    /// <summary>Natural hit points, before attributes and skills.</summary>
+    public int BaseMaxHp { get; }
+    public int MaxHp => BaseMaxHp + Bonus(Stat.MaxHp);
     public int Hp { get; set; }
+
+    /// <summary>Attributes, skills and XP. Only the player has one so far.</summary>
+    public Character? Character { get; init; }
+
+    /// <summary>Bonus to a derived stat from attributes and skills (0 without a character).</summary>
+    public int Bonus(Stat stat) => Character?.Bonus(stat) ?? 0;
 
     /// <summary>Natural stats, before equipment.</summary>
     public int BaseAttack { get; }
@@ -47,16 +56,16 @@ public sealed class Actor
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
 
-    /// <summary>Melee attack: natural attack plus wielded weapon (including its +X).</summary>
-    public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0);
+    /// <summary>Melee attack: natural attack, wielded weapon (including its +X), attributes and skills.</summary>
+    public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
 
-    public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0);
+    public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense);
 
-    /// <summary>Ranged attack: the bow's if one is equipped, otherwise natural (monster archers).</summary>
-    public int RangedAttack => Equipment?.Bow is { } bow ? BaseAttack + bow.AttackBonus : BaseAttack;
+    /// <summary>Ranged attack: natural plus the bow if one is equipped (monster archers have none), attributes and skills.</summary>
+    public int RangedAttack => BaseAttack + (Equipment?.Bow?.AttackBonus ?? 0) + Bonus(Stat.RangedAttack);
 
-    /// <summary>Maximum ranged attack distance; 0 means melee only.</summary>
-    public int Range => Equipment?.Bow?.Def.Range ?? BaseRange;
+    /// <summary>Maximum ranged attack distance; 0 means melee only. Range bonuses only extend a bow.</summary>
+    public int Range => Equipment?.Bow is { } bow ? bow.Def.Range + Bonus(Stat.Range) : BaseRange;
 
     /// <summary>Human-readable name derived from the kind id ("goblin_archer" -> "goblin archer").</summary>
     public string Name => Kind.Replace('_', ' ');
@@ -70,7 +79,7 @@ public sealed class Actor
         Kind = kind;
         Faction = faction;
         Position = position;
-        MaxHp = Hp = maxHp;
+        BaseMaxHp = Hp = maxHp;
         BaseAttack = attack;
         BaseDefense = defense;
         Brain = brain;

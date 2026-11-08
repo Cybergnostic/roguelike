@@ -1,3 +1,4 @@
+using Roguelike.Core.Progression;
 using Roguelike.Core;
 using Roguelike.Core.Actions;
 using Roguelike.Core.Events;
@@ -21,8 +22,8 @@ public class ItemTests
         Assert.NotNull(player.Equipment!.Weapon);
         Assert.NotNull(player.Equipment.Bow);
         Assert.NotNull(player.Equipment.Armor);
-        Assert.Equal(kit.Attack + player.Equipment.Weapon!.AttackBonus, player.Attack);
-        Assert.Equal(kit.Defense + player.Equipment.Armor!.DefenseBonus, player.Defense);
+        Assert.Equal(kit.Attack + player.Equipment.Weapon!.AttackBonus + player.Bonus(Stat.MeleeAttack), player.Attack);
+        Assert.Equal(kit.Defense + player.Equipment.Armor!.DefenseBonus + player.Bonus(Stat.Defense), player.Defense);
         Assert.Equal(player.Equipment.Bow!.Def.Range, player.Range);
 
         var potions = player.Inventory!.Items.Single(i => i.Def.Category == ItemCategory.Potion);
@@ -81,12 +82,12 @@ public class ItemTests
 
         var events = world.Step(new EquipAction(sword.Id));
 
-        Assert.Equal(player.BaseAttack + 6 + 2, player.Attack);
+        Assert.Equal(player.BaseAttack + 6 + 2 + player.Bonus(Stat.MeleeAttack), player.Attack);
         Assert.Contains(events, e => e is ItemEquipped q && q.Item == sword && q.Replaced == old);
 
         world.Step(new EquipAction(sword.Id)); // again = take it off
         Assert.Null(player.Equipment.Weapon);
-        Assert.Equal(player.BaseAttack, player.Attack);
+        Assert.Equal(player.BaseAttack + player.Bonus(Stat.MeleeAttack), player.Attack);
     }
 
     [Fact]

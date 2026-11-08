@@ -62,8 +62,22 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         PotionDrunk p when p.ActorId == world.Player.Id =>
             p.Healed > 0 ? $"You drink {ItemText.AName(Single(p.Item))}. You feel better (+{p.Healed} HP)."
                          : $"You drink {ItemText.AName(Single(p.Item))}. Nothing happens; you're unhurt.",
+        // Kill XP shows on the status line; first encounters are worth a line.
+        XpGained { Source: XpSource.Sighting } x => $"You study the {Kind(x.Subject)} closely. (+{x.Amount} XP)",
+        XpGained { Source: XpSource.Zone } x => $"You have found {x.Subject}. (+{x.Amount} XP)",
+        XpGained => null,
+        AttributeRaised r => $"Your {world.Content.Attributes.First(a => a.Id == r.AttributeId).Name} rises to {r.NewScore}.",
+        SkillLearned l when world.Content.Skills[l.SkillId].Ranks == 1 => $"You learn {world.Content.Skills[l.SkillId].Name}.",
+        SkillLearned l => $"You learn {world.Content.Skills[l.SkillId].Name} (rank {l.NewRank}/{world.Content.Skills[l.SkillId].Ranks}).",
+        SpecialUsed { Special: "cleave" } u => $"Your blow carries on into {Name(u.TargetId)}!",
+        SpecialUsed => null,
+
         ActionFailed f when f.ActorId == world.Player.Id => f.Reason switch
         {
+            FailureReason.NotEnoughXp => "You need more experience for that.",
+            FailureReason.AttributeAtMax => "That is as high as it goes.",
+            FailureReason.SkillMastered => "You have mastered that already.",
+            FailureReason.MissingPrerequisite => "You must learn what it builds on first.",
             FailureReason.NothingToPickUp => "There is nothing here to pick up.",
             FailureReason.InventoryFull => "Your pack is full.",
             FailureReason.NoBow => "You have no bow readied.",

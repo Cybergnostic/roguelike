@@ -23,6 +23,9 @@ public sealed class AggressiveBot : IPlayerBot
     public GameAction Decide(World world)
     {
         var player = world.Player;
+        if (SpendXp(world, player) is { } purchase)
+            return purchase; // free: doesn't use a turn, so the bot is simply asked again
+
         var target = world.Actors
             .Where(a => world.AreHostile(player, a) && world.PlayerCanSee(a))
             .OrderBy(a => World.Distance(a.Position, player.Position))
@@ -67,6 +70,20 @@ public sealed class AggressiveBot : IPlayerBot
                 : room.Center;
         }
         return world.StepToward(player, goal) is { } dir ? new MoveAction(dir) : new WaitAction();
+    }
+
+    /// <summary>The cheapest affordable skill rank or point of Strength, Dexterity or Constitution.</summary>
+    private static GameAction? SpendXp(World world, Actor player)
+    {
+        if (player.Character is not { } c)
+            return null;
+        var options = world.Content.Skills.Keys
+            .Where(id => c.CheckLearn(id) is null)
+            .Select(id => (Cost: c.NextRankCost(id)!.Value, Action: (GameAction)new LearnSkillAction(id)))
+            .Concat(new[] { "str", "dex", "con" }
+                .Where(a => world.Content.Attributes.Any(d => d.Id == a) && c.CheckRaise(a) is null)
+                .Select(a => (Cost: c.RaiseCost, Action: (GameAction)new RaiseAttributeAction(a))));
+        return options.OrderBy(o => o.Cost).Select(o => o.Action).FirstOrDefault();
     }
 
     /// <summary>An unequipped item in the pack that beats what's in its slot, if any.</summary>

@@ -80,6 +80,7 @@ if (survivors.Count > 0)
 }
 Console.WriteLine($"  floor inside rooms     {100 * results.Average(r => r.RoomFloorFraction),7:0}%  (rest is corridor/maze)");
 Console.WriteLine($"  monsters per level     {results.Average(r => r.MonstersAtStart),8:0.0}");
+Console.WriteLine($"  player XP earned       {results.Average(r => r.PlayerXp),8:0.0}  (avg; survivors {(survivors.Count > 0 ? survivors.Average(r => r.PlayerXp) : 0):0})");
 Console.WriteLine();
 
 Console.WriteLine("Events (total, per game)");

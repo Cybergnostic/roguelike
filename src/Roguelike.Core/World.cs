@@ -7,6 +7,7 @@ using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
 using Roguelike.Core.Items;
 using Roguelike.Core.Map;
+using Roguelike.Core.Progression;
 using SadRogue.Primitives;
 using SadRogue.Primitives.GridViews;
 using ShaiRandom.Generators;
@@ -119,18 +120,52 @@ public sealed class World
         if (!playerAction.Perform(this, Player))
             return [.. _events];
         if (Map.ZoneAt(Player.Position) is { } zone && zone != zoneBefore)
+        {
             Emit(new ZoneEntered(zone.Name));
+            if (Player.Character?.Discover("zone:" + zone.Name) == true)
+                GrantXp(XpSource.Zone, zone.Name, Content.Xp.NewZone);
+        }
 
         UpdatePerception();
         RunNonPlayerTurns();
 
         _actors.RemoveAll(a => a.IsDead && a != Player);
         Turn++;
-        int regen = Content.Player.RegenInterval;
+        int regen = RegenInterval;
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
         UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
         return [.. _events];
+    }
+
+    /// <summary>Turns per HP the player regains: player.json's interval, shortened by Regen bonuses (never below 2).</summary>
+    public int RegenInterval =>
+        Content.Player.RegenInterval <= 0 ? 0 : Math.Max(2, Content.Player.RegenInterval - Player.Bonus(Stat.Regen));
+
+    // ---- Experience ----
+
+    /// <summary>Gives the player XP, scaled by XpGain bonuses (Intelligence).</summary>
+    public void GrantXp(XpSource source, string subject, double baseAmount)
+    {
+        if (Player.Character is not { } character)
+            return;
+        int amount = (int)Math.Floor(baseAmount * (100 + Player.Bonus(Stat.XpGain)) / 100.0 + 1e-9);
+        if (amount <= 0)
+            return;
+        character.Gain(amount);
+        Emit(new XpGained(Player.Id, amount, source, subject));
+    }
+
+    /// <summary>The first time the player sees a kind of monster, they learn something from it.</summary>
+    private void NoticeNewKinds()
+    {
+        if (Player.Character is not { } character || ObserverMode)
+            return;
+        var fov = Map.PlayerFov.BooleanResultView;
+        foreach (var actor in _actors)
+            if (actor != Player && !actor.IsDead && fov[actor.Position]
+                && Content.Monsters.TryGetValue(actor.Kind, out var def) && character.Discover("kind:" + actor.Kind))
+                GrantXp(XpSource.Sighting, actor.Kind, def.Xp * Content.Xp.SightFraction);
     }
 
     private void RunNonPlayerTurns()
@@ -180,6 +215,8 @@ public sealed class World
             return;
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
+        if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
+            GrantXp(XpSource.Kill, target.Kind, killed.Xp);
         LeaveCorpse(target);
         if (target.LootTable is { } table && RollLoot(table) is { } loot)
         {
@@ -469,6 +506,7 @@ public sealed class World
         Map.PlayerFov.Calculate(Player.Position, FovRadius, SadRogue.Primitives.Distance.Euclidean);
         foreach (var p in Map.PlayerFov.CurrentFOV)
             Map.Explored[p] = true;
+        NoticeNewKinds();
     }
 
     private Actor AddActor(Actor actor)
@@ -492,6 +530,7 @@ public sealed class World
         var def = Content.Player;
         var player = AddActor(new Actor(_nextId++, "player", Content.PlayerFaction, at, def.MaxHp, def.Attack, def.Defense)
         {
+            Character = new Character(Content, def.Attributes),
             Inventory = new Inventory(def.InventoryCapacity),
             Equipment = new Equipment(),
         });
@@ -501,6 +540,7 @@ public sealed class World
             if (k.Equip)
                 player.Equipment!.Equip(item);
         }
+        player.Hp = player.MaxHp; // Constitution adds to the base
         return player;
     }
 

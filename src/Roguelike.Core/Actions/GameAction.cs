@@ -60,8 +60,21 @@ public sealed record AttackAction(int TargetId) : GameAction
         if (target is null || target.IsDead || world.IsUntouchable(target))
             return false;
 
+        Strike(world, actor, target);
+
+        // Cleave: a killing blow carries on into another adjacent foe (once per attack).
+        if (target.IsDead && actor.Character?.Has("cleave") == true
+            && world.AdjacentHostile(actor) is { } next && !world.IsUntouchable(next))
+        {
+            world.Emit(new SpecialUsed(actor.Id, "cleave", next.Id));
+            Strike(world, actor, next);
+        }
+        return true;
+    }
+
+    private static void Strike(World world, Actor actor, Actor target)
+    {
         int roll = world.Rng.NextInt(1, Math.Max(1, actor.Attack) + 1);
         world.Damage(actor, target, Math.Max(0, roll - target.Defense), ranged: false);
-        return true;
     }
 }

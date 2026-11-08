@@ -1,0 +1,22 @@
+{
+  // The six attributes (D&D style; to be revisited). modifier = floor((score - 10) / 2), so 10-11
+  // is +0, 12-13 is +1, 8-9 is -1. "perModifier" is what each modifier point adds to derived stats.
+  // Fractions add up before rounding down. Stats: maxHp, meleeAttack, rangedAttack, defense,
+  // range, regen (fewer turns per HP), potionHealing (%), xpGain (%).
+  "attributes": [
+    { "id": "str", "name": "Strength",     "description": "Melee damage.",
+      "perModifier": { "meleeAttack": 1 } },
+    { "id": "dex", "name": "Dexterity",    "description": "Bow damage, and dodging blows.",
+      "perModifier": { "rangedAttack": 1, "defense": 0.5 } },
+    { "id": "con", "name": "Constitution", "description": "Hit points.",
+      "perModifier": { "maxHp": 3 } },
+    { "id": "int", "name": "Intelligence", "description": "Learn faster: more XP from everything.",
+      "perModifier": { "xpGain": 10 } },
+    { "id": "wis", "name": "Wisdom",       "description": "Recover faster, and know how to treat wounds.",
+      "perModifier": { "regen": 1, "potionHealing": 10 } },
+    // Nothing to persuade yet: Charisma will matter once you can talk to factions.
+    { "id": "cha", "name": "Charisma",     "description": "Dealing with factions (not in the game yet)." }
+  ],
+  // Buying +1 to any attribute: the first costs baseCost XP, each later one costPerRaise more.
+  "raise": { "baseCost": 30, "costPerRaise": 15, "maxScore": 20 }
+}

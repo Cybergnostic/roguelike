@@ -59,8 +59,33 @@ public sealed record ItemUnequipped(int ActorId, Item Item) : GameEvent;
 
 public sealed record PotionDrunk(int ActorId, Item Item, int Healed) : GameEvent;
 
+// ---- Character ----
+
+public enum XpSource
+{
+    Kill,
+    /// <summary>First sight of a kind of monster; Subject is its kind.</summary>
+    Sighting,
+    /// <summary>First visit to a named place; Subject is its name.</summary>
+    Zone,
+}
+
+/// <summary>Subject: the monster kind (kills, sightings) or the zone name.</summary>
+public sealed record XpGained(int ActorId, int Amount, XpSource Source, string Subject) : GameEvent;
+
+public sealed record AttributeRaised(int ActorId, string AttributeId, int NewScore) : GameEvent;
+
+public sealed record SkillLearned(int ActorId, string SkillId, int NewRank) : GameEvent;
+
+/// <summary>A skill's special ability went off ("cleave"), aimed at TargetId.</summary>
+public sealed record SpecialUsed(int ActorId, string Special, int TargetId) : GameEvent;
+
 public enum FailureReason
 {
+    NotEnoughXp,
+    AttributeAtMax,
+    SkillMastered,
+    MissingPrerequisite,
     NothingToPickUp,
     InventoryFull,
     NoBow,

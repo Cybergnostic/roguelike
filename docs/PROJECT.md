@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-07 (player kit)
+Last updated: 2026-11-08 (character system, step 5 part 1)
 
 ---
 
@@ -60,6 +60,10 @@ loot (rarity tiers, +X gear).
 | **Monsters are data ids (`Kind`)** | Front end maps kind to glyph/colour (`data/looks.json` via `Theme.cs`); core never knows what things look like | |
 | **Content in JSON (`data/`)** | Tuning without recompiling; modding later. Validated at load with file-specific errors | Hard-coded C# templates |
 | **Factions are data, relations table** | Adding a faction = data, not code. Unlisted pairs neutral, same faction allied | Enum of factions |
+| **Six D&D attributes** (user, 2026-11-08; to be revisited) | Familiar; CHA/INT/WIS get real uses as talking, magic and factions arrive. Their effects live in `attributes.json`, so revisiting is a data edit | 4 Sil-style attributes; none (Brogue) |
+| **XP is spent on attributes and skills now; ToME-style classes and skill trees later** (user) | Skills are data, grouped in trees, so a class can later just be "which trees you start with" (plus actives with cooldowns) | Fixed level-ups |
+| **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
+| **One derived-stat vocabulary (`Stat`)** | Attributes, skills and (next) item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
 
 ---
@@ -71,11 +75,13 @@ Roguelike.slnx
 data/                        game content (JSON with comments), copied next to every program
   factions.json              factions + relations (hostile/neutral/allied) + raid orders
   monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed,
-                             risesAs (corpse → undead), raise (necromancers)
+                             risesAs (corpse → undead), raise (necromancers), xp (kill reward)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
   items.json                 item types, +X enchantment weights, loot tables
-  player.json                player base stats, inventory size, starting kit
+  player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
+  attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
+  skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
   looks.json                 front end only: glyph + colour per kind, item and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
@@ -87,10 +93,13 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
   Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
   Entities/Faction.cs        Faction, Relation, FactionRelations
+  Progression/Stat.cs        the derived stats everything adds to (maxHp, meleeAttack, defense, regen...)
+  Progression/Character.cs   attribute scores, skill ranks, XP pool; sums bonuses; spending checks
   Items/Item.cs              ItemDef (data), Item (instance: +X Enchantment, Rarity, Count), categories
   Items/Inventory.cs         Inventory (stacking, capacity) and Equipment (weapon/bow/armor slots)
   Actions/                   GameAction records: Move (bump-attack, ally swap), Attack, Wait, RangedAttack,
-                             Heal, CallForHelp, RaiseDead, PickUp, Drop, Equip, Drink, Fire
+                             Heal, CallForHelp, RaiseDead, PickUp, Drop, Equip, Drink, Fire,
+                             RaiseAttribute, LearnSkill (free actions: Perform returns false)
   Events/GameEvent.cs        structured events emitted during a turn
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
@@ -101,6 +110,7 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.cs              map/sidebar/status/log, input, turn loop
   GameScreen.Debug.cs        debug views (F1/F2/F3/F5/P), autoplay
   GameScreen.Items.cs        item commands, inventory menus, bow targeting
+  GameScreen.Character.cs    character sheet (c): attributes, skill trees, derived stats; letters spend XP
   ItemText.cs                item names ("+1 short sword", "2 potions of healing")
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
@@ -134,7 +144,10 @@ docs/PROJECT.md              this file
    instead of queue.
 7. **Combat goes through `world.Damage`** (HP, events, death, loot drop). Failed player actions emit
    `ActionFailed(reason)` and return false (no turn used); the front end words the reason.
-8. **Stats are derived:** `Attack`/`Defense`/`RangedAttack`/`Range` = base + equipment (+X included).
+8. **Stats are derived:** `Attack`/`Defense`/`RangedAttack`/`Range`/`MaxHp` = base + equipment (+X
+   included) + `actor.Bonus(Stat)` from the `Character` (attributes per modifier point, skills per
+   rank; fractions summed, then rounded down). New sources of bonuses (item affixes) should feed the
+   same `Stat` list. Spending XP never uses a turn.
 9. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
    defaults to `ContentDatabase.Default`. Reference everything by id; validate new fields in `Load`.
 10. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
@@ -175,11 +188,12 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Restart after death: `R`. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
-`f` fire bow (Tab next target, `f`/Enter fire, Esc cancel).
+`f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
 target position, squad list with morale), `F3` cycle heatmaps (toward player, then per faction
 "toward enemies" and "flee"),
-`F5` spectator mode (invisible, invulnerable), `P` autoplay.
+`F5` spectator mode (invisible, invulnerable), `P` autoplay (playing: the aggressive bot plays for
+you, a quick way to see progression; spectating: time passes).
 
 ### API gotchas found so far
 - `World.Distance(a, b)` (static helper) clashes with `SadRogue.Primitives.Distance` inside `World`;
@@ -262,6 +276,20 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
     (Engage/Alert), so the bones get up when you arrive.
   - Leash 12: lair squads never step farther (walking) from home, holding the border instead;
     searches beyond it turn into going home.
+- **Character system** (step 5 part 1, 2026-11-08):
+  - Six attributes (str, dex, con, int, wis, cha), D&D modifiers. Effects from attributes.json:
+    Str melee, Dex bow + ½ defence, Con 3 HP, Int +10% XP, Wis regen + potion healing, Cha nothing yet.
+  - Starting scores 12/12/12/10/10/10 with base stats lowered to match, so the opening character is
+    exactly as before (30 HP, attack 2).
+  - XP: kills by the player (`xp` per monster), half that for the first sighting of each kind, 25 for
+    first entering a named zone. Int scales all of it.
+  - Spending: +1 to any attribute (30 XP, then 15 more each time, max 20) or skill ranks from three
+    trees (Warfare: Weapon Training, Toughness, Cleave; Archery: Steady Aim, Eagle Eye; Survival:
+    Thick Skin, Field Medicine, Second Wind). Prerequisites and max ranks enforced.
+  - Cleave is the first "special": a killing melee blow carries on into another adjacent foe.
+  - Character sheet (`c`), XP on the status line ("(c)" when you can afford something), a log hint
+    the first time you can, messages for sightings, zones, raises and skills.
+  - The bot buys the cheapest affordable skill rank or Str/Dex/Con point; UI autoplay uses the bot.
 - **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
   perception of any hostile; per-faction toward/flee maps; squads engage other factions.
   Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
@@ -281,7 +309,12 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current** (necromancer part 3: warren, musters, raids), aggressive bot, 100 seeds × 1000 turns:
+- **Current** (character system), aggressive bot, 100 seeds × 1000 turns:
+  - Player died **25%** (was 36% before XP); average turn of death about 150, before much XP comes in.
+  - XP earned about 320 per game (survivors 370): about 7 skill ranks and 1 attribute point.
+  - 13 of 75 survivors had a close call. Within the 20–35% target, so no retune. The XP economy is
+    sized for one level; revisit costs when there are deeper levels.
+- Necromancer part 3 (warren, musters, raids), aggressive bot, 100 seeds × 1000 turns:
   - Player died **36%**; 11 of 64 survivors had a close call; average turn of death about 160.
   - Nearly all deaths are in the open dungeon, not inside the lairs (`player died in:` in the report).
   - Per game: about 2 raids and 2 musters with the bot playing.
@@ -336,6 +369,12 @@ target position, squad list with morale), `F3` cycle heatmaps (toward player, th
    - ~~Part 3: a living dungeon: lairs, the goblin warren, musters, raids~~
    - Follow-ups: undead corpse-harvesting parties, warren architecture, bot that focuses priority targets.
 5. **Full character system and procedural items** (see §8)
+   - ~~Part 1: attributes, XP, skills, character sheet~~ (done 2026-11-08)
+   - Part 2: rarity tiers and affixes (affixes add to the same `Stat`s; tiers coloured white/green/
+     orange/red), item names, loot generation by tier
+   - Part 3: random uniques, identify-by-use, scrolls of enchanting (+X)
+   - Later (ToME direction, user): classes that grant skill trees, active skills with cooldowns,
+     a use for Charisma/Intelligence/Wisdom beyond the passives
 6. **History generator**: eras → map features → factions → artifacts
 7. **Crafting**: material tags + recipes + stations as places
 Later: multiple levels/sites, a campaign chaining sites, stealth, LLM-driven interrogation (optional),
@@ -365,12 +404,14 @@ The user wants Diablo-style tiers **and** classic +X items. Proposed structure:
   chitin, iron) come from the site and carry properties; origin (goblin-made, dwarven, necromantic)
   affects quality and quirks. Every attribute is a tag so crafting can reuse it.
 - Brogue-style identify-by-use for potions, scrolls and runes.
-- **Not decided yet**: exact affix pools, drop rates, whether tiers gate +X caps. Settle when step 5 starts.
+- **Decided**: tiers don't gate +X (independent). **Not decided yet**: exact affix pools, drop rates.
 
 ### Character
-- No classes. A few attributes plus skills bought with XP (Sil-style); builds come from choices plus gear.
-  Knowledge of the dungeon is also progression.
-- Not decided: attribute list, skill trees, XP sources (Sil gives XP for *seeing* new things too).
+- Now: six D&D attributes and skills bought with XP (Sil-style spending; XP for kills, first
+  sightings and new places). Implemented in step 5 part 1.
+- Direction (user): toward **Tales of Maj'Eyal**: classes, many skills (talent trees), actives with
+  cooldowns. Classes should be data that grant trees and starting attributes/kit. The user will
+  revisit the attribute list.
 
 ### Factions planned
 - **Goblins**: numerous, fast, morale-driven, squads with roles. (Implemented)

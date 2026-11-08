@@ -30,7 +30,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -41,7 +41,9 @@ public sealed partial class GameScreen
         if (keyboard.IsKeyPressed(Keys.G) || keyboard.IsKeyPressed(Keys.OemComma))
             return new PickUpAction();
 
-        if (keyboard.IsKeyPressed(Keys.I))
+        if (keyboard.IsKeyPressed(Keys.C) && player.Character is not null)
+            _sheetOpen = true;
+        else if (keyboard.IsKeyPressed(Keys.I))
             OpenMenu("Inventory: choose an item to use it", inventory.Items,
                 item => item.Def.IsEquipment ? new EquipAction(item.Id) : new DrinkAction(item.Id));
         else if (keyboard.IsKeyPressed(Keys.E))
@@ -91,12 +93,16 @@ public sealed partial class GameScreen
     /// <summary>Input while a menu or targeting is open. Returns the chosen action, if any.</summary>
     private GameAction? ModalInput(Keyboard keyboard)
     {
-        if (keyboard.IsKeyPressed(Keys.Escape))
+        if (keyboard.IsKeyPressed(Keys.Escape) || (_sheetOpen && keyboard.IsKeyPressed(Keys.C)))
         {
             _menu = null;
             _targeting = null;
+            _sheetOpen = false;
             return null;
         }
+
+        if (_sheetOpen)
+            return SheetInput(keyboard);
 
         if (_menu is { } menu)
         {
@@ -142,6 +148,8 @@ public sealed partial class GameScreen
             DrawTargeting(t);
         if (_menu is { } menu)
             DrawMenu(menu);
+        if (_sheetOpen)
+            DrawSheet();
     }
 
     private void DrawTargeting(Targeting t)

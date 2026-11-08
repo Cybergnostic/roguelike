@@ -27,5 +27,6 @@ Controls: arrows / numpad / `hjklyubn` to move and attack, `.` `5` or `Space` to
 `R` to restart after death, `Esc` to quit.
 
 Items: `g` pick up, `i` inventory, `e` equip, `q` drink, `d` drop, `f` fire bow.
+Character: `c` opens the sheet; press a letter to spend XP on an attribute or skill (free action).
 
-Debug views: `F1` reveal map, `F2` squads, `F3` heatmaps, `F5` spectator mode, `P` autoplay.
+Debug views: `F1` reveal map, `F2` squads, `F3` heatmaps, `F5` spectator mode, `P` autoplay (the sim's bot plays for you; while spectating, time passes).
