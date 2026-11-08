@@ -2,6 +2,7 @@
 
 A classical roguelike with a living dungeon: factions, squads, history-driven levels.
 Project handbook (vision, architecture, roadmap): [docs/PROJECT.md](docs/PROJECT.md).
+Long-term world and exploration direction: [docs/WORLD_DESIGN_VISION.md](docs/WORLD_DESIGN_VISION.md).
 
 ## Layout
 
