@@ -103,14 +103,14 @@ public static class SquadDirector
             squad.Morale = Math.Min(Squad.MaxMorale, squad.Morale + (squad.State == SquadState.Flee ? 3 : 1));
     }
 
-    private static void DispatchRunner(World world, Squad squad)
+    internal static void DispatchRunner(World world, Squad squad)
     {
         if (squad.HelpCalled || squad.HelpTargetSquadId is not null || !squad.WithRole(SquadRole.Runner).Any())
             return;
 
         var leader = squad.Leader!;
         var nearest = world.Squads
-            .Where(s => s != squad && s.Faction == squad.Faction && !s.IsWipedOut
+            .Where(s => s != squad && s.Faction == squad.Faction && !s.IsWipedOut && s.Leader is not null
                         && s.State is SquadState.Idle or SquadState.Alert)
             .OrderBy(s => SadRogue.Primitives.Distance.Chebyshev.Calculate(leader.Position, s.Leader!.Position))
             .FirstOrDefault();

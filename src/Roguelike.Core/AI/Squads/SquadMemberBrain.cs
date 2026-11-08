@@ -190,8 +190,13 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         var targetLeader = target?.Leader;
         if (target is null || targetLeader is null)
         {
-            Squad.HelpTargetSquadId = null; // nobody left to fetch; fight instead
-            return Warrior(world, self);
+            // The band it ran for is gone: try the next nearest, or stay and fight if there's none.
+            Squad.HelpTargetSquadId = null;
+            SquadDirector.DispatchRunner(world, Squad);
+            target = world.Squads.FirstOrDefault(s => s.Id == Squad.HelpTargetSquadId);
+            targetLeader = target?.Leader;
+            if (target is null || targetLeader is null)
+                return Warrior(world, self);
         }
 
         // Shouting distance is enough: the other squad doesn't have to stand still to be reached.

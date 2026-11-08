@@ -28,7 +28,7 @@
   "lootTables": {
     "goblin": [
       { "item": null,             "weight": 60 },
-      { "item": "healing_potion", "weight": 10 },
+      { "item": "healing_potion", "weight": 3 },
       { "item": "dagger",         "weight": 8 },
       { "item": "short_sword",    "weight": 5 },
       { "item": "short_bow",      "weight": 4 },
@@ -51,7 +51,7 @@
       { "item": "healing_potion", "weight": 2 }
     ],
     "floor": [
-      { "item": "healing_potion", "weight": 15 },
+      { "item": "healing_potion", "weight": 6 },
       { "item": "dagger",         "weight": 8 },
       { "item": "short_sword",    "weight": 8 },
       { "item": "long_sword",     "weight": 4 },

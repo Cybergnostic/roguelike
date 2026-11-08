@@ -20,7 +20,22 @@ public sealed record GameResult(
     int PlayerXp = 0,
     int DepthReached = 1,
     bool Won = false,
-    string? KilledBy = null);
+    string? KilledBy = null,
+    IReadOnlyList<LevelArrival>? Arrivals = null);
+
+/// <summary>The character as it arrived on a level (depth 1: at the start), for tracking growth against the dungeon.</summary>
+public sealed record LevelArrival(int Depth, int Turn, int MaxHp, int Attack, int RangedAttack, int Defense,
+    int Accuracy, int Evasion, int TotalXp, int Potions)
+{
+    public static LevelArrival Of(World world)
+    {
+        var p = world.Player;
+        int potions = p.Inventory?.Items.Where(i => i.Def.Category == Items.ItemCategory.Potion).Sum(i => i.Count) ?? 0;
+        return new(world.Depth, world.Turn, p.MaxHp, p.Attack, p.RangedAttack, p.Defense, p.Accuracy, p.Evasion,
+            p.Character?.TotalXp ?? 0, potions);
+    }
+}
+
 
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
@@ -38,6 +53,7 @@ public static class Simulator
 
         string? killedBy = null;
         int stalled = 0;
+        var arrivals = new List<LevelArrival> { LevelArrival.Of(world) };
         while (world.Turn < maxTurns && !world.IsOver)
         {
             // A bot whose action doesn't take a turn (spending XP is free) is asked again; one that keeps
@@ -49,6 +65,8 @@ public static class Simulator
                 stalled = 0;
             foreach (var e in events)
             {
+                if (e is LevelEntered)
+                    arrivals.Add(LevelArrival.Of(world));
                 var key = Classify(world, e);
                 if (key is not null)
                     counts[key] = counts.GetValueOrDefault(key) + 1;
@@ -69,7 +87,7 @@ public static class Simulator
         return new GameResult(seed, world.Player.IsDead, world.Turn,
             squadsAtStart, world.Squads.Count, monstersAtStart, CountMonsters(world),
             counts, stateTurns, lowestHp, RoomFloorFraction(world), world.Player.Character?.TotalXp ?? 0,
-            world.Depth, world.IsWon, killedBy);
+            world.Depth, world.IsWon, killedBy, arrivals);
     }
 
     /// <summary>Share of walkable cells that lie inside rooms (the rest is corridor and maze).</summary>

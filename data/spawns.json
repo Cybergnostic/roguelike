@@ -12,9 +12,22 @@
   "safeStartDistance": 15,
   "squads": [
     {
+      // The first level's goblins: a scouting party, smaller than the bands that come later.
+      "name": "goblin scouts",
+      "faction": "goblins",
+      "weight": 3,
+      "maxDepth": 2,
+      "members": [
+        { "monster": "goblin_warrior", "min": 1, "max": 3 },
+        { "monster": "goblin_archer", "min": 0, "max": 1 }
+      ]
+    },
+    {
+      // Also what the warren musters below the first level.
       "name": "goblin war band",
       "faction": "goblins",
       "weight": 3,
+      "minDepth": 2,
       "members": [
         { "monster": "goblin_warrior", "min": 2, "max": 4 },
         { "monster": "goblin_archer", "min": 0, "max": 2 },
@@ -26,6 +39,7 @@
       "name": "skeleton patrol",
       "faction": "undead",
       "weight": 2,
+      "minDepth": 2,
       "members": [
         { "monster": "skeleton_warrior", "min": 2, "max": 3 },
         { "monster": "skeleton_archer", "min": 0, "max": 1 }
@@ -65,9 +79,27 @@
   // Lairs are placed as far as possible from the start and from each other.
   "lairs": [
     {
+      // On the first level he is still gathering strength: a small court, few bones to raise.
       "name": "the necromancer's court",
       "faction": "undead",
       "weight": 0,
+      "maxDepth": 1,
+      "zone": "the necromancer's tower",
+      "architecture": "tower",
+      "leash": 12,
+      "corpses": [
+        { "monster": "skeleton_warrior", "count": 1 }
+      ],
+      "members": [
+        { "monster": "necromancer", "min": 1, "max": 1 },
+        { "monster": "skeleton_warrior", "min": 1, "max": 1 }
+      ]
+    },
+    {
+      "name": "the necromancer's court",
+      "faction": "undead",
+      "weight": 0,
+      "minDepth": 2,
       "zone": "the necromancer's tower",
       "architecture": "tower",
       "leash": 12,
@@ -82,9 +114,25 @@
       ]
     },
     {
+      // On the first level the warren is young: it sends out scouts, more slowly.
       "name": "the goblin warren",
       "faction": "goblins",
       "weight": 0,
+      "maxDepth": 1,
+      "zone": "the goblin warren",
+      "leash": 10,
+      "members": [
+        { "monster": "goblin_shaman", "min": 1, "max": 1 },
+        { "monster": "goblin_warrior", "min": 1, "max": 1 },
+        { "monster": "goblin_archer", "min": 1, "max": 1 }
+      ],
+      "muster": { "squad": "goblin scouts", "every": 150, "max": 2 }
+    },
+    {
+      "name": "the goblin warren",
+      "faction": "goblins",
+      "weight": 0,
+      "minDepth": 2,
       "zone": "the goblin warren",
       "leash": 10,
       "members": [

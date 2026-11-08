@@ -141,6 +141,17 @@ if (levels > 1 || results.Any(r => r.Won))
                           $"   {(stillHere > 0 ? $"(timed out here: {stillHere})" : ""),-22} {killers}");
     }
     Console.WriteLine();
+    Console.WriteLine("Character on arrival (averages)   turn  maxHP  melee  ranged  def  acc  eva     XP  potions");
+    for (int depth = 1; depth <= levels; depth++)
+    {
+        var at = results.SelectMany(r => r.Arrivals ?? []).Where(a => a.Depth == depth).ToList();
+        if (at.Count == 0)
+            continue;
+        Console.WriteLine($"  {depth,5} {"",26}{at.Average(a => a.Turn),6:0} {at.Average(a => a.MaxHp),6:0.0} {at.Average(a => a.Attack),6:0.0}" +
+                          $" {at.Average(a => a.RangedAttack),7:0.0} {at.Average(a => a.Defense),4:0.0} {at.Average(a => a.Accuracy),4:0.0}" +
+                          $" {at.Average(a => a.Evasion),4:0.0} {at.Average(a => a.TotalXp),6:0} {at.Average(a => a.Potions),8:0.0}");
+    }
+    Console.WriteLine();
 }
 Console.WriteLine($"  floor inside rooms     {100 * results.Average(r => r.RoomFloorFraction),7:0}%  (rest is corridor/maze)");
 Console.WriteLine($"  monsters per level     {results.Average(r => r.MonstersAtStart),8:0.0}");

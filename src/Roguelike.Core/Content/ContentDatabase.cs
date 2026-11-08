@@ -87,12 +87,13 @@ public sealed record SquadTemplateDef(string Name, string Faction, int Weight, I
 /// AccuracyEveryLevels (0 = never), and rooms are RoomOccupancyPerLevel more likely to be occupied.
 /// </summary>
 public sealed record DungeonDef(int Levels = 1, double MonsterHpPerLevel = 0, double XpPerLevel = 0,
-    int AttackEveryLevels = 0, int AccuracyEveryLevels = 0, double RoomOccupancyPerLevel = 0)
+    int AttackEveryLevels = 0, int AccuracyEveryLevels = 0, double RoomOccupancyPerLevel = 0, int DefenseEveryLevels = 0)
 {
     public int HpFor(int baseHp, int depth) => (int)Math.Round(baseHp * (1 + MonsterHpPerLevel * (depth - 1)));
     public int XpFor(int baseXp, int depth) => (int)Math.Round(baseXp * (1 + XpPerLevel * (depth - 1)));
     public int AttackBonus(int depth) => AttackEveryLevels > 0 ? (depth - 1) / AttackEveryLevels : 0;
     public int AccuracyBonus(int depth) => AccuracyEveryLevels > 0 ? (depth - 1) / AccuracyEveryLevels : 0;
+    public int DefenseBonus(int depth) => DefenseEveryLevels > 0 ? (depth - 1) / DefenseEveryLevels : 0;
 }
 
 /// <summary>A lair sends out a new squad (by template name) every Every turns, while its faction has fewer than Max roaming squads.</summary>
@@ -189,7 +190,7 @@ public sealed class ContentDatabase
         var combat = Read<CombatRules>(directory, "combat.json");
         var dungeon = Read<DungeonDef>(directory, "dungeon.json");
         if (dungeon.Levels < 1 || dungeon.MonsterHpPerLevel < 0 || dungeon.XpPerLevel < 0
-            || dungeon.AttackEveryLevels < 0 || dungeon.AccuracyEveryLevels < 0)
+            || dungeon.AttackEveryLevels < 0 || dungeon.AccuracyEveryLevels < 0 || dungeon.DefenseEveryLevels < 0)
             throw Error("dungeon.json", "levels must be >= 1 and the per-level growth can't be negative");
         if (combat.MinHitChance < 0 || combat.MaxHitChance > 100 || combat.MinHitChance > combat.MaxHitChance
             || combat.HitChancePerPoint < 0 || combat.MinDamage < 0)

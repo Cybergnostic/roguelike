@@ -666,7 +666,8 @@ public sealed class World
     /// <summary>A monster from its stat block, grown for this depth (dungeon.json).</summary>
     private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
         AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at,
-            Content.Dungeon.HpFor(def.MaxHp, Depth), def.Attack + Content.Dungeon.AttackBonus(Depth), def.Defense)
+            Content.Dungeon.HpFor(def.MaxHp, Depth), def.Attack + Content.Dungeon.AttackBonus(Depth),
+            def.Defense + Content.Dungeon.DefenseBonus(Depth))
         {
             BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(Depth),
             BaseEvasion = def.Evasion,

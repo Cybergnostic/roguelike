@@ -12,11 +12,11 @@ namespace Roguelike.Core.Tests;
 
 public class SquadTests(ITestOutputHelper output)
 {
-    private static World FindWorld(Func<World, bool> predicate)
+    private static World FindWorld(Func<World, bool> predicate, int depth = 1)
     {
         for (ulong seed = 0; seed < 500; seed++)
         {
-            var world = World.Create(seed);
+            var world = World.Create(seed, depth: depth);
             if (predicate(world))
                 return world;
         }
@@ -84,7 +84,8 @@ public class SquadTests(ITestOutputHelper output)
     {
         static bool HasRunnerAndAllies(World w, Squad s) =>
             s.WithRole(SquadRole.Runner).Any() && w.Squads.Any(o => o != s && o.Faction == s.Faction);
-        var world = FindWorld(w => w.Squads.Any(s => HasRunnerAndAllies(w, s)));
+        // Runners join the war bands from the second level down.
+        var world = FindWorld(w => w.Squads.Any(s => HasRunnerAndAllies(w, s)), depth: 2);
         var squad = world.Squads.First(s => HasRunnerAndAllies(world, s));
         RevealPlayerTo(world, squad, distance: 5, openGround: true);
         Assert.NotNull(squad.HelpTargetSquadId);
