@@ -36,7 +36,7 @@ public static class LairBuilder
                 continue;
             int dx = p.X - room.MinExtentX, dy = p.Y - room.MinExtentY;
             bool pillar = dx % 3 == 2 && dy % 3 == 2 && p.X <= room.MaxExtentX - 2 && p.Y <= room.MaxExtentY - 2;
-            map.Tiles[p] = pillar ? Tile.Pillar : Tile.LairFloor;
+            map.SetTile(p, pillar ? Tile.Pillar : Tile.LairFloor);
         }
     }
 }

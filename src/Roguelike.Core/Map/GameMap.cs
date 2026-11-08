@@ -27,7 +27,10 @@ public sealed class GameMap
 {
     public int Width { get; }
     public int Height { get; }
-    public ArrayView<Tile> Tiles { get; }
+    /// <summary>The terrain. Read-only so walkability stays in sync: change it with <see cref="SetTile"/>.</summary>
+    public IGridView<Tile> Tiles => _tiles;
+    private readonly ArrayView<Tile> _tiles;
+    private readonly CellGrid _open;
 
     /// <summary>Cells the player has ever seen. Pure game state, so it lives in the core.</summary>
     public ArrayView<bool> Explored { get; }
@@ -55,12 +58,22 @@ public sealed class GameMap
     {
         Width = tiles.Width;
         Height = tiles.Height;
-        Tiles = tiles;
+        _tiles = tiles;
         Rooms = rooms;
         Explored = new ArrayView<bool>(Width, Height);
-        Walkable = new LambdaGridView<bool>(Width, Height, p => IsOpen(Tiles[p]));
-        Transparent = new LambdaGridView<bool>(Width, Height, p => IsOpen(Tiles[p]));
+        // Every open tile is also see-through (and the reverse), so one grid serves both.
+        _open = new CellGrid(Width, Height);
+        for (int i = 0; i < Width * Height; i++)
+            _open.Cells[i] = IsOpen(tiles[i]);
+        Walkable = _open;
+        Transparent = _open;
         PlayerFov = new RecursiveShadowcastingFOV(Transparent);
+    }
+
+    public void SetTile(Point p, Tile tile)
+    {
+        _tiles[p] = tile;
+        _open.Cells[p.Y * Width + p.X] = IsOpen(tile);
     }
 
     public bool InBounds(Point p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;

@@ -90,6 +90,20 @@ public sealed class World
     private readonly List<Squad> _squads = [];
     private readonly List<GameEvent> _events = [];
     private AStar _aStar;
+
+    /// <summary>
+    /// Each actor's last A* path and how far along it is. Walls don't change once a level is
+    /// built and A* ignores actors, so a path stays good while its owner keeps to it and heads
+    /// for the same goal; re-planning every turn was a quarter of the simulation's time.
+    /// </summary>
+    private sealed class CachedPath(Point goal, GoRogue.Pathing.Path path)
+    {
+        public readonly Point Goal = goal;
+        public readonly GoRogue.Pathing.Path Path = path;
+        public int Next; // index of the next step to take
+    }
+
+    private readonly Dictionary<int, CachedPath> _paths = [];
     private int _nextId;
     private readonly int _width, _height;
 
@@ -144,6 +158,7 @@ public sealed class World
         _corpses.Clear();
         _lairs.Clear();
         _factionMaps.Clear();
+        _paths.Clear();
         Map = GenerateMap();
         Player.Position = Map.Rooms[0].Center;
         Player.Energy = 0;
@@ -162,7 +177,7 @@ public sealed class World
             .FirstOrDefault(Map.Rooms[^1]);
         var spot = room.Positions().Where(p => Map.Tiles[p] == Tile.Floor && ActorAt(p) is null && !ItemsAt(p).Any())
             .OrderBy(p => Distance(p, room.Center)).FirstOrDefault(room.Center);
-        Map.Tiles[spot] = Tile.StairsDown;
+        Map.SetTile(spot, Tile.StairsDown);
         Map.StairsDown = spot;
     }
 
@@ -198,7 +213,13 @@ public sealed class World
         UpdatePerception();
         RunNonPlayerTurns();
 
-        _actors.RemoveAll(a => a.IsDead && a != Player);
+        _actors.RemoveAll(a =>
+        {
+            if (!a.IsDead || a == Player)
+                return false;
+            _paths.Remove(a.Id);
+            return true;
+        });
         Turn++;
         int regen = RegenInterval;
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
@@ -576,15 +597,36 @@ public sealed class World
     private bool SameQueue(Actor self, Actor other) =>
         SquadOf(self) is { } squad && SquadOf(other) == squad && squad.Leader != self;
 
+    /// <summary>The next cell on a shortest path to <paramref name="goal"/>, reusing the cached path when it still applies.</summary>
+    private Point? NextPathStep(Actor self, Point goal)
+    {
+        if (_paths.TryGetValue(self.Id, out var cached) && cached.Goal == goal)
+        {
+            // Took the step we suggested last time: move along. Didn't (blocked, chose otherwise): suggest it again.
+            if (cached.Next < cached.Path.Length && self.Position == cached.Path.GetStep(cached.Next))
+                cached.Next++;
+            var expectedAt = cached.Next == 0 ? cached.Path.Start : cached.Path.GetStep(cached.Next - 1);
+            if (self.Position == expectedAt && cached.Next < cached.Path.Length)
+                return cached.Path.GetStep(cached.Next);
+        }
+
+        var path = _aStar.ShortestPath(self.Position, goal);
+        if (path is null || path.Length == 0)
+        {
+            _paths.Remove(self.Id);
+            return null;
+        }
+        _paths[self.Id] = new CachedPath(goal, path);
+        return path.GetStep(0);
+    }
+
     public Direction? StepToward(Actor self, Point goal)
     {
         if (self.Position == goal)
             return null;
 
-        var path = _aStar.ShortestPath(self.Position, goal);
-        if (path is not null && path.Length > 0)
+        if (NextPathStep(self, goal) is { } next)
         {
-            var next = path.GetStep(0);
             if (IsFree(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker) && !SameQueue(self, blocker)))
                 return Direction.GetDirection(self.Position, next);
         }

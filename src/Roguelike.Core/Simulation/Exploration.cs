@@ -9,21 +9,37 @@ public static class Exploration
     public static Point? Frontier(World world)
     {
         var map = world.Map;
+        int w = map.Width, h = map.Height;
         var start = world.Player.Position;
-        var visited = new HashSet<Point> { start };
-        var queue = new Queue<Point>();
-        queue.Enqueue(start);
-        while (queue.Count > 0)
+        var visited = new bool[w * h];
+        var queue = new int[w * h];
+        int head = 0, tail = 0;
+        visited[start.Y * w + start.X] = true;
+        queue[tail++] = start.Y * w + start.X;
+        while (head < tail)
         {
-            var cur = queue.Dequeue();
-            if (cur != start && World.EightWay.Any(d => map.InBounds(cur + d) && !map.Explored[cur + d]))
-                return cur;
-            foreach (var d in World.EightWay)
+            int i = queue[head++];
+            int x = i % w, y = i / w;
+            bool frontier = false;
+            foreach (var d in World.EightWay) // same order as always, so the same frontier wins ties
             {
-                var nb = cur + d;
-                if (map.InBounds(nb) && map.Walkable[nb] && map.Explored[nb] && visited.Add(nb))
-                    queue.Enqueue(nb);
+                int nx = x + d.DeltaX, ny = y + d.DeltaY;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h)
+                    continue;
+                if (!map.Explored[nx, ny])
+                {
+                    frontier = true;
+                    continue;
+                }
+                int j = ny * w + nx;
+                if (!visited[j] && map.Walkable[nx, ny])
+                {
+                    visited[j] = true;
+                    queue[tail++] = j;
+                }
             }
+            if (frontier && i != queue[0])
+                return new Point(x, y);
         }
         return null;
     }

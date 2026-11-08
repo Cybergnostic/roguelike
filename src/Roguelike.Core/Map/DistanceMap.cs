@@ -12,8 +12,11 @@ namespace Roguelike.Core.Map;
 public sealed class DistanceMap : GridViewBase<double?>
 {
     private readonly IGridView<bool> _walkable;
-    private readonly int[] _distance;
-    private readonly int[] _queue;
+    private readonly bool[]? _cells; // the map's own walkability array, when it has one (fast path)
+    internal readonly int[] _distance;
+    /// <summary>Reachable cells in the order the search reached them: nondecreasing distance.</summary>
+    internal readonly int[] _queue;
+    internal int _reached;
 
     public override int Width { get; }
     public override int Height { get; }
@@ -21,6 +24,7 @@ public sealed class DistanceMap : GridViewBase<double?>
     public DistanceMap(IGridView<bool> walkable)
     {
         _walkable = walkable;
+        _cells = (walkable as CellGrid)?.Cells;
         Width = walkable.Width;
         Height = walkable.Height;
         _distance = new int[Width * Height];
@@ -51,6 +55,7 @@ public sealed class DistanceMap : GridViewBase<double?>
             _queue[tail++] = i;
         }
 
+        var cells = _cells;
         while (head < tail)
         {
             int i = _queue[head++];
@@ -62,11 +67,12 @@ public sealed class DistanceMap : GridViewBase<double?>
                 if ((dx | dy) == 0 || nx < 0 || ny < 0 || nx >= Width || ny >= Height)
                     continue;
                 int j = ny * Width + nx;
-                if (_distance[j] >= 0 || !_walkable[nx, ny])
+                if (_distance[j] >= 0 || !(cells is null ? _walkable[nx, ny] : cells[j]))
                     continue;
                 _distance[j] = next;
                 _queue[tail++] = j;
             }
         }
+        _reached = tail;
     }
 }
