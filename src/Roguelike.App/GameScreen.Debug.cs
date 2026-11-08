@@ -79,7 +79,7 @@ public sealed partial class GameScreen
                 AddMessage("Spectator mode off. The goblins can see you again.", Theme.Intent);
             }
         }
-        else if (keyboard.IsKeyPressed(Keys.P) && !_world.Player.IsDead)
+        else if (keyboard.IsKeyPressed(Keys.P) && !_world.IsOver)
         {
             _autoplay = !_autoplay;
             _autoplayTimer = 0;
@@ -97,7 +97,7 @@ public sealed partial class GameScreen
             UpdateFollow(delta);
             return;
         }
-        if (!_autoplay || _world.Player.IsDead)
+        if (!_autoplay || _world.IsOver)
             return;
 
         _autoplayTimer += delta.TotalSeconds;

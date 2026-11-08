@@ -19,6 +19,21 @@ public sealed record WaitAction : GameAction
     public override bool Perform(World world, Actor actor) => true;
 }
 
+/// <summary>Takes the stairs down (the player only). On the last level, this wins the game.</summary>
+public sealed record DescendAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor != world.Player || world.Map.StairsDown != actor.Position)
+        {
+            world.Emit(new ActionFailed(actor.Id, FailureReason.NotOnStairs));
+            return false;
+        }
+        world.Descend();
+        return true;
+    }
+}
+
 /// <summary>Step in a direction; bumping a hostile actor attacks it.</summary>
 public sealed record MoveAction(Direction Direction) : GameAction
 {

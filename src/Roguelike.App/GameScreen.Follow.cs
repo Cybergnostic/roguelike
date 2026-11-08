@@ -25,7 +25,7 @@ public sealed partial class GameScreen
     private void UpdateFollow(TimeSpan delta)
     {
         _followTimer += delta.TotalSeconds;
-        if (_followTimer < FollowSecondsPerTurn || _world.Player.IsDead)
+        if (_followTimer < FollowSecondsPerTurn || _world.IsOver)
             return;
         _followTimer = 0;
         _commands ??= new CommandPlayer(_world);

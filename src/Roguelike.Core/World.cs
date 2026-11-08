@@ -28,14 +28,20 @@ public sealed class World
     public ContentDatabase Content { get; }
     public FactionRelations Relations => Content.Relations;
     public IEnhancedRandom Rng { get; }
-    public GameMap Map { get; }
+    public GameMap Map { get; private set; }
     public Actor Player { get; }
+
+    /// <summary>The player took the stairs down from the last level.</summary>
+    public bool IsWon { get; private set; }
+
+    /// <summary>Whether the game is over, either way.</summary>
+    public bool IsOver => IsWon || Player.IsDead;
     public int Turn { get; private set; }
     public IReadOnlyList<Actor> Actors => _actors;
     public IReadOnlyList<Squad> Squads => _squads;
 
     /// <summary>Distance map toward the player (debug heatmap, tests, bots).</summary>
-    public DistanceMap TowardPlayer { get; }
+    public DistanceMap TowardPlayer { get; private set; }
 
     /// <summary>Per-faction "toward enemies" and "away from enemies" maps, rebuilt lazily each turn.</summary>
     private sealed class FactionMaps(GameMap map)
@@ -83,8 +89,9 @@ public sealed class World
     private readonly List<Actor> _actors = [];
     private readonly List<Squad> _squads = [];
     private readonly List<GameEvent> _events = [];
-    private readonly AStar _aStar;
+    private AStar _aStar;
     private int _nextId;
+    private readonly int _width, _height;
 
     private World(ulong seed, int width, int height, ContentDatabase content, int depth)
     {
@@ -92,37 +99,95 @@ public sealed class World
         Depth = depth;
         Content = content;
         Rng = new MizuchiRandom(seed);
-        Map = MapGenerator.RoomsAndMazes(width, height, Rng);
-
-        if (Map.Rooms.Count < 2)
-            throw new InvalidOperationException("Map generation produced too few rooms.");
-
+        (_width, _height) = (width, height);
+        Map = GenerateMap();
         Player = CreatePlayer(Map.Rooms[0].Center);
+        (TowardPlayer, _aStar) = PopulateLevel();
+    }
+
+    private GameMap GenerateMap()
+    {
+        var map = MapGenerator.RoomsAndMazes(_width, _height, Rng);
+        if (map.Rooms.Count < 2)
+            throw new InvalidOperationException("Map generation produced too few rooms.");
+        return map;
+    }
+
+    /// <summary>Squads, items and stairs for the current map, then fresh pathing and perception.</summary>
+    private (DistanceMap, AStar) PopulateLevel()
+    {
         SpawnSquads();
         SpawnFloorItems();
-
+        PlaceStairs();
         TowardPlayer = new DistanceMap(Map.Walkable);
         _aStar = new AStar(Map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
-
         UpdatePerception();
+        return (TowardPlayer, _aStar);
+    }
+
+    /// <summary>
+    /// The player goes down the stairs: a new level is generated around them (they keep everything
+    /// they carry and know). From the last level, the stairs lead out: the game is won.
+    /// </summary>
+    public void Descend()
+    {
+        if (Depth >= Content.Dungeon.Levels)
+        {
+            IsWon = true;
+            Emit(new GameWon(Turn));
+            return;
+        }
+        Depth++;
+        _actors.RemoveAll(a => a != Player);
+        _squads.Clear();
+        _floorItems.Clear();
+        _corpses.Clear();
+        _lairs.Clear();
+        _factionMaps.Clear();
+        Map = GenerateMap();
+        Player.Position = Map.Rooms[0].Center;
+        Player.Energy = 0;
+        PopulateLevel();
+        Emit(new LevelEntered(Depth));
+    }
+
+    /// <summary>Stairs down in the room farthest (walking) from the arrival point that no lair holds.</summary>
+    private void PlaceStairs()
+    {
+        var fromStart = new DistanceMap(Map.Walkable);
+        fromStart.Update([Player.Position]);
+        var lairRooms = _lairs.Select(l => l.Zone.Area).ToHashSet();
+        var room = Map.Rooms.Skip(1).Where(r => !lairRooms.Contains(r))
+            .OrderByDescending(r => ClosestReachableCell(r, fromStart) is var d && d == double.MaxValue ? -1 : d)
+            .FirstOrDefault(Map.Rooms[^1]);
+        var spot = room.Positions().Where(p => Map.Tiles[p] == Tile.Floor && ActorAt(p) is null && !ItemsAt(p).Any())
+            .OrderBy(p => Distance(p, room.Center)).FirstOrDefault(room.Center);
+        Map.Tiles[spot] = Tile.StairsDown;
+        Map.StairsDown = spot;
     }
 
     public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null, int depth = 1) =>
         new(seed, width, height, content ?? ContentDatabase.Default, depth);
 
     /// <summary>How deep this level is (1 = the first). Gates which items and +X values can appear.</summary>
-    public int Depth { get; }
+    public int Depth { get; private set; }
 
     /// <summary>Runs one player action and, if it used a turn, everyone else's turn.</summary>
     public IReadOnlyList<GameEvent> Step(GameAction playerAction)
     {
         _events.Clear();
-        if (Player.IsDead)
+        if (IsOver)
             return _events;
 
         var zoneBefore = Map.ZoneAt(Player.Position);
+        int depthBefore = Depth;
         if (!playerAction.Perform(this, Player))
             return [.. _events];
+        if (IsWon || Depth != depthBefore)
+        {
+            Turn++;
+            return [.. _events]; // a new level (or the way out): the monsters there haven't noticed yet
+        }
         if (Map.ZoneAt(Player.Position) is { } zone && zone != zoneBefore)
         {
             Emit(new ZoneEntered(zone.Name));
@@ -247,7 +312,7 @@ public sealed class World
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
-            GrantXp(XpSource.Kill, target.Kind, killed.Xp);
+            GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, Depth));
         LeaveCorpse(target);
         int lootDepth = Depth + (Content.Monsters.TryGetValue(target.Kind, out var victimDef) ? victimDef.LootDepthBonus : 0);
         if (target.LootTable is { } table && RollLoot(table, lootDepth) is { } loot)
@@ -556,10 +621,12 @@ public sealed class World
         return actor;
     }
 
+    /// <summary>A monster from its stat block, grown for this depth (dungeon.json).</summary>
     private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
-        AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at, def.MaxHp, def.Attack, def.Defense)
+        AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at,
+            Content.Dungeon.HpFor(def.MaxHp, Depth), def.Attack + Content.Dungeon.AttackBonus(Depth), def.Defense)
         {
-            BaseAccuracy = def.Accuracy,
+            BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(Depth),
             BaseEvasion = def.Evasion,
             BaseRange = def.Range,
             Fearless = def.Fearless,
@@ -615,7 +682,7 @@ public sealed class World
         // Lairs go where they're farthest from the start and from each other.
         var taken = new HashSet<Rectangle>();
         var awayFrom = new List<DistanceMap> { fromStart };
-        foreach (var lair in Content.Lairs)
+        foreach (var lair in Content.Lairs.Where(l => l.AppearsAt(Depth)))
         {
             var best = Map.Rooms.Skip(1)
                 .Where(r => !taken.Contains(r))
@@ -633,14 +700,15 @@ public sealed class World
             awayFrom.Add(fromLair);
         }
 
-        var templates = Content.SquadTemplates;
+        var templates = Content.SquadTemplates.Where(t => t.AppearsAt(Depth)).ToList();
         int totalWeight = templates.Sum(t => t.Weight);
         if (totalWeight <= 0)
             return;
 
+        double occupancy = Content.RoomOccupancy + Content.Dungeon.RoomOccupancyPerLevel * (Depth - 1);
         foreach (var room in Map.Rooms.Skip(1))
         {
-            if (Rng.NextDouble() >= Content.RoomOccupancy)
+            if (Rng.NextDouble() >= occupancy)
                 continue;
             if (taken.Contains(room) || ClosestReachableCell(room, fromStart) < Content.SafeStartDistance)
                 continue;

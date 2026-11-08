@@ -79,6 +79,7 @@ data/                        game content (JSON with comments), copied next to e
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
   items.json                 item types (minDepth), +X enchantment weights (minDepth), loot tables
+  dungeon.json               number of levels (10) and how monsters grow per level (HP, XP, attack, accuracy, occupancy)
   combat.json                hit chance (accuracy vs evasion), point-blank penalty, minimum damage
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
@@ -105,7 +106,8 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
   AI/Strategy/FactionPlanner strategic layer, once per turn: lair musters and faction raids
-  Simulation/                bots (AggressiveBot, IdleBot) and Simulator (headless games + stats)
+  Simulation/                bots (AggressiveBot, IdleBot, TacticalBot), Simulator (headless games + stats),
+                             CommandPlayer (scripted play), Exploration (auto-explore)
 src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
   GameScreen.cs              map/sidebar/status/log, input, turn loop
@@ -363,6 +365,17 @@ you, a quick way to see progression; spectating: time passes).
     after the change); average death turn about 245, so danger lasts the whole level.
   - The play tool's commands moved to Core (`CommandPlayer`); the window can `--follow` a command file.
 
+- **Ten levels and a tactical bot** (2026-11-08):
+  - Stairs down (`>`) in the room farthest from where you arrive; `World.Descend` rebuilds the level
+    around the same player (keeps character, kit, turn count). Taking the stairs on level 10 wins.
+  - dungeon.json: monsters get +12% HP and +15% XP per level, +1 attack every 3 levels, +1 accuracy
+    every 4; rooms 2% more likely occupied per level. Squads and lairs have minDepth/maxDepth: goblin
+    war parties from depth 4, skeleton cohorts from 6. Both lairs appear on every level (generic).
+  - `TacticalBot`: plays like the playtests (see its doc comment). Breaks corridor stand-offs,
+    retreats out of sight to rest, leaves a level after 1500 turns (the warren musters forever).
+  - Sim runs games in parallel (`--bot tactical`), reports wins and deaths per depth; `--trace` follows
+    one game (TRACE_EVERY env var sets the interval) and prints the cells around the player at the end.
+
 **Playtest by Claude, seed 42 (2026-11-08)**, played turn by turn with `Roguelike.Play`:
 - Cleared the level by turn ~366 (warren fallen, necromancer dead), ending at full HP. The only real
   danger was the first fight (lost 10 of 30 HP); it was good: a warrior corking a corridor with
@@ -382,6 +395,10 @@ you, a quick way to see progression; spectating: time passes).
 - Ended with 5 unused healing potions.
 
 **Known issues / tech debt**
+- Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
+  forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
+- Simulation speed is about 2000 turns/s on this desktop (4 cores, busy; parallelism helps little).
+  A 10-level game with the tactical bot is about 7000 turns. Profile before running 10k games.
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
   it should look for another route or another squad.
 - Balance is tuned for one level only. There's no depth curve yet. Once the bot clears a level,
@@ -417,6 +434,7 @@ you, a quick way to see progression; spectating: time passes).
    - ~~Part 3: a living dungeon: lairs, the goblin warren, musters, raids~~
    - Follow-ups: undead corpse-harvesting parties, warren architecture, bot that focuses priority targets.
 5. **Full character system and procedural items** (see §8)
+   - Inserted first: ten generic levels, stairs, depth scaling, the tactical bot, mass simulation.
    - ~~Part 1: attributes, XP, skills, character sheet~~ (done 2026-11-08)
    - Part 2: rarity tiers and affixes (affixes add to the same `Stat`s; tiers coloured white/green/
      orange/red), item names, loot generation by tier

@@ -17,7 +17,10 @@ public sealed record GameResult(
     IReadOnlyDictionary<SquadState, int> SquadStateTurns,
     double LowestHpFraction,
     double RoomFloorFraction,
-    int PlayerXp = 0);
+    int PlayerXp = 0,
+    int DepthReached = 1,
+    bool Won = false,
+    string? KilledBy = null);
 
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
@@ -33,15 +36,25 @@ public static class Simulator
         var stateTurns = Enum.GetValues<SquadState>().ToDictionary(s => s, _ => 0);
         double lowestHp = 1.0;
 
-        while (world.Turn < maxTurns && !world.Player.IsDead)
+        string? killedBy = null;
+        int stalled = 0;
+        while (world.Turn < maxTurns && !world.IsOver)
         {
-            foreach (var e in world.Step(bot.Decide(world)))
+            // A bot whose action doesn't take a turn (spending XP is free) is asked again; one that keeps
+            // failing gets a wait, so a confused bot can't hang the simulation.
+            int turnBefore = world.Turn;
+            var action = ++stalled > 20 ? new Actions.WaitAction() : bot.Decide(world);
+            var events = world.Step(action);
+            if (world.Turn != turnBefore)
+                stalled = 0;
+            foreach (var e in events)
             {
                 var key = Classify(world, e);
                 if (key is not null)
                     counts[key] = counts.GetValueOrDefault(key) + 1;
                 if (e is ActorDied d && d.ActorId == world.Player.Id && world.GetActor(d.KillerId) is { } killer)
                 {
+                    killedBy = killer.Kind;
                     var by = $"player killed by: {killer.Kind}";
                     counts[by] = counts.GetValueOrDefault(by) + 1;
                     var where = $"player died in: {world.Map.ZoneAt(world.Player.Position)?.Name ?? "the open dungeon"}";
@@ -55,7 +68,8 @@ public static class Simulator
 
         return new GameResult(seed, world.Player.IsDead, world.Turn,
             squadsAtStart, world.Squads.Count, monstersAtStart, CountMonsters(world),
-            counts, stateTurns, lowestHp, RoomFloorFraction(world), world.Player.Character?.TotalXp ?? 0);
+            counts, stateTurns, lowestHp, RoomFloorFraction(world), world.Player.Character?.TotalXp ?? 0,
+            world.Depth, world.IsWon, killedBy);
     }
 
     /// <summary>Share of walkable cells that lie inside rooms (the rest is corridor and maze).</summary>
@@ -106,6 +120,8 @@ public static class Simulator
         AttributeRaised => "attribute points bought",
         SkillLearned => "skill ranks learned",
         SpecialUsed u => $"specials used: {u.Special}",
+        LevelEntered l => $"levels entered: {l.Depth:00}",
+        GameWon => "games won",
         _ => null,
     };
 }

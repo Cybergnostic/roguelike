@@ -28,6 +28,12 @@ public sealed record SquadMustered(int SquadId, string FactionId, string ZoneNam
 /// <summary>A faction sent a squad to raid an enemy's zone.</summary>
 public sealed record RaidLaunched(int SquadId, string FactionId, string ZoneName) : GameEvent;
 
+/// <summary>The player took the stairs and arrived on a new level.</summary>
+public sealed record LevelEntered(int Depth) : GameEvent;
+
+/// <summary>The player took the stairs down from the last level: the run is won.</summary>
+public sealed record GameWon(int Turn) : GameEvent;
+
 /// <summary>The player walked into a named place (a lair).</summary>
 public sealed record ZoneEntered(string ZoneName) : GameEvent;
 
@@ -94,6 +100,7 @@ public enum FailureReason
     NoLineOfFire,
     CannotEquip,
     NotDrinkable,
+    NotOnStairs,
 }
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>

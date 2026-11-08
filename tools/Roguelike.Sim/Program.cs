@@ -5,13 +5,13 @@ using Roguelike.Core.Simulation;
 // Headless simulation report: plays many seeded games with a bot and summarises what happened.
 //
 //   dotnet run --project tools/Roguelike.Sim -- [--seeds 50] [--start 0] [--turns 1000]
-//                                               [--bot aggressive|idle] [--observer] [--games]
+//                                               [--bot aggressive|idle|tactical] [--observer] [--games]
 //   --map prints the level for seed --start instead of simulating.
 
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle] [--observer] [--games] [--map]");
+    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle|tactical] [--observer] [--games] [--map]");
     return 1;
 }
 
@@ -37,29 +37,74 @@ if (options.ShowMap)
     return 0;
 }
 
-IPlayerBot bot = options.Bot switch
+int TraceEvery = int.TryParse(Environment.GetEnvironmentVariable("TRACE_EVERY"), out var te) ? te : 250;
+if (options.Trace)
+{
+    // Follow one game (seed --start) and print a status line every 250 turns.
+    var world = Roguelike.Core.World.Create(options.Start);
+    var tracer = MakeBot();
+    string last = "";
+    while (!world.IsOver && world.Turn < options.Turns)
+    {
+        var action = tracer.Decide(world);
+        var stepEvents = world.Step(action);
+        last = action.ToString() + " " + string.Join(" ", stepEvents.OfType<Roguelike.Core.Events.ActorAttacked>()
+            .Where(a => a.TargetId == world.Player.Id || a.AttackerId == world.Player.Id)
+            .Select(a => $"{(a.AttackerId == world.Player.Id ? "hit" : "took")}{a.Damage}{(a.Ranged ? "r" : "")}"));
+        if (world.Turn % TraceEvery == 0)
+        {
+            var seen = world.Actors.Where(a => a != world.Player && world.PlayerCanSee(a)).Select(a => $"{a.Kind}@{a.Position.X},{a.Position.Y}:{world.SquadOf(a)?.State}{(world.SquadOf(a)?.TargetId == world.Player.Id ? "->me" : "")}{(world.SquadOf(a)?.IsLeashed == true ? ",leashed" : "")}{(world.HasClearShot(world.Player.Position, a.Position) ? ",shot" : "")}");
+            Console.WriteLine($"T{world.Turn} D{world.Depth} @{world.Player.Position.X},{world.Player.Position.Y} HP {world.Player.Hp}/{world.Player.MaxHp} " +
+                              $"stairs {world.Map.StairsDown} frontier {Roguelike.Core.Simulation.Exploration.Frontier(world)} last {last} sees [{string.Join(" ", seen)}]");
+        }
+    }
+    Console.WriteLine($"end: turn {world.Turn} depth {world.Depth} won {world.IsWon} dead {world.Player.IsDead}");
+    for (int y = world.Player.Position.Y - 4; y <= world.Player.Position.Y + 4; y++)
+    {
+        var row = new System.Text.StringBuilder("  ");
+        for (int x = world.Player.Position.X - 6; x <= world.Player.Position.X + 6; x++)
+        {
+            var pt = new SadRogue.Primitives.Point(x, y);
+            row.Append(!world.Map.InBounds(pt) ? ' ' : world.ActorAt(pt) is { } a ? (a == world.Player ? '@' : a.Kind[^1] == 'e' ? 'Z' : a.Kind[0])
+                : world.Map.Walkable[pt] ? (world.Map.Explored[pt] ? '.' : ',') : '#');
+        }
+        Console.WriteLine(row);
+    }
+    return 0;
+}
+
+IPlayerBot MakeBot() => options.Bot switch
 {
     "idle" => new IdleBot(),
+    "tactical" => new TacticalBot(),
     _ => new AggressiveBot(),
 };
 
 Console.WriteLine($"Simulating {options.Seeds} games (seeds {options.Start}..{options.Start + (ulong)options.Seeds - 1}), " +
-                  $"up to {options.Turns} turns, bot={bot.Name}{(options.Observer ? ", observer mode" : "")}");
+                  $"up to {options.Turns} turns, bot={MakeBot().Name}{(options.Observer ? ", observer mode" : "")}, " +
+                  $"{Environment.ProcessorCount} threads");
 Console.WriteLine();
 
+// Games are independent and deterministic per seed, so they run in parallel; results keep seed order.
 var clock = Stopwatch.StartNew();
-var results = new List<GameResult>();
-for (int i = 0; i < options.Seeds; i++)
+var slots = new GameResult[options.Seeds];
+int done = 0;
+Parallel.For(0, options.Seeds, i =>
 {
-    var result = Simulator.Run(options.Start + (ulong)i, bot, options.Turns, options.Observer);
-    results.Add(result);
-    if (options.PerGame)
-        Console.WriteLine($"  seed {result.Seed,6}: {(result.PlayerDied ? "died" : "alive"),-5} turn {result.Turns,5}  " +
-                          $"squads {result.SquadsAtStart,2}->{result.SquadsAtEnd,-2} monsters {result.MonstersAtStart,3}->{result.MonstersAtEnd,-3}");
+    slots[i] = Simulator.Run(options.Start + (ulong)i, MakeBot(), options.Turns, options.Observer);
+    int d = Interlocked.Increment(ref done);
+    if (options.Seeds >= 200 && d % (options.Seeds / 10) == 0)
+        Console.Error.WriteLine($"  {d}/{options.Seeds} games ({clock.Elapsed.TotalSeconds:0}s)");
+});
+var results = slots.ToList();
+if (options.PerGame)
+{
+    foreach (var result in results)
+        Console.WriteLine($"  seed {result.Seed,6}: {(result.Won ? "WON" : result.PlayerDied ? "died" : "alive"),-5} depth {result.DepthReached,2} turn {result.Turns,6}  " +
+                          $"xp {result.PlayerXp,5}  {(result.KilledBy is { } k ? "killed by " + k : "")}");
+    Console.WriteLine();
 }
 clock.Stop();
-if (options.PerGame)
-    Console.WriteLine();
 
 int n = results.Count;
 int deaths = results.Count(r => r.PlayerDied);
@@ -77,6 +122,25 @@ if (survivors.Count > 0)
 {
     Console.WriteLine($"  survivors' lowest HP   {100 * survivors.Average(r => r.LowestHpFraction),7:0}%  (avg)");
     Console.WriteLine($"  close calls (<25% HP)  {survivors.Count(r => r.LowestHpFraction < 0.25),6} / {survivors.Count}");
+}
+int levels = results.Max(r => r.DepthReached);
+if (levels > 1 || results.Any(r => r.Won))
+{
+    Console.WriteLine($"  games won              {results.Count(r => r.Won),6} / {n}  ({100.0 * results.Count(r => r.Won) / n:0.0}%)");
+    Console.WriteLine($"  avg depth reached      {results.Average(r => r.DepthReached),8:0.00}");
+    Console.WriteLine();
+    Console.WriteLine("By depth   reached   died here   death rate here                          top killers here");
+    for (int depth = 1; depth <= levels; depth++)
+    {
+        int reached = results.Count(r => r.DepthReached >= depth);
+        var diedHere = results.Where(r => r.PlayerDied && r.DepthReached == depth).ToList();
+        var killers = string.Join(", ", diedHere.GroupBy(r => r.KilledBy ?? "?").OrderByDescending(g => g.Count())
+            .Take(3).Select(g => $"{g.Key} {g.Count()}"));
+        var stillHere = results.Count(r => !r.PlayerDied && !r.Won && r.DepthReached == depth);
+        Console.WriteLine($"  {depth,5} {reached,9} {diedHere.Count,11} {(reached == 0 ? 0 : 100.0 * diedHere.Count / reached),14:0.0}%" +
+                          $"   {(stillHere > 0 ? $"(timed out here: {stillHere})" : ""),-22} {killers}");
+    }
+    Console.WriteLine();
 }
 Console.WriteLine($"  floor inside rooms     {100 * results.Average(r => r.RoomFloorFraction),7:0}%  (rest is corridor/maze)");
 Console.WriteLine($"  monsters per level     {results.Average(r => r.MonstersAtStart),8:0.0}");
@@ -105,7 +169,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false)
 {
     public static Options? Parse(string[] args)
     {
@@ -118,10 +182,11 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--seeds" when int.TryParse(Next(), out var v) && v > 0: o = o with { Seeds = v }; break;
                 case "--start" when ulong.TryParse(Next(), out var v): o = o with { Start = v }; break;
                 case "--turns" when int.TryParse(Next(), out var v) && v > 0: o = o with { Turns = v }; break;
-                case "--bot" when Next() is "aggressive" or "idle": o = o with { Bot = args[i] }; break;
+                case "--bot" when Next() is "aggressive" or "idle" or "tactical": o = o with { Bot = args[i] }; break;
                 case "--observer": o = o with { Observer = true }; break;
                 case "--games": o = o with { PerGame = true }; break;
                 case "--map": o = o with { ShowMap = true }; break;
+                case "--trace": o = o with { Trace = true }; break;
                 default: return null;
             }
         }

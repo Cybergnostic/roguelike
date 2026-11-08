@@ -75,7 +75,25 @@ public sealed record SquadMemberDef(string Monster, int Min, int Max, double Cha
 /// </summary>
 public sealed record SquadTemplateDef(string Name, string Faction, int Weight, IReadOnlyList<SquadMemberDef> Members,
     string? Zone = null, string? Architecture = null, int Leash = 0, IReadOnlyList<CorpseEntry>? Corpses = null,
-    MusterDef? Muster = null);
+    MusterDef? Muster = null, int MinDepth = 1, int MaxDepth = 99)
+{
+    public bool AppearsAt(int depth) => depth >= MinDepth && depth <= MaxDepth;
+}
+
+/// <summary>
+/// The dungeon's shape and how it gets harder (dungeon.json). Levels: how many; taking the stairs on
+/// the last one wins. Per level below the first, monsters gain MonsterHpPerLevel (fraction) of their
+/// HP and XpPerLevel of their XP, +1 attack every AttackEveryLevels levels and +1 accuracy every
+/// AccuracyEveryLevels (0 = never), and rooms are RoomOccupancyPerLevel more likely to be occupied.
+/// </summary>
+public sealed record DungeonDef(int Levels = 1, double MonsterHpPerLevel = 0, double XpPerLevel = 0,
+    int AttackEveryLevels = 0, int AccuracyEveryLevels = 0, double RoomOccupancyPerLevel = 0)
+{
+    public int HpFor(int baseHp, int depth) => (int)Math.Round(baseHp * (1 + MonsterHpPerLevel * (depth - 1)));
+    public int XpFor(int baseXp, int depth) => (int)Math.Round(baseXp * (1 + XpPerLevel * (depth - 1)));
+    public int AttackBonus(int depth) => AttackEveryLevels > 0 ? (depth - 1) / AttackEveryLevels : 0;
+    public int AccuracyBonus(int depth) => AccuracyEveryLevels > 0 ? (depth - 1) / AccuracyEveryLevels : 0;
+}
 
 /// <summary>A lair sends out a new squad (by template name) every Every turns, while its faction has fewer than Max roaming squads.</summary>
 public sealed record MusterDef(string Squad, int Every, int Max);
@@ -107,6 +125,7 @@ public sealed class ContentDatabase
     public PlayerDef Player { get; }
     public XpRules Xp => Player.Xp ?? new XpRules();
     public CombatRules Combat { get; }
+    public DungeonDef Dungeon { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
@@ -135,9 +154,11 @@ public sealed class ContentDatabase
         Dictionary<string, Faction> factions, FactionRelations relations,
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
-        List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat)
+        List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
+        DungeonDef dungeon)
     {
         Combat = combat;
+        Dungeon = dungeon;
         Attributes = attributes;
         AttributeRaise = raise;
         SkillTrees = trees;
@@ -166,6 +187,10 @@ public sealed class ContentDatabase
         var (attributes, raise) = LoadAttributes(Read<AttributeFile>(directory, "attributes.json"));
         var trees = LoadSkills(Read<SkillFile>(directory, "skills.json"));
         var combat = Read<CombatRules>(directory, "combat.json");
+        var dungeon = Read<DungeonDef>(directory, "dungeon.json");
+        if (dungeon.Levels < 1 || dungeon.MonsterHpPerLevel < 0 || dungeon.XpPerLevel < 0
+            || dungeon.AttackEveryLevels < 0 || dungeon.AccuracyEveryLevels < 0)
+            throw Error("dungeon.json", "levels must be >= 1 and the per-level growth can't be negative");
         if (combat.MinHitChance < 0 || combat.MaxHitChance > 100 || combat.MinHitChance > combat.MaxHitChance
             || combat.HitChancePerPoint < 0 || combat.MinDamage < 0)
             throw Error("combat.json", "hit chances must satisfy 0 <= min <= max <= 100; per-point and minDamage >= 0");
@@ -256,6 +281,8 @@ public sealed class ContentDatabase
             }
             if (s.Architecture is not null && !Map.LairBuilder.Styles.Contains(s.Architecture))
                 throw Error("spawns.json", $"squad '{s.Name}' uses unknown architecture '{s.Architecture}'");
+            if (s.MinDepth < 1 || s.MaxDepth < s.MinDepth)
+                throw Error("spawns.json", $"squad '{s.Name}': needs 1 <= minDepth <= maxDepth");
             if (s.Leash < 0)
                 throw Error("spawns.json", $"squad '{s.Name}': leash can't be negative");
             if (s.Muster is { } muster)
@@ -273,7 +300,7 @@ public sealed class ContentDatabase
         }
 
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat);
+            attributes, raise, trees, combat, dungeon);
     }
 
     private static (List<AttributeDef>, AttributeRaiseRules) LoadAttributes(AttributeFile file)

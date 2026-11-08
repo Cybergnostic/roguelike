@@ -20,7 +20,8 @@ public sealed class CommandPlayer(World world)
 {
     public const string Help =
         "n s e w ne nw se sw [count] | wait [count] | rest [max] | explore [max] | go X Y | " +
-        "attack ID | fire ID | fight ID [max] | pickup | drink | equip ITEM | drop ITEM | raise ATTR | learn SKILL";
+        "attack ID | fire ID | fight ID [max] | pickup | drink | equip ITEM | drop ITEM | raise ATTR | learn SKILL | " +
+        "stairs (walk to the known stairs) | descend";
 
     /// <summary>Why the last command ended early, or null if it simply finished.</summary>
     public string? StopReason { get; private set; }
@@ -57,6 +58,12 @@ public sealed class CommandPlayer(World world)
             case "attack": return [new AttackAction(Arg(1, -1))];
             case "fire": return [new FireAction(Arg(1, -1))];
             case "pickup": return [new PickUpAction()];
+            case "descend": return [new DescendAction()];
+            case "stairs":
+                if (world.Map.StairsDown is { } stairs && world.Map.Explored[stairs])
+                    return Repeat(300, () => world.StepToward(p, stairs) is { } d ? new MoveAction(d) : null, interruptible: true);
+                StopReason = "you haven't found the stairs";
+                return [];
             case "drink":
                 if (p.Inventory?.Items.FirstOrDefault(i => i.Def.Category == ItemCategory.Potion) is { } potion)
                     return [new DrinkAction(potion.Id)];
@@ -100,7 +107,7 @@ public sealed class CommandPlayer(World world)
         var itemsSeen = VisibleItems().Select(f => f.Item.Id).ToHashSet();
         for (int i = 0; i < count; i++)
         {
-            if (world.Player.IsDead) { StopReason = "you died"; yield break; }
+            if (world.IsOver) { StopReason = world.IsWon ? "you won" : "you died"; yield break; }
             var action = next();
             if (action is null)
             {
@@ -126,28 +133,8 @@ public sealed class CommandPlayer(World world)
         }
     }
 
-    /// <summary>One step toward the nearest known floor cell that borders unexplored space.</summary>
-    private GameAction? ExploreStep()
-    {
-        var map = world.Map;
-        var start = world.Player.Position;
-        var visited = new HashSet<Point> { start };
-        var queue = new Queue<Point>();
-        queue.Enqueue(start);
-        while (queue.Count > 0)
-        {
-            var cur = queue.Dequeue();
-            if (cur != start && World.EightWay.Any(d => map.InBounds(cur + d) && !map.Explored[cur + d]))
-                return world.StepToward(world.Player, cur) is { } dir ? new MoveAction(dir) : null;
-            foreach (var d in World.EightWay)
-            {
-                var nb = cur + d;
-                if (map.InBounds(nb) && map.Walkable[nb] && map.Explored[nb] && visited.Add(nb))
-                    queue.Enqueue(nb);
-            }
-        }
-        return null;
-    }
+    private GameAction? ExploreStep() =>
+        Exploration.NextStep(world) is { } dir ? new MoveAction(dir) : null;
 
     private IEnumerable<Actor> VisibleHostiles() =>
         world.Actors.Where(a => a != world.Player && !a.IsDead && world.PlayerCanSee(a) && world.AreHostile(world.Player, a));

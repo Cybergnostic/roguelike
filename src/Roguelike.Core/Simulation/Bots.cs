@@ -59,6 +59,13 @@ public sealed class AggressiveBot : IPlayerBot
             goal = target.Position;
         else if (loot is not null)
             goal = loot.Position;
+        else if (world.Map.Rooms.All(r => world.Map.Explored[r.Center]) && world.Map.StairsDown is { } stairs)
+        {
+            // Level explored: head down.
+            if (player.Position == stairs)
+                return new DescendAction();
+            goal = stairs;
+        }
         else
         {
             var room = world.Map.Rooms

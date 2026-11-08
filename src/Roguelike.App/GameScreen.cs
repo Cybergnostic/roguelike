@@ -67,7 +67,7 @@ public sealed partial class GameScreen : ScreenObject
         AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
         if (FollowFile is not null)
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
-        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Quit: Esc.", Theme.Text);
+        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: >  Quit: Esc.", Theme.Text);
         AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
@@ -77,7 +77,7 @@ public sealed partial class GameScreen : ScreenObject
     {
         if (InModalUi)
         {
-            if (ModalInput(keyboard) is { } chosen && !_world.Player.IsDead)
+            if (ModalInput(keyboard) is { } chosen && !_world.IsOver)
                 PlayTurn(chosen);
             Draw();
             return true;
@@ -95,7 +95,7 @@ public sealed partial class GameScreen : ScreenObject
             return true;
         }
 
-        if (_world.Player.IsDead)
+        if (_world.IsOver)
         {
             if (keyboard.IsKeyPressed(Keys.R))
             {
@@ -111,7 +111,10 @@ public sealed partial class GameScreen : ScreenObject
         GameAction? action = null;
         foreach (var (key, dir) in MoveKeys)
             if (keyboard.IsKeyPressed(key)) { action = new MoveAction(dir); break; }
-        if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
+        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+        if (keyboard.IsKeyPressed(Keys.OemPeriod) && shift)
+            action = new DescendAction(); // '>'
+        else if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
             || keyboard.IsKeyPressed(Keys.Space))
             action = new WaitAction();
         int messagesBefore = _messageCount;
@@ -156,6 +159,7 @@ public sealed partial class GameScreen : ScreenObject
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
+                LevelEntered or GameWon => Theme.Good,
                 MinionCrumbled or AttributeRaised or SkillLearned or SpecialUsed => Theme.Good,
                 XpGained => Theme.Intent,
                 _ => Theme.Text,
@@ -166,14 +170,18 @@ public sealed partial class GameScreen : ScreenObject
         }
         if (playerMoved)
             DescribeItemsUnderfoot();
+        if (playerMoved && _world.Map.StairsDown == _world.Player.Position)
+            AddMessage(_world.Depth >= _world.Content.Dungeon.Levels
+                ? "Stairs lead up and out of the dungeon. (> to leave and win)"
+                : "There are stairs down here. (> to descend)", Theme.Warning);
         bool canSpend = CanSpendXp();
         if (canSpend && !_couldSpendXp && !_sheetOpen)
             AddMessage("You feel you could learn something new. (c: character)", Theme.Warning);
         _couldSpendXp = canSpend;
-        if (_world.Player.IsDead)
+        if (_world.IsOver)
         {
             _autoplay = false;
-            AddMessage("Press R to start a new game, Esc to quit.", Theme.Danger);
+            AddMessage("Press R to start a new game, Esc to quit.", _world.IsWon ? Theme.Good : Theme.Danger);
         }
     }
 
@@ -336,7 +344,7 @@ public sealed partial class GameScreen : ScreenObject
             player.Hp * 3 <= player.MaxHp ? Theme.Danger : Theme.Good);
         var bow = player.Equipment?.Bow is null ? "no bow" : $"Bow {player.RangedAttack} r{player.Range}";
         _status.Print(14, 0, $"Atk {player.Attack}  Def {player.Defense}  {bow}", Theme.Text);
-        _status.Print(46, 0, $"Turn {_world.Turn}", Theme.Text);
+        _status.Print(46, 0, $"D{_world.Depth} T{_world.Turn}", Theme.Text);
         if (player.Character is { } c)
             _status.Print(58, 0, CanSpendXp() ? $"XP {c.Xp} (c)" : $"XP {c.Xp}", CanSpendXp() ? Theme.Warning : Theme.Text);
 

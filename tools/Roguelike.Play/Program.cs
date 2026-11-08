@@ -26,6 +26,7 @@ using SadRogue.Primitives.GridViews;
 // --follow mode, so you can watch a scripted game in the real UI.
 //   pickup   drink   equip ITEM   drop ITEM
 //   raise ATTR   learn SKILL      spend XP (free)
+//   stairs   descend              walk to the stairs once found / take them (>)
 
 string? file = null;
 ulong seed = 1;
@@ -56,9 +57,9 @@ foreach (var raw in lines)
     var line = raw.Split('#')[0].Trim();
     if (line.Length == 0)
         continue;
-    if (world.Player.IsDead)
+    if (world.IsOver)
     {
-        log.Add($"(line {lineNo} ignored: you are dead)");
+        log.Add($"(line {lineNo} ignored: the game is over)");
         break;
     }
     log.Add($"> {line}");
@@ -109,6 +110,8 @@ string? Describe(GameEvent e) => e switch
     CorpseRaised r => Seen(r.CasterId) || Seen(r.RaisedId) ? $"{Name(r.CasterId)} raises a {r.CorpseKind} corpse as {Name(r.RaisedId)}" : "(chanting somewhere)",
     MinionCrumbled m when Seen(m.ActorId) => $"{Name(m.ActorId)} crumbles to dust",
     ZoneEntered z => $"you enter {z.ZoneName}",
+    LevelEntered l => $"*** you descend to depth {l.Depth} ***",
+    GameWon => "*** YOU ESCAPE THE DUNGEON: YOU WIN ***",
     SquadMustered m => $"(drums: a band musters in {m.ZoneName})",
     RaidLaunched r => $"(war horns: {r.FactionId} raid {r.ZoneName})",
     SquadSpotted s when s.TargetId == world.Player.Id => $"{Name(s.SpotterId)} spots you!",
@@ -197,7 +200,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }
@@ -208,7 +211,7 @@ void Print()
     sb.AppendLine();
 
     var zone = map.ZoneAt(p.Position)?.Name ?? "open dungeon";
-    sb.AppendLine($"Turn {world.Turn}  at {p.Position.X},{p.Position.Y} ({zone})  HP {p.Hp}/{p.MaxHp}  Melee {p.Attack}  Bow {p.RangedAttack} r{p.Range}  Def {p.Defense}  Acc {p.Accuracy}  Eva {p.Evasion}");
+    sb.AppendLine($"Depth {world.Depth}/{world.Content.Dungeon.Levels}{(map.StairsDown is { } st && map.Explored[st] ? $" (stairs at {st.X},{st.Y})" : "")}  Turn {world.Turn}  at {p.Position.X},{p.Position.Y} ({zone})  HP {p.Hp}/{p.MaxHp}  Melee {p.Attack}  Bow {p.RangedAttack} r{p.Range}  Def {p.Defense}  Acc {p.Accuracy}  Eva {p.Evasion}");
     sb.AppendLine($"XP {c.Xp} to spend ({c.TotalXp} total).  Attr point costs {c.RaiseCost}.  " +
         $"Attrs: {string.Join(" ", world.Content.Attributes.Select(a => $"{a.Id} {c.Score(a.Id)}"))}");
     var skills = world.Content.Skills.Values.Select(s => $"{s.Id} {c.Rank(s.Id)}/{s.Ranks}" +
@@ -232,5 +235,7 @@ void Print()
                       $"  [you hit: melee {world.HitChance(p, a, false)}% bow {world.HitChance(p, a, true)}%; it hits you {world.HitChance(a, p, a.Range > 0 && !world.IsAdjacent(a.Position, p.Position))}%]");
     if (p.IsDead)
         sb.AppendLine("*** YOU ARE DEAD ***");
+    if (world.IsWon)
+        sb.AppendLine("*** YOU WON ***");
     Console.Write(sb);
 }

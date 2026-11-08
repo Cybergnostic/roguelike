@@ -3,6 +3,7 @@
   // probability "roomOccupancy"; the squad template is picked by weight.
   // Each member line adds between min and max of that monster (inclusive),
   // each one only with probability "chance" (default 1).
+  // "minDepth"/"maxDepth" (squads and lairs): the dungeon levels where it can appear (default all).
   "roomOccupancy": 0.6,
   // Chance for each room to have one item lying on the floor, from the "floor" loot table.
   "floorItemChance": 0.35,
@@ -28,6 +29,28 @@
       "members": [
         { "monster": "skeleton_warrior", "min": 2, "max": 3 },
         { "monster": "skeleton_archer", "min": 0, "max": 1 }
+      ]
+    },
+    {
+      "name": "goblin war party",
+      "faction": "goblins",
+      "weight": 2,
+      "minDepth": 4,
+      "members": [
+        { "monster": "goblin_warrior", "min": 3, "max": 5 },
+        { "monster": "goblin_archer", "min": 1, "max": 3 },
+        { "monster": "goblin_shaman", "min": 1, "max": 1 },
+        { "monster": "goblin_runner", "min": 0, "max": 1, "chance": 0.5 }
+      ]
+    },
+    {
+      "name": "skeleton cohort",
+      "faction": "undead",
+      "weight": 2,
+      "minDepth": 6,
+      "members": [
+        { "monster": "skeleton_warrior", "min": 3, "max": 4 },
+        { "monster": "skeleton_archer", "min": 1, "max": 2 }
       ]
     }
   ],
