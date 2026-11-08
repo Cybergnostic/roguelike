@@ -326,7 +326,13 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current** (combat pass), aggressive bot, 100 seeds × 1000 turns: player died **33%**; average
+- **Tactical bot, full dungeon** (2026-11-08), 1000 games (seeds 1000–1999), 20000-turn cap, ~48 min:
+  - Won **67%**, died 29%, timed out 4%. A won game takes about 7900 turns and earns about 5900 XP.
+  - Deaths by depth: D1 **19.6%**, D2 4.1%, then about 1% per level down to D10 (1.5%).
+    **The difficulty curve is upside down**: the character outgrows the monster scaling after level 1.
+  - Killers: goblin archer 87, goblin warrior 70, skeleton archer 60, necromancer 43, skeleton warrior 29.
+  - 11.4 potions drunk per game: potions are plentiful.
+- Combat pass, aggressive bot, 100 seeds × 1000 turns: player died **33%**; average
   turn of death about 245; 13 of 67 survivors had a close call; about 320 XP per game.
   Killers: skeleton archer 13, skeleton warrior 7, necromancer 6, goblin archer 5, goblin warrior 2.
 - Character system, aggressive bot, 100 seeds × 1000 turns:
