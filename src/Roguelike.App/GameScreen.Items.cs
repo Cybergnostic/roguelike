@@ -193,7 +193,9 @@ public sealed partial class GameScreen
         _map.Print(x0 + 2, y0 + 1, menu.Title, Theme.Warning, bg);
         for (int i = 0; i < lines.Count; i++)
         {
-            var color = player.Equipment!.IsEquipped(menu.Items[i]) ? Theme.Good : Theme.Text;
+            var item = menu.Items[i];
+            var color = item.Rarity != Roguelike.Core.Items.Rarity.Common ? Theme.ForRarity(item.Rarity)
+                : player.Equipment!.IsEquipped(item) ? Theme.Good : Theme.Text;
             _map.Print(x0 + 2, y0 + 2 + i, lines[i], color, bg);
         }
         _map.Print(x0 + 2, y0 + height - 1, " Esc: cancel ", Theme.Intent, bg);

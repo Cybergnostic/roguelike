@@ -36,7 +36,6 @@ public sealed record LevelArrival(int Depth, int Turn, int MaxHp, int Attack, in
     }
 }
 
-
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
 {
@@ -125,9 +124,10 @@ public static class Simulator
         SquadSpotted s when s.TargetId == world.Player.Id => "squads spotted player",
         SquadSpotted => "squads spotted other factions",
         SquadRouted => "squads routed",
+        LootDropped l when l.Item.Rarity > Items.Rarity.Common => $"loot dropped: {l.Item.Rarity.ToString().ToLowerInvariant()}",
         LootDropped => "loot dropped",
         ItemPickedUp => "items picked up",
-        ItemEquipped => "items equipped",
+        ItemEquipped q => $"items equipped: {q.Item.Rarity.ToString().ToLowerInvariant()}",
         PotionDrunk => "potions drunk",
         ReinforcementsCalled => "reinforcements called",
         CorpseRaised => "corpses raised",

@@ -43,6 +43,13 @@ public sealed class Equipment
 
     public bool IsEquipped(Item item) => item == Weapon || item == Bow || item == Armor;
 
+    /// <summary>What the worn items' properties add to a stat.</summary>
+    public int Bonus(Progression.Stat stat) =>
+        (Weapon?.Bonus(stat) ?? 0) + (Bow?.Bonus(stat) ?? 0) + (Armor?.Bonus(stat) ?? 0);
+
+    public bool HasSpecial(string special) =>
+        Weapon?.Special == special || Bow?.Special == special || Armor?.Special == special;
+
     /// <summary>Puts the item in its slot; returns whatever was there before.</summary>
     public Item? Equip(Item item)
     {

@@ -141,7 +141,13 @@ string ItemName(Item i)
         ItemCategory.Armor => $"def {i.DefenseBonus}",
         _ => $"heal {i.Def.Heal}",
     };
-    return $"{n} ({stats})";
+    foreach (var a in i.Affixes)
+        stats += $", {a.Value:+0;-0} {a.Def.Stat}";
+    if (i.Special is { } special)
+        stats += $", {special}";
+    var tier = i.Rarity == Rarity.Common ? "" : i.Rarity.ToString().ToLowerInvariant() + " ";
+    var title = i.NameWords is { Count: > 0 } words ? $"\"{string.Join(' ', words)}\" " : "";
+    return $"{tier}{title}{n} ({stats})";
 }
 
 static char Letter(string kind) => kind switch

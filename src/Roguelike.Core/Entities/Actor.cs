@@ -24,8 +24,12 @@ public sealed class Actor
     /// <summary>Attributes, skills and XP. Only the player has one so far.</summary>
     public Character? Character { get; init; }
 
-    /// <summary>Bonus to a derived stat from attributes and skills (0 without a character).</summary>
-    public int Bonus(Stat stat) => Character?.Bonus(stat) ?? 0;
+    /// <summary>Bonus to a derived stat from attributes, skills and the properties of worn items.</summary>
+    public int Bonus(Stat stat) => (Character?.Bonus(stat) ?? 0) + (Equipment?.Bonus(stat) ?? 0);
+
+    /// <summary>A named ability (ContentDatabase.Specials) from a skill or a worn legendary.</summary>
+    public bool HasSpecial(string special) =>
+        Character?.Has(special) == true || Equipment?.HasSpecial(special) == true;
 
     /// <summary>Natural stats, before equipment.</summary>
     public int BaseAttack { get; }

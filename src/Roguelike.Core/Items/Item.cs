@@ -9,8 +9,8 @@ public enum ItemCategory
 }
 
 /// <summary>
-/// Loot tiers, worst to best. Only Common is generated so far; the rest are planned
-/// (see docs/PROJECT.md §8): Magic green, Rare orange, Legendary red, Unique gold, Artifact violet.
+/// Loot tiers, worst to best (affixes.json). Common, Magic, Rare and Legendary are generated;
+/// Unique and Artifact are planned (see docs/PROJECT.md §8).
 /// </summary>
 public enum Rarity
 {
@@ -41,6 +41,9 @@ public sealed record ItemDef(
 /// <summary>
 /// One concrete item (or stack). <see cref="Enchantment"/> is the classic +X (negative = cursed),
 /// independent of <see cref="Rarity"/>: it adds to the item's attack (weapons, bows) or defense (armor).
+/// Magic and better items carry <see cref="Affixes"/> that add to derived stats while worn, and
+/// legendaries a <see cref="Special"/>. Rare and legendary items have <see cref="NameWords"/>
+/// (from affixes.json) for the front end to name them by.
 /// </summary>
 public sealed class Item(int id, ItemDef def)
 {
@@ -49,6 +52,19 @@ public sealed class Item(int id, ItemDef def)
     public int Enchantment { get; init; }
     public Rarity Rarity { get; init; } = Rarity.Common;
     public int Count { get; set; } = 1;
+    public IReadOnlyList<AffixRoll> Affixes { get; init; } = [];
+    public string? Special { get; init; }
+    public IReadOnlyList<string>? NameWords { get; init; }
+
+    /// <summary>What this item's properties add to a stat while it's worn.</summary>
+    public int Bonus(Progression.Stat stat)
+    {
+        int sum = 0;
+        foreach (var a in Affixes)
+            if (a.Def.Stat == stat)
+                sum += a.Value;
+        return sum;
+    }
 
     public int AttackBonus => Def.Category is ItemCategory.Weapon or ItemCategory.Bow ? Def.Attack + Enchantment : 0;
     public int DefenseBonus => Def.Category == ItemCategory.Armor ? Def.Defense + Enchantment : 0;

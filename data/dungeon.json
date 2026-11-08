@@ -2,10 +2,10 @@
   // The dungeon: "levels" deep. Taking the stairs down on the last level wins the game.
   "levels": 10,
   // How monsters grow per level below the first (generic difficulty until levels get their own
-  // content): +17% HP and +15% XP per level, +1 attack every 2 levels, +1 accuracy every 3,
+  // content): +20% HP and +15% XP per level, +1 attack every 2 levels, +1 accuracy every 3,
   // +1 defence every 4, and rooms are 3% more likely to hold a squad. The character grows
   // fast with XP and gear, so the dungeon has to keep up; loot depth gating is in items.json.
-  "monsterHpPerLevel": 0.17,
+  "monsterHpPerLevel": 0.2,
   "xpPerLevel": 0.15,
   "attackEveryLevels": 2,
   "accuracyEveryLevels": 3,

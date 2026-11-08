@@ -74,6 +74,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         SkillLearned l when world.Content.Skills[l.SkillId].Ranks == 1 => $"You learn {world.Content.Skills[l.SkillId].Name}.",
         SkillLearned l => $"You learn {world.Content.Skills[l.SkillId].Name} (rank {l.NewRank}/{world.Content.Skills[l.SkillId].Ranks}).",
         SpecialUsed { Special: "cleave" } u => $"Your blow carries on into {Name(u.TargetId)}!",
+        SpecialUsed { Special: "lifesteal" } u when u.ActorId == world.Player.Id => "Your weapon drinks; you feel stronger.",
+        SpecialUsed { Special: "thorns" } u when u.ActorId == world.Player.Id => $"Thorns bite {Name(u.TargetId)}!",
         SpecialUsed => null,
 
         ActionFailed f when f.ActorId == world.Player.Id => f.Reason switch

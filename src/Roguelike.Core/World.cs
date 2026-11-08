@@ -319,8 +319,25 @@ public sealed class World
         }
         int power = ranged ? attacker.RangedAttack : attacker.Attack;
         int roll = Rng.NextInt(1, Math.Max(1, power) + 1);
-        int absorbed = Rng.NextInt(0, Math.Max(0, target.Defense) + 1);
-        Damage(attacker, target, Math.Max(Content.Combat.MinDamage, roll - absorbed), ranged);
+        int armour = ranged && attacker.HasSpecial("piercing") ? target.Defense / 2 : target.Defense;
+        int absorbed = Rng.NextInt(0, Math.Max(0, armour) + 1);
+        int dealt = Math.Max(Content.Combat.MinDamage, roll - absorbed);
+        Damage(attacker, target, dealt, ranged);
+        if (ranged)
+            return;
+
+        // Lifesteal: a melee hit heals the striker by a quarter of the damage (at least 1).
+        if (dealt > 0 && !attacker.IsDead && attacker.Hp < attacker.MaxHp && attacker.HasSpecial("lifesteal"))
+        {
+            attacker.Hp = Math.Min(attacker.MaxHp, attacker.Hp + Math.Max(1, dealt / 4));
+            Emit(new SpecialUsed(attacker.Id, "lifesteal", target.Id));
+        }
+        // Thorns: whoever lands a melee blow on the wearer takes 1-3 damage back.
+        if (!target.IsDead && !attacker.IsDead && target.HasSpecial("thorns"))
+        {
+            Emit(new SpecialUsed(target.Id, "thorns", attacker.Id));
+            Damage(target, attacker, Rng.NextInt(1, 4), ranged: false);
+        }
     }
 
     /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
@@ -395,12 +412,68 @@ public sealed class World
     public bool TakeFromFloor(Item item) => _floorItems.RemoveAll(f => f.Item == item) > 0;
 
     /// <summary>Makes a new item. Equipment rolls its +X unless one is given.</summary>
-    public Item CreateItem(ItemDef def, int? enchantment = null, int count = 1, int? depth = null) =>
-        new(_nextItemId++, def)
+    /// <summary>
+    /// A new item. Equipment generated at random (no <paramref name="enchantment"/> given) rolls
+    /// its +X, then its rarity tier and that tier's affixes, special and name, for <paramref name="depth"/>
+    /// (default: this level). An item with a given enchantment (the starting kit, tests) is plain.
+    /// </summary>
+    public Item CreateItem(ItemDef def, int? enchantment = null, int count = 1, int? depth = null)
+    {
+        if (!def.IsEquipment || enchantment is not null)
+            return new(_nextItemId++, def) { Enchantment = enchantment ?? 0, Count = count };
+
+        int d = depth ?? Depth;
+        int plus = RollEnchantment(d);
+        var rules = Content.Affixes;
+        if (RollTier(d) is not { } tier)
+            return new(_nextItemId++, def) { Enchantment = plus, Count = count };
+
+        var affixes = RollAffixes(def.Category, d, Rng.NextInt(tier.AffixMin, tier.AffixMax + 1));
+        string? special = tier.Special ? Pick(rules.Specials[def.Category]) : null;
+        IReadOnlyList<string>? words = tier.Rarity >= Rarity.Rare
+            ? [Pick(rules.Names.First), Pick(rules.Names.Second[def.Category])]
+            : null;
+        return new(_nextItemId++, def)
         {
-            Enchantment = enchantment ?? (def.IsEquipment ? RollEnchantment(depth ?? Depth) : 0),
+            Enchantment = plus,
             Count = count,
+            Rarity = affixes.Count > 0 || special is not null ? tier.Rarity : Rarity.Common,
+            Affixes = affixes,
+            Special = special,
+            NameWords = words,
         };
+    }
+
+    /// <summary>A tier above common for an item found at <paramref name="depth"/>, or null for common.</summary>
+    private RarityTierDef? RollTier(int depth)
+    {
+        double roll = Rng.NextDouble() * 100;
+        foreach (var tier in Content.Affixes.Tiers)
+        {
+            double chance = tier.ChanceAt(depth);
+            if (roll < chance)
+                return tier;
+            roll -= chance;
+        }
+        return null;
+    }
+
+    /// <summary>Up to <paramref name="count"/> different affixes for the slot, picked by weight.</summary>
+    private List<AffixRoll> RollAffixes(ItemCategory slot, int depth, int count)
+    {
+        var pool = Content.Affixes.Pool.Where(a => a.Slots.Contains(slot) && a.MinDepth <= depth).ToList();
+        var rolled = new List<AffixRoll>();
+        while (rolled.Count < count && pool.Count > 0)
+        {
+            int roll = Rng.NextInt(pool.Sum(a => a.Weight));
+            var def = pool.First(a => (roll -= a.Weight) < 0);
+            pool.Remove(def);
+            rolled.Add(new AffixRoll(def, def.ValueAt(Rng.NextInt(def.Min, def.Max + 1), depth)));
+        }
+        return rolled;
+    }
+
+    private T Pick<T>(IReadOnlyList<T> list) => list[Rng.NextInt(list.Count)];
 
     /// <summary>
     /// Picks one entry from a loot table, as found at <paramref name="depth"/> (default: this level).

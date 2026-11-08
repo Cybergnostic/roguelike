@@ -156,6 +156,9 @@ public sealed partial class GameScreen : ScreenObject
                 continue;
             var color = e switch
             {
+                ItemPickedUp { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } p => Theme.ForRarity(p.Item.Rarity),
+                LootDropped { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } l => Theme.ForRarity(l.Item.Rarity),
+                ItemEquipped { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } q => Theme.ForRarity(q.Item.Rarity),
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,

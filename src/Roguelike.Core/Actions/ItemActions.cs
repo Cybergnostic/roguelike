@@ -47,6 +47,7 @@ public sealed record DropAction(int ItemId) : GameAction
         if (actor.Inventory?.Find(ItemId) is not { } item)
             return false;
         actor.Equipment?.Unequip(item);
+        EquipAction.ClampHp(actor);
         actor.Inventory.Remove(item);
         world.PlaceOnFloor(item, actor.Position);
         world.Emit(new ItemDropped(actor.Id, item));
@@ -67,14 +68,22 @@ public sealed record EquipAction(int ItemId) : GameAction
         if (equipment.IsEquipped(item))
         {
             equipment.Unequip(item);
+            ClampHp(actor);
             world.Emit(new ItemUnequipped(actor.Id, item));
             return true;
         }
 
         var replaced = equipment.Equip(item);
+        ClampHp(actor);
         world.Emit(new ItemEquipped(actor.Id, item, replaced));
         return true;
     }
+
+    /// <summary>
+    /// Max HP from gear doesn't come with HP (else swapping it on and off would heal), and
+    /// taking it off can't leave you above your new maximum.
+    /// </summary>
+    internal static void ClampHp(Actor actor) => actor.Hp = Math.Min(actor.Hp, actor.MaxHp);
 }
 
 /// <summary>Drinks one potion from a stack.</summary>

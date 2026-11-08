@@ -63,7 +63,9 @@ loot (rarity tiers, +X gear).
 | **Six D&D attributes** (user, 2026-11-08; to be revisited) | Familiar; CHA/INT/WIS get real uses as talking, magic and factions arrive. Their effects live in `attributes.json`, so revisiting is a data edit | 4 Sil-style attributes; none (Brogue) |
 | **XP is spent on attributes and skills now; ToME-style classes and skill trees later** (user) | Skills are data, grouped in trees, so a class can later just be "which trees you start with" (plus actives with cooldowns) | Fixed level-ups |
 | **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
-| **One derived-stat vocabulary (`Stat`)** | Attributes, skills and (next) item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
+| **One derived-stat vocabulary (`Stat`)** | Attributes, skills and item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
+| **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
+| **Tune with the tactical bot over many seeds** | Balance target (2026-11-08): the tactical bot wins about 20–30% and deaths rise with depth. A human plays differently; the bot measures the curve, not absolute difficulty | Tuning by feel from single games |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
 
 ---
@@ -79,7 +81,10 @@ data/                        game content (JSON with comments), copied next to e
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
   items.json                 item types (minDepth), +X enchantment weights (minDepth), loot tables
-  dungeon.json               number of levels (10) and how monsters grow per level (HP, XP, attack, accuracy, occupancy)
+  affixes.json               rarity tiers (chance by depth, affix count, special), affix pool (stat, range,
+                             growth per level, slots), legendary specials per slot, rare-name word lists
+  dungeon.json               number of levels (10) and how monsters grow per level (HP, XP, attack, accuracy,
+                             defence, occupancy)
   combat.json                hit chance (accuracy vs evasion), point-blank penalty, minimum damage
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
@@ -88,7 +93,8 @@ data/                        game content (JSON with comments), copied next to e
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
   World.cs                   all state; Step(action) -> events; spatial/AI helpers
-  Map/GameMap.cs             tiles, explored, walkable/transparent views, player FOV, rooms
+  Map/GameMap.cs             tiles (change via SetTile), explored, walkable/transparent views, player FOV, rooms
+  Map/CellGrid.cs            array-backed bool grid; walkability lives in one so pathfinding reads an array
   Map/MapGenerator.cs        GoRogue rooms-and-mazes, tuned roomy (will be replaced by history-driven gen)
   Map/LairBuilder.cs         rebuilds a room as a lair ("tower": lair floor + pillars); keeps it connected
   Map/DistanceMap.cs         fast BFS Dijkstra map (IGridView<double?>)
@@ -97,7 +103,9 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Entities/Faction.cs        Faction, Relation, FactionRelations
   Progression/Stat.cs        the derived stats everything adds to (maxHp, meleeAttack, defense, regen...)
   Progression/Character.cs   attribute scores, skill ranks, XP pool; sums bonuses; spending checks
-  Items/Item.cs              ItemDef (data), Item (instance: +X Enchantment, Rarity, Count), categories
+  Items/Item.cs              ItemDef (data), Item (instance: +X Enchantment, Rarity, Affixes, Special,
+                             NameWords, Count), categories
+  Items/Affix.cs             AffixDef, AffixRoll, RarityTierDef, name word lists
   Items/Inventory.cs         Inventory (stacking, capacity) and Equipment (weapon/bow/armor slots)
   Actions/                   GameAction records: Move (bump-attack, ally swap), Attack, Wait, RangedAttack,
                              Heal, CallForHelp, RaiseDead, PickUp, Drop, Equip, Drink, Fire,
@@ -107,14 +115,14 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
   AI/Strategy/FactionPlanner strategic layer, once per turn: lair musters and faction raids
   Simulation/                bots (AggressiveBot, IdleBot, TacticalBot), Simulator (headless games + stats),
-                             CommandPlayer (scripted play), Exploration (auto-explore)
+                             CommandPlayer (scripted play), Exploration (auto-explore), ItemValue (bots' gear worth)
 src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
   GameScreen.cs              map/sidebar/status/log, input, turn loop
   GameScreen.Debug.cs        debug views (F1/F2/F3/F5/P), autoplay
   GameScreen.Items.cs        item commands, inventory menus, bow targeting
   GameScreen.Character.cs    character sheet (c): attributes, skill trees, derived stats; letters spend XP
-  ItemText.cs                item names ("+1 short sword", "2 potions of healing")
+  ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
 tools/Roguelike.Sim/         headless simulation report CLI
@@ -241,8 +249,8 @@ you, a quick way to see progression; spectating: time passes).
   seek clear shots; shamans heal (cooldown 5, range 6); runners fetch the nearest idle squad.
 - **Readability**: sidebar with visible monsters' HP and intent; unseen events reported as sounds;
   unseen attackers are "something".
-- **Player kit**: items from data with +X enchantment (incl. cursed) and a rarity field (all
-  Common so far); inventory (20 slots, potions stack) and equipment slots; derived stats; loot
+- **Player kit**: items from data with +X enchantment (incl. cursed) and a rarity tier (see the
+  rarity entry below); inventory (20 slots, potions stack) and equipment slots; derived stats; loot
   tables per monster and floor items; pick up/drop/equip/drink/fire; inventory menus and bow
   targeting UI; the bot uses the kit (potions, bow, better gear, walks to loot).
 - **AI fixes found via a failing test**: runners keep their mission while the squad flees and call
@@ -382,6 +390,37 @@ you, a quick way to see progression; spectating: time passes).
   - Sim runs games in parallel (`--bot tactical`), reports wins and deaths per depth; `--trace` follows
     one game (TRACE_EVERY env var sets the interval) and prints the cells around the player at the end.
 
+- **Faster simulation** (2026-11-08), found by profiling with `dotnet-trace`:
+  - Walkability is a flat array (`CellGrid`), kept in sync by `GameMap.SetTile`.
+  - `StepToward` reuses each actor's A* path while it stays on it and the goal is unchanged.
+  - `SafetyMap` merges two sorted streams instead of a priority queue (same values; a test pins it).
+  - 24 tactical games: 2584 → 4822 turns/s on this desktop.
+- **Difficulty pass** (2026-11-08): deaths now rise with depth instead of peaking on level 1.
+  - Monsters: +20% HP per level (was 12%), +1 attack every 2 levels (was 3), +1 accuracy every 3
+    (was 4), and +1 defence every 4 (new). Rooms 3% more likely occupied per level.
+  - A gentler first level: goblin scouts (1–3 warriors, maybe an archer, no runner) instead of war
+    bands, no skeleton patrols, a young warren that musters scouts every 150 turns (max 2), and a
+    small court (necromancer, one skeleton warrior, one corpse). Lairs come in level ranges for this.
+  - Fewer potions: goblins 3 and floor 6 by weight (was 10 and 15).
+  - A runner whose target band dies goes to the next nearest band instead of giving up.
+  - The sim prints the character's average stats on arriving at each level (`LevelArrival`).
+- **Rarity tiers and affixes** (step 5 part 2, 2026-11-08):
+  - Each generated weapon, bow or armour rolls +X, then a tier: magic 10% (+0.5% per level), rare 2%
+    from depth 2 (+0.4%), legendary 0.3% from depth 4 (+0.15%), else common.
+  - Magic: 1 affix, named by it ("keen dagger", "leather armor of the bear"). Rare: 2–3 affixes and
+    a name ("Raven Sting (long bow)"). Legendary: 3–4 affixes, a name and a signature special.
+  - Twelve affixes add to the shared `Stat`s (accuracy, melee/ranged attack, range, defence,
+    evasion, max HP, regen, potion healing, XP), some growing with depth. Worn items add through
+    `Actor.Bonus`. Max HP from gear brings no HP (else swapping heals), and taking it off clamps HP.
+  - Specials: cleave and lifesteal (weapons), piercing (bows: arrows meet half the armour), thorns
+    (armour: melee attackers take 1–3). `Actor.HasSpecial` covers skills and gear.
+  - Front end: tier colours on the floor glyph, in menus and on pickup/loot lines (white, green,
+    orange, red; gold and violet reserved for uniques and artifacts); stat lines list affixes.
+  - Bots value gear with `ItemValue` (affixes weighted against attack). Sim counts loot and
+    equipped items by tier.
+  - Balance: with affixes the bot won 49.5%; rarer tiers, a weaker HP affix (2–4 + 0.5/level) and
+    monster HP growth 17% → 20% brought it to 29% (200 games).
+
 **Playtest by Claude, seed 42 (2026-11-08)**, played turn by turn with `Roguelike.Play`:
 - Cleared the level by turn ~366 (warren fallen, necromancer dead), ending at full HP. The only real
   danger was the first fight (lost 10 of 30 HP); it was good: a warrior corking a corridor with
@@ -403,12 +442,15 @@ you, a quick way to see progression; spectating: time passes).
 **Known issues / tech debt**
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
   forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
-- Simulation speed is about 2000 turns/s on this desktop (4 cores, busy; parallelism helps little).
-  A 10-level game with the tactical bot is about 7000 turns. Profile before running 10k games.
+- Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
+  tactical bot is about 6000 turns, so 1000 games take about 20 minutes and 10k games 3–4 hours.
+  Next costs per the profile: per-faction Dijkstra and flee maps every turn, FOV, map generation.
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
   it should look for another route or another squad.
-- Balance is tuned for one level only. There's no depth curve yet. Once the bot clears a level,
-  nothing else happens.
+- Levels are generic: the same factions and lairs on every level, only stronger. Deep levels need
+  their own content (new monsters, places) rather than ever bigger numbers.
+- Goblin archers are the top killer at every depth: the bot (and likely a player) has no good
+  answer to arrows in the open but rushing them.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
   out of sight; potions are used even at full HP.
 - Squads are still idle about 77% of the time, because patrols are random. Raids and musters keep
@@ -416,14 +458,13 @@ you, a quick way to see progression; spectating: time passes).
 - Undead don't raid or forage. Possible next step: the necromancer sends servants to drag corpses
   back to the tower.
 - The warren has no architecture of its own yet (it's a plain room with a name).
-- The start is safe and every faction's numbers are tuned for a single level only.
 - Engaged squads follow `TowardEnemiesOf`, which leads to the nearest enemy even if unseen
   (omniscient chase). Fine while engaged; revisit with stealth.
 - Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
-- Remaining per-turn cost is mostly A* for patrolling squads (each follower re-plans each turn).
-  Options: cache paths, or per-squad distance maps.
 - `ActorAt` is a linear scan; switch to a spatial index (GoRogue `SpatialMap`) when actor counts grow.
-- `GameMap.Walkable` is a lambda view; make it an array when terrain becomes mutable (doors, digging).
+- Terrain changes must go through `GameMap.SetTile` (walkability cache). Cached A* paths assume walls
+  don't change during a level; clear `World._paths` when doors or digging arrive.
+- Items aren't identified: every property is visible at once (identify-by-use is part 3).
 - Monster sight is radius + Bresenham line; the player's FOV is shadowcasting. They can disagree
   slightly at edges. Stealth will need a proper model (noise, light, facing).
 
@@ -442,8 +483,8 @@ you, a quick way to see progression; spectating: time passes).
 5. **Full character system and procedural items** (see §8)
    - Inserted first: ten generic levels, stairs, depth scaling, the tactical bot, mass simulation.
    - ~~Part 1: attributes, XP, skills, character sheet~~ (done 2026-11-08)
-   - Part 2: rarity tiers and affixes (affixes add to the same `Stat`s; tiers coloured white/green/
-     orange/red), item names, loot generation by tier
+   - ~~Part 2: rarity tiers and affixes, item names, loot generation by tier~~ (done 2026-11-08;
+     preceded by a sim speed-up and a difficulty pass)
    - Part 3: random uniques, identify-by-use, scrolls of enchanting (+X)
    - Later (ToME direction, user): classes that grant skill trees, active skills with cooldowns,
      a use for Charisma/Intelligence/Wisdom beyond the passives
@@ -476,7 +517,8 @@ The user wants Diablo-style tiers **and** classic +X items. Proposed structure:
   chitin, iron) come from the site and carry properties; origin (goblin-made, dwarven, necromantic)
   affects quality and quirks. Every attribute is a tag so crafting can reuse it.
 - Brogue-style identify-by-use for potions, scrolls and runes.
-- **Decided**: tiers don't gate +X (independent). **Not decided yet**: exact affix pools, drop rates.
+- **Decided**: tiers don't gate +X (independent). First affix pool and drop rates are in
+  `affixes.json` (2026-11-08); materials and origins are not modelled yet.
 
 ### Character
 - Now: six D&D attributes and skills bought with XP (Sil-style spending; XP for kills, first

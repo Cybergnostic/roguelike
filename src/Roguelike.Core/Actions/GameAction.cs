@@ -78,7 +78,7 @@ public sealed record AttackAction(int TargetId) : GameAction
         Strike(world, actor, target);
 
         // Cleave: a killing blow carries on into another adjacent foe (once per attack).
-        if (target.IsDead && actor.Character?.Has("cleave") == true
+        if (target.IsDead && actor.HasSpecial("cleave")
             && world.AdjacentHostile(actor) is { } next && !world.IsUntouchable(next))
         {
             world.Emit(new SpecialUsed(actor.Id, "cleave", next.Id));

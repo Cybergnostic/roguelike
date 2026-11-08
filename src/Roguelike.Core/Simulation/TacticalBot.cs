@@ -302,7 +302,7 @@ public sealed class TacticalBot : IPlayerBot
     private static Item? Potion(Actor me) =>
         me.Inventory?.Items.FirstOrDefault(i => i.Def.Category == ItemCategory.Potion);
 
-    private static int Score(Item? i) => i is null ? int.MinValue : i.AttackBonus + i.DefenseBonus + i.Def.Range / 2;
+    private static double Score(Item? i) => ItemValue.Of(i);
 
     private static Item? Slot(Actor me, ItemCategory c) => c switch
     {

@@ -98,7 +98,7 @@ public sealed class AggressiveBot : IPlayerBot
     {
         if (player.Inventory is not { } inventory || player.Equipment is not { } equipment)
             return null;
-        static int Score(Item? i) => i is null ? int.MinValue : i.AttackBonus + i.DefenseBonus + i.Def.Range;
+        static double Score(Item? i) => ItemValue.Of(i, rangeWeight: 1);
         foreach (var item in inventory.Items.Where(i => i.Def.IsEquipment && !equipment.IsEquipped(i)))
         {
             var current = item.Def.Category switch

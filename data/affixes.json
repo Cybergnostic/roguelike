@@ -1,0 +1,54 @@
+{
+  // Rarity tiers and the properties (affixes) they roll. Each generated weapon, bow or armour
+  // rolls its tier first: the chances below (percent, growing per level below the first), and
+  // common for whatever is left. The +X enchantment (items.json) is rolled independently.
+  //   "affixes": how many properties, [min, max].
+  //   "special": legendaries also carry one signature special for their slot (see "specials").
+  "tiers": [
+    { "rarity": "magic",     "chance": 10,  "chancePerLevel": 0.5,  "affixes": [1, 1] },
+    { "rarity": "rare",      "chance": 2,   "chancePerLevel": 0.4,  "affixes": [2, 3], "minDepth": 2 },
+    { "rarity": "legendary", "chance": 0.3, "chancePerLevel": 0.15, "affixes": [3, 4], "minDepth": 4, "special": true }
+  ],
+
+  // Properties. Each adds "stat" (the same stats attributes and skills use) by a value rolled
+  // from min..max, plus "perLevel" for every dungeon level below the first (rounded down).
+  //   "kind": prefix or suffix; a magic item is named after its one property ("keen dagger",
+  //   "leather armor of the bear"). Rare and legendary items get a generated name instead.
+  //   "slots": which equipment can roll it (weapon, bow, armor).
+  "affixes": [
+    { "id": "keen",        "kind": "prefix", "name": "keen",          "slots": ["weapon", "bow"], "stat": "accuracy",      "min": 1, "max": 2, "weight": 10 },
+    { "id": "vicious",     "kind": "prefix", "name": "vicious",       "slots": ["weapon"],        "stat": "meleeAttack",   "min": 1, "max": 2, "perLevel": 0.34, "weight": 10 },
+    { "id": "deadly",      "kind": "prefix", "name": "deadly",        "slots": ["bow"],           "stat": "rangedAttack",  "min": 1, "max": 2, "perLevel": 0.34, "weight": 10 },
+    { "id": "far_reaching","kind": "prefix", "name": "far-reaching",  "slots": ["bow"],           "stat": "range",         "min": 1, "max": 2, "weight": 6 },
+    { "id": "reinforced",  "kind": "prefix", "name": "reinforced",    "slots": ["armor"],         "stat": "defense",       "min": 1, "max": 1, "perLevel": 0.25, "weight": 10 },
+    { "id": "nimble",      "kind": "prefix", "name": "nimble",        "slots": ["armor"],         "stat": "evasion",       "min": 1, "max": 2, "weight": 8 },
+
+    { "id": "of_the_bear", "kind": "suffix", "name": "of the bear",   "slots": ["weapon", "bow", "armor"], "stat": "maxHp", "min": 2, "max": 4, "perLevel": 0.5, "weight": 10 },
+    { "id": "of_the_fox",  "kind": "suffix", "name": "of the fox",    "slots": ["weapon", "bow"], "stat": "evasion",       "min": 1, "max": 1, "weight": 6 },
+    { "id": "of_mending",  "kind": "suffix", "name": "of mending",    "slots": ["armor"],         "stat": "regen",         "min": 1, "max": 2, "weight": 6 },
+    { "id": "of_the_healer","kind": "suffix","name": "of the healer", "slots": ["armor"],         "stat": "potionHealing", "min": 10, "max": 25, "weight": 6 },
+    { "id": "of_learning", "kind": "suffix", "name": "of learning",   "slots": ["weapon", "bow", "armor"], "stat": "xpGain", "min": 5, "max": 10, "weight": 4 },
+    { "id": "of_precision","kind": "suffix", "name": "of precision",  "slots": ["bow"],           "stat": "accuracy",      "min": 1, "max": 2, "weight": 6 }
+  ],
+
+  // Legendary signature specials by slot (the rules know them; skills can grant them too):
+  //   cleave: a kill carries on into the next adjacent foe. lifesteal: melee hits heal you a
+  //   quarter of the damage (at least 1). piercing: arrows meet only half the target's armour.
+  //   thorns: whoever hits you in melee takes 1-3 damage.
+  "specials": {
+    "weapon": ["cleave", "lifesteal"],
+    "bow":    ["piercing"],
+    "armor":  ["thorns"]
+  },
+
+  // Rare and legendary names: a first word and a second word that suits the slot ("Grim Fang").
+  "names": {
+    "first": ["Grim", "Doom", "Storm", "Blood", "Bone", "Shadow", "Iron", "Dread", "Gloom", "Ash",
+              "Wraith", "Rune", "Night", "Grave", "Ember", "Frost", "Hollow", "Raven"],
+    "second": {
+      "weapon": ["Fang", "Edge", "Bite", "Song", "Thirst", "Cleaver", "Tooth", "Reaver"],
+      "bow":    ["Wing", "Strike", "Flight", "Sting", "Call", "Whisper", "Talon"],
+      "armor":  ["Shell", "Ward", "Hide", "Coat", "Mantle", "Shroud", "Bulwark"]
+    }
+  }
+}

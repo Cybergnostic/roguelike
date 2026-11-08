@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Roguelike.Core.Items;
 using Roguelike.Core.Map;
 using SadRogue.Primitives;
 
@@ -47,10 +48,24 @@ public static class Theme
     public static string? RangedVerb(string kind) => RangedVerbs.GetValueOrDefault(kind);
 
 
-    /// <summary>By item id first, then by category ("weapon", "potion", ...).</summary>
-    public static Look ForItem(Roguelike.Core.Items.Item item) =>
-        Looks.Items.TryGetValue(item.Def.Id, out var look) ? look
-        : Looks.Items.GetValueOrDefault(item.Def.Category.ToString().ToLowerInvariant(), Unknown);
+    /// <summary>By item id first, then by category ("weapon", "potion", ...); magic and better items take their tier's colour.</summary>
+    public static Look ForItem(Roguelike.Core.Items.Item item)
+    {
+        var look = Looks.Items.TryGetValue(item.Def.Id, out var own) ? own
+            : Looks.Items.GetValueOrDefault(item.Def.Category.ToString().ToLowerInvariant(), Unknown);
+        return item.Rarity == Rarity.Common ? look : look with { Foreground = ForRarity(item.Rarity) };
+    }
+
+    /// <summary>The tier colours (docs/PROJECT.md §8): white, green, orange, red, gold, violet.</summary>
+    public static Color ForRarity(Rarity rarity) => rarity switch
+    {
+        Rarity.Magic => new Color(90, 220, 90),
+        Rarity.Rare => new Color(245, 150, 45),
+        Rarity.Legendary => new Color(235, 60, 55),
+        Rarity.Unique => new Color(240, 210, 80),
+        Rarity.Artifact => new Color(185, 120, 245),
+        _ => Text,
+    };
 
     /// <summary>Debug reveal: cells the player hasn't seen, dimmer than visible ones.</summary>
     public static Color Revealed(Color c) => new((byte)(c.R * 0.55), (byte)(c.G * 0.55), (byte)(c.B * 0.65));

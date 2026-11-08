@@ -96,6 +96,13 @@ public sealed record DungeonDef(int Levels = 1, double MonsterHpPerLevel = 0, do
     public int DefenseBonus(int depth) => DefenseEveryLevels > 0 ? (depth - 1) / DefenseEveryLevels : 0;
 }
 
+/// <summary>Everything affixes.json defines: tiers above common, the affix pool, legendary specials per slot, rare names.</summary>
+public sealed record AffixRules(
+    IReadOnlyList<RarityTierDef> Tiers,
+    IReadOnlyList<AffixDef> Pool,
+    IReadOnlyDictionary<ItemCategory, IReadOnlyList<string>> Specials,
+    ItemNameWords Names);
+
 /// <summary>A lair sends out a new squad (by template name) every Every turns, while its faction has fewer than Max roaming squads.</summary>
 public sealed record MusterDef(string Squad, int Every, int Max);
 
@@ -132,8 +139,11 @@ public sealed class ContentDatabase
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
     public IReadOnlyDictionary<string, SkillDef> Skills { get; }
 
-    /// <summary>Special abilities skills can grant; each is implemented in the rules.</summary>
-    public static readonly IReadOnlyList<string> Specials = ["cleave"];
+    /// <summary>Rarity tiers, affixes, legendary specials and rare names (affixes.json).</summary>
+    public AffixRules Affixes { get; }
+
+    /// <summary>Special abilities skills and legendary items can grant; each is implemented in the rules.</summary>
+    public static readonly IReadOnlyList<string> Specials = ["cleave", "lifesteal", "piercing", "thorns"];
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
 
@@ -156,8 +166,9 @@ public sealed class ContentDatabase
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
-        DungeonDef dungeon)
+        DungeonDef dungeon, AffixRules affixes)
     {
+        Affixes = affixes;
         Combat = combat;
         Dungeon = dungeon;
         Attributes = attributes;
@@ -300,8 +311,73 @@ public sealed class ContentDatabase
                     throw Error("spawns.json", $"squad '{s.Name}' lays out corpses of unknown monster '{c.Monster}'");
         }
 
+        var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon);
+            attributes, raise, trees, combat, dungeon, affixes);
+    }
+
+    private static AffixRules LoadAffixes(AffixFile file, int levels)
+    {
+        const string name = "affixes.json";
+        ItemCategory[] slots = [ItemCategory.Weapon, ItemCategory.Bow, ItemCategory.Armor];
+
+        var tiers = new List<RarityTierDef>();
+        foreach (var t in file.Tiers)
+        {
+            if (t.Rarity is not (Rarity.Magic or Rarity.Rare or Rarity.Legendary))
+                throw Error(name, $"tier '{t.Rarity}' can't be generated (only magic, rare, legendary)");
+            if (tiers.Any(x => x.Rarity == t.Rarity))
+                throw Error(name, $"duplicate tier '{t.Rarity}'");
+            if (t.Affixes is not [var min, var max] || min < 0 || max < min)
+                throw Error(name, $"tier '{t.Rarity}': \"affixes\" must be [min, max] with 0 <= min <= max");
+            if (t.Chance < 0 || t.ChancePerLevel < 0)
+                throw Error(name, $"tier '{t.Rarity}': chances can't be negative");
+            tiers.Add(new RarityTierDef(t.Rarity, t.Chance, t.ChancePerLevel, min, max, t.MinDepth, t.Special));
+        }
+        if (tiers.Sum(t => t.ChanceAt(levels)) > 100)
+            throw Error(name, $"tier chances add up to more than 100% by depth {levels}");
+
+        var affixes = new List<AffixDef>();
+        foreach (var a in file.Affixes)
+        {
+            var stat = Stats(new() { [a.Stat] = 0 }, name, $"affix '{a.Id}'").Keys.Single();
+            if (affixes.Any(x => x.Id == a.Id))
+                throw Error(name, $"duplicate affix '{a.Id}'");
+            if (a.Min > a.Max || a.Weight <= 0 || a.PerLevel < 0)
+                throw Error(name, $"affix '{a.Id}': needs min <= max, weight > 0 and perLevel >= 0");
+            if (a.Slots.Count == 0 || a.Slots.Any(c => !slots.Contains(c)))
+                throw Error(name, $"affix '{a.Id}': slots must be some of weapon, bow, armor");
+            affixes.Add(new AffixDef(a.Id, a.Kind, a.Name, a.Slots, stat, a.Min, a.Max, a.PerLevel, a.Weight, a.MinDepth));
+        }
+        foreach (var slot in slots)
+            if (!affixes.Any(a => a.Slots.Contains(slot) && a.MinDepth <= 1))
+                throw Error(name, $"no affix for {slot.ToString().ToLowerInvariant()} at depth 1");
+
+        var specials = new Dictionary<ItemCategory, IReadOnlyList<string>>();
+        foreach (var (key, list) in file.Specials)
+        {
+            if (!Enum.TryParse<ItemCategory>(key, ignoreCase: true, out var slot) || !slots.Contains(slot))
+                throw Error(name, $"specials: unknown slot '{key}'");
+            foreach (var sp in list.Where(sp => !Specials.Contains(sp)))
+                throw Error(name, $"specials: unknown special '{sp}' (known: {string.Join(", ", Specials)})");
+            specials[slot] = list;
+        }
+
+        var second = new Dictionary<ItemCategory, IReadOnlyList<string>>();
+        foreach (var (key, list) in file.Names.Second)
+        {
+            if (!Enum.TryParse<ItemCategory>(key, ignoreCase: true, out var slot) || !slots.Contains(slot))
+                throw Error(name, $"names: unknown slot '{key}'");
+            second[slot] = list;
+        }
+        if (file.Names.First.Count == 0 || slots.Any(s => second.GetValueOrDefault(s) is not { Count: > 0 }))
+            throw Error(name, "names need first words and second words for weapon, bow and armor");
+        foreach (var t in tiers.Where(t => t.Special))
+            foreach (var slot in slots)
+                if (specials.GetValueOrDefault(slot) is not { Count: > 0 })
+                    throw Error(name, $"tier '{t.Rarity}' carries a special, but none is listed for {slot.ToString().ToLowerInvariant()}");
+
+        return new AffixRules(tiers, affixes, specials, new ItemNameWords(file.Names.First, second));
     }
 
     private static (List<AttributeDef>, AttributeRaiseRules) LoadAttributes(AttributeFile file)
@@ -395,6 +471,13 @@ public sealed class ContentDatabase
     private sealed record SkillTreeEntry(string Id, string Name, List<SkillEntry> Skills);
     private sealed record SkillEntry(string Id, string Name, string? Description, int Ranks, List<int> Cost,
         List<string>? Requires, Dictionary<string, double>? PerRank, string? Special);
+    private sealed record AffixFile(List<TierEntry> Tiers, List<AffixEntry> Affixes,
+        Dictionary<string, List<string>> Specials, NamesEntry Names);
+    private sealed record TierEntry(Rarity Rarity, double Chance, double ChancePerLevel, int[] Affixes,
+        int MinDepth = 1, bool Special = false);
+    private sealed record AffixEntry(string Id, AffixKind Kind, string Name, List<ItemCategory> Slots, string Stat,
+        int Min, int Max, double PerLevel = 0, int Weight = 1, int MinDepth = 1);
+    private sealed record NamesEntry(List<string> First, Dictionary<string, List<string>> Second);
     private sealed record ItemFile(
         List<ItemDef> Items, List<EnchantmentWeight> Enchantments, Dictionary<string, List<LootEntry>> LootTables);
 }
