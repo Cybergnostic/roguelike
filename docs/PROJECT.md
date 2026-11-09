@@ -232,8 +232,8 @@ Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`.
 closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
-Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
-target position, squad list with morale), `F3` cycle heatmaps (toward player, then per faction
+Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, tinted ring = chase limit, `o` posts, `r` patrol stops, `R` rally,
+`x` destinations, `?` last known target position, squad list with orders and morale, camp state), `F3` cycle heatmaps (toward player, then per faction
 "toward enemies" and "flee"),
 `F5` spectator mode (invisible, invulnerable), `P` autoplay (playing: the aggressive bot plays for
 you, a quick way to see progression; spectating: time passes).
@@ -559,7 +559,7 @@ you, a quick way to see progression; spectating: time passes).
    - ~~f. Something to do there: the errand (relic behind the camp, back to the waystone), theft from the
      storehouse, a gap in the back fence timed against the patrol, undead coming out of the cave on turn 300~~
      (done 2026-11-09; the errand's story is a placeholder)
-   - g. Still on the §12 list: debug overlay for orders and pursuit boundary (F2).
+   - ~~g. F2 overlay: chase limits, posts, patrol stops, rally points, orders, camp state~~ (done 2026-11-09)
    - h. Human playtests against the §12 list, and balancing. **The user will do these later (2026-11-09):
      don't stop development to wait for them.**
 7. **History generator**: eras → map features → factions → artifacts

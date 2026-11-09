@@ -128,12 +128,25 @@ public sealed partial class GameScreen
         return p => view[p] is { } v ? Theme.Heat((v - min) / range) : null;
     }
 
-    /// <summary>Squad destinations (x) and last known player positions (?), in each squad's colour.</summary>
+    /// <summary>
+    /// Each squad's orders in its colour: chase limit (tinted ring), posts (o), patrol stops (r),
+    /// rally point (R), destination (x) and last known enemy position (?).
+    /// </summary>
     private void DrawSquadMarkers()
     {
         foreach (var squad in _world.Squads)
         {
             var color = Theme.SquadColor(squad.Id);
+            if (squad.IsLeashed)
+                foreach (var p in _world.Map.Tiles.Positions())
+                    if (OnChaseLimit(squad, p))
+                        _map.SetBackground(p.X, p.Y, Theme.SquadTint(squad.Id));
+            foreach (var post in squad.Posts.Values)
+                _map.SetGlyph(post.X, post.Y, 'o', color);
+            foreach (var stop in squad.Route ?? [])
+                _map.SetGlyph(stop.X, stop.Y, 'r', color);
+            if (squad.Rally is { } rally)
+                _map.SetGlyph(rally.X, rally.Y, 'R', color);
             if (squad.Destination is { } d && squad.State is SquadState.Idle or SquadState.Alert)
                 _map.SetGlyph(d.X, d.Y, 'x', color);
             if (squad.LastKnownTarget is { } k && squad.State is SquadState.Alert or SquadState.Engage)
@@ -141,16 +154,45 @@ public sealed partial class GameScreen
         }
     }
 
-    /// <summary>Sidebar replacement while the squad overlay is on: every squad's state and morale.</summary>
+    /// <summary>The last walkable cells a leashed squad will go to: inside its limit, with a neighbour outside it.</summary>
+    private bool OnChaseLimit(Squad squad, Point p)
+    {
+        if (!_world.Map.Walkable[p] || !squad.WithinLeash(p))
+            return false;
+        foreach (var dir in World.EightWay)
+        {
+            var q = p + dir;
+            if (_world.Map.InBounds(q) && _world.Map.Walkable[q] && !squad.WithinLeash(q))
+                return true;
+        }
+        return false;
+    }
+
+    private static string OrdersLabel(Squad squad, int turn)
+    {
+        var order = squad.Route is not null ? "patrol" : squad.Posts.Count > 0 ? "guard" : squad.Home is not null ? "lair" : "roam";
+        var limit = squad.IsLeashed ? $" lim {squad.Leash}" : "";
+        var seen = squad.LastSeenTurn >= 0 ? $" seen -{turn - squad.LastSeenTurn}" : "";
+        return order + limit + seen;
+    }
+
+    private string CampLabel(Camp camp) =>
+        camp.Provoked ? "ALARMED"
+        : camp.HasPass(_world.Turn) ? $"paid {camp.PassTurnsLeft(_world.Turn)}"
+        : "quiet";
+
+    /// <summary>Sidebar replacement while the squad overlay is on: every squad's orders, state and morale.</summary>
     private void DrawSquadList()
     {
         var bg = Theme.SidebarBackground;
         int y = 0;
         _sidebar.Print(1, y++, $"Squads ({_world.Squads.Count})", Theme.Text, bg);
+        foreach (var camp in _world.Camps)
+            _sidebar.Print(1, y++, Truncate($"Camp: {CampLabel(camp)}", SidebarWidth - 2), camp.Provoked ? Theme.Danger : Theme.Intent, bg);
         y++;
         foreach (var squad in _world.Squads)
         {
-            if (y + 3 >= MapHeight)
+            if (y + 4 >= MapHeight)
             {
                 _sidebar.Print(1, y, "...", Theme.Text, bg);
                 break;
@@ -158,6 +200,7 @@ public sealed partial class GameScreen
             var color = Theme.SquadColor(squad.Id);
             _sidebar.Print(1, y, $"#{squad.Id}", color, bg);
             _sidebar.Print(5, y++, StateLabel(squad), StateColor(squad.State), bg);
+            _sidebar.Print(1, y++, Truncate(OrdersLabel(squad, _world.Turn), SidebarWidth - 2), Theme.Intent, bg);
 
             int x = 1;
             foreach (var m in squad.Members)
@@ -179,6 +222,7 @@ public sealed partial class GameScreen
         SquadState.Engage => "fighting",
         SquadState.Alert => "searching",
         SquadState.Flee => "fleeing",
+        _ when squad.Route is not null => "patrolling",
         _ when squad.Home is not null => "guarding",
         _ when squad.IsRaiding => "raiding",
         _ => "patrolling",
