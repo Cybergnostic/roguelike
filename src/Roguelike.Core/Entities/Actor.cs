@@ -64,6 +64,9 @@ public sealed class Actor
     public Inventory? Inventory { get; init; }
     public Equipment? Equipment { get; init; }
 
+    /// <summary>Money in the purse. Only the player has any so far.</summary>
+    public int Gold { get; set; }
+
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
 

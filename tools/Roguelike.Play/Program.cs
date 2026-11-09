@@ -27,6 +27,7 @@ using SadRogue.Primitives.GridViews;
 //   pickup   drink   equip ITEM   drop ITEM
 //   raise ATTR   learn SKILL      spend XP (free)
 //   stairs   descend              walk to the stairs once found / take them (>)
+//   pay                           pay the toll at a nearby camp gate
 
 string? file = null;
 ulong seed = 1;
@@ -115,6 +116,11 @@ string? Describe(GameEvent e) => e switch
     CampAlarmed c => $"*** a horn sounds from {c.ZoneName} ***",
     SquadStoodDown s => $"*** a squad stands down: {s.Reason} ***",
     GateMoved g => g.Open ? "*** a gate opens ***" : "*** a gate closes ***",
+    GateChallenged c => $"{Name(c.GuardId)} challenges you: {c.Price} gold for {c.Turns} turns (command: pay)",
+    TrespassWarned w => $"{Name(w.GuardId)} warns you: one more step in means a fight",
+    TollPaid t => $"*** you pay {t.Price} gold: {t.Turns} turns in {t.ZoneName} ***",
+    PassRunningOut r => $"a guard warns you: {r.TurnsLeft} turns of paid time left",
+    PassExpired x => x.Inside ? "*** your paid time is over and you are still inside ***" : "*** your paid time is over ***",
     LevelEntered l => l.GoingUp ? $"*** you climb back up to depth {l.Depth} ***" : $"*** you descend to depth {l.Depth} ***",
     GameWon => "*** YOU ESCAPE THE DUNGEON: YOU WIN ***",
     SquadMustered m => $"(drums: a band musters in {m.ZoneName})",
@@ -144,6 +150,7 @@ string ItemName(Item i)
         ItemCategory.Weapon => $"atk {i.AttackBonus}",
         ItemCategory.Bow => $"atk {i.AttackBonus} r{i.Def.Range}",
         ItemCategory.Armor => $"def {i.DefenseBonus}",
+        ItemCategory.Coins => "money",
         _ => $"heal {i.Def.Heal}",
     };
     foreach (var a in i.Affixes)
@@ -223,6 +230,8 @@ void Print()
 
     var zone = map.ZoneAt(p.Position)?.Name ?? "open dungeon";
     sb.AppendLine($"Depth {world.Depth}/{world.Content.Dungeon.Levels}{(map.StairsDown is { } st && map.Explored[st] ? $" (stairs at {st.X},{st.Y})" : "")}  Turn {world.Turn}  at {p.Position.X},{p.Position.Y} ({zone})  HP {p.Hp}/{p.MaxHp}  Melee {p.Attack}  Bow {p.RangedAttack} r{p.Range}  Def {p.Defense}  Acc {p.Accuracy}  Eva {p.Evasion}");
+    var pass = world.Camps.FirstOrDefault(k => k.HasPass(world.Turn));
+    sb.AppendLine($"Gold {p.Gold}{(pass is null ? "" : $"  Paid time left at {pass.Zone.Name}: {pass.PassTurnsLeft(world.Turn)} turns")}");
     sb.AppendLine($"XP {c.Xp} to spend ({c.TotalXp} total).  Attr point costs {c.RaiseCost}.  " +
         $"Attrs: {string.Join(" ", world.Content.Attributes.Select(a => $"{a.Id} {c.Score(a.Id)}"))}");
     var skills = world.Content.Skills.Values.Select(s => $"{s.Id} {c.Rank(s.Id)}/{s.Ranks}" +

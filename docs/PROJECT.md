@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts; the valley)
+Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts; the valley; the living camp; gate warning, toll and examine)
 
 ---
 
@@ -128,6 +128,7 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Debug.cs        debug views (F1/F2/F3/F5/P), autoplay
   GameScreen.Items.cs        item commands, inventory menus, bow targeting
   GameScreen.Character.cs    character sheet (c): attributes, skill trees, derived stats; letters spend XP
+  GameScreen.Examine.cs      examine mode (x) and the toll prompt (t); shows only what the player knows
   ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
@@ -154,8 +155,8 @@ docs/PROJECT.md              this file
 4. **AI layering:** `SquadDirector.Think` runs once per squad per turn (pooled perception,
    morale, state transitions, runner dispatch), then each actor's `IBrain.Decide` returns an action.
 5. **Hostility and perception:** `world.AreHostile(a, b)` (faction table; the observer-mode player is
-   nobody's enemy; a squad with a `Camp` tolerates the player unless they're inside its zone or have
-   attacked it). `world.CouldFight(a, b)` is the faction table alone. `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
+   nobody's enemy; a squad with a `Camp` tolerates the player unless they're past its gate without
+   paid time, or have attacked it). `world.CouldFight(a, b)` is the faction table alone. `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
    Bresenham line of sight. `world.PlayerCanSee(actor)`: the player's FOV (UI, bots only).
    AI never asks "where is the player"; it asks `NearestVisibleHostile` / `AdjacentHostile`.
 6. **Dijkstra maps and knowledge:** AI moves on `Squad.TowardKnownThreats` / `AwayFromKnownThreats`:
@@ -228,7 +229,7 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Gates: walk into one to open it, `C`
-closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
+closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
@@ -351,9 +352,11 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: squads search where they lost someone** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **36.7%**, died 59%. Death rate by depth: 9.8, 8.7, 6.8, 3.4, 4.9, 4.5, 8.1, 10.8, 13.9, 17.7%.
+- **Current: coins in the loot tables** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **35.4%**, died 61%. Coins replace "nothing" rolls and the bot ignores them, so this is noise.
   - The bot only plays the dungeon; these numbers say nothing about the camp.
+- **Squads search where they lost someone** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **36.7%**, died 59%. Death rate by depth: 9.8, 8.7, 6.8, 3.4, 4.9, 4.5, 8.1, 10.8, 13.9, 17.7%.
 - **Honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
   20000-turn cap, about 90 s on this 12-thread machine (71000 turns/s):
   - Won **39.6%**, died 57%. Before stored levels, same seeds: won 40.2%, died 57%, so that refactor is
@@ -482,8 +485,9 @@ you, a quick way to see progression; spectating: time passes).
 **Known issues / tech debt**
 - Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
   are a perfect escape for now. Off-screen time and pursuit belong to later steps.
-- Stepping inside the camp brings an attack with no warning (step 6e adds one). Dungeon goblins are
-  still hostile on sight: only squads with a `Camp` tolerate the player.
+- Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
+- A paying visitor can take the storehouse loot for free: theft isn't modelled, and gold buys nothing but the toll.
+- Someone seen coming over the breach gets no warning, by design: warnings are for the gate.
 - Camp squads don't answer arrows from beyond their leash, so a long bow can pick them off from outside.
 - Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
@@ -547,7 +551,8 @@ you, a quick way to see progression; spectating: time passes).
    - ~~d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
      to a rally point. Separate faction relation from access policy (the player starts neutral)~~
      (done 2026-11-09: `Camp`, orders in `data/surface.json`; goblins open and shut the gate)
-   - e. Warning and toll (needs money, which doesn't exist yet), plus examine mode.
+   - ~~e. Warning and toll, plus examine mode~~ (done 2026-11-09: terms called out within 4 tiles of the
+     gate, the gate tile is the last warning, 20 gold buys 150 turns; `x` examines, `t` pays)
    - f. Human playtests against the §12 list.
 7. **History generator**: eras → map features → factions → artifacts
 8. **Crafting**: material tags + recipes + stations as places

@@ -11,7 +11,9 @@
     { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8, "minDepth": 2 },
     { "id": "leather_armor",   "name": "leather armor",   "category": "armor",  "defense": 1 },
     { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3, "minDepth": 3 },
-    { "id": "healing_potion",  "name": "potion of healing", "plural": "potions of healing", "category": "potion", "heal": 15 }
+    { "id": "healing_potion",  "name": "potion of healing", "plural": "potions of healing", "category": "potion", "heal": 15 },
+    // Money: goes in the purse when picked up. "min"/"max" in a loot table say how many.
+    { "id": "gold",            "name": "gold coin",       "plural": "gold coins", "category": "coins" }
   ],
 
   // Rolled for every generated weapon, bow or armor: the classic +X (negative = cursed).
@@ -27,7 +29,8 @@
   // Loot tables: one entry is picked by weight; "item": null means nothing.
   "lootTables": {
     "goblin": [
-      { "item": null,             "weight": 60 },
+      { "item": null,             "weight": 45 },
+      { "item": "gold",           "weight": 15, "min": 2, "max": 6 },
       { "item": "healing_potion", "weight": 3 },
       { "item": "dagger",         "weight": 8 },
       { "item": "short_sword",    "weight": 5 },
@@ -37,7 +40,8 @@
     ],
     // Skeletons still carry the old dwarven gear they were buried with.
     "skeleton": [
-      { "item": null,            "weight": 60 },
+      { "item": null,            "weight": 50 },
+      { "item": "gold",          "weight": 10, "min": 3, "max": 8 },
       { "item": "long_sword",    "weight": 8 },
       { "item": "chain_mail",    "weight": 5 },
       { "item": "short_sword",   "weight": 5 },

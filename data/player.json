@@ -5,6 +5,8 @@
   "attack": 1,
   "defense": 0,
   "inventoryCapacity": 20,
+  // Coins in the purse at the start: enough for one toll at the camp gate.
+  "gold": 30,
   // Turns per 1 HP regained. Slow on purpose: potions and retreating should matter.
   "regenInterval": 12,
   // Natural accuracy/evasion (see combat.json), before Dexterity.

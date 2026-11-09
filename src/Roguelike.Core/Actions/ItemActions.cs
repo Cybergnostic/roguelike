@@ -19,6 +19,15 @@ public sealed record PickUpAction : GameAction
         bool any = false;
         foreach (var item in here)
         {
+            if (item.Def.Category == ItemCategory.Coins)
+            {
+                // Money goes in the purse, not the pack.
+                world.TakeFromFloor(item);
+                actor.Gold += item.Count;
+                world.Emit(new ItemPickedUp(actor.Id, item));
+                any = true;
+                continue;
+            }
             if (!inventory.CanAdd(item))
             {
                 world.Emit(new ActionFailed(actor.Id, FailureReason.InventoryFull));

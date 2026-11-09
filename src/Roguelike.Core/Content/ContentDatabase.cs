@@ -28,8 +28,8 @@ public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint =
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
 
-/// <summary>One weighted loot table line; a null item means "nothing".</summary>
-public sealed record LootEntry(string? Item, int Weight);
+/// <summary>One weighted loot table line; a null item means "nothing". Min..Max: how many (coins come in handfuls).</summary>
+public sealed record LootEntry(string? Item, int Weight, int Min = 1, int Max = 1);
 
 /// <summary>One +X outcome; MinDepth: the shallowest dungeon level it can appear on.</summary>
 public sealed record EnchantmentWeight(int Value, int Weight, int MinDepth = 1);
@@ -42,7 +42,7 @@ public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, in
 /// </summary>
 public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit,
     int RegenInterval = 8, IReadOnlyDictionary<string, int>? Attributes = null, XpRules? Xp = null,
-    int Accuracy = 0, int Evasion = 0);
+    int Accuracy = 0, int Evasion = 0, int Gold = 0);
 
 /// <summary>
 /// XP besides kills: SightFraction of a monster's kill XP the first time you see its kind,
@@ -109,7 +109,10 @@ public sealed record MusterDef(string Squad, int Every, int Max);
 /// <summary>Remains placed at level creation: Count corpses of a monster kind.</summary>
 public sealed record CorpseEntry(string Monster, int Count);
 
-public sealed record PlaceZone(string Name, string Faction, int[] Area);
+/// <summary>A camp's price of entry: see <see cref="AI.Squads.TollTerms"/>.</summary>
+public sealed record PlaceToll(int[] Gate, int Price, int Turns, int Range, int WarnBefore);
+
+public sealed record PlaceZone(string Name, string Faction, int[] Area, PlaceToll? Toll = null);
 public sealed record PlaceMember(string Monster, int[] At);
 
 /// <summary>
@@ -245,6 +248,8 @@ public sealed class ContentDatabase
             foreach (var entry in entries)
                 if (entry.Item is not null && !items.ContainsKey(entry.Item))
                     throw Error("items.json", $"loot table '{table}' uses unknown item '{entry.Item}'");
+                else if (entry.Min < 1 || entry.Max < entry.Min)
+                    throw Error("items.json", $"loot table '{table}': min and max must satisfy 1 <= min <= max");
         if (itemFile.Enchantments.Where(e => e.MinDepth <= 1).Sum(e => e.Weight) <= 0)
             throw Error("items.json", "enchantments need a positive total weight at depth 1");
         foreach (var (table, entries) in itemFile.LootTables)
@@ -373,6 +378,14 @@ public sealed class ContentDatabase
             if (zone.Area is not [var x, var y, var w, var h] || x < 0 || y < 0 || w <= 0 || h <= 0
                 || x + w > place.Width || y + h > place.Height)
                 throw Error(name, $"zone '{zone.Name}': area must be [x, y, width, height] inside the map");
+            if (zone.Toll is { } toll)
+            {
+                if (toll.Gate is not [var gx, var gy] || gx < x || gy < y || gx >= x + w || gy >= y + h
+                    || place.TileAt(gx, gy) is not (Map.Tile.GateOpen or Map.Tile.GateClosed))
+                    throw Error(name, $"zone '{zone.Name}': toll gate must be the position of a gate inside the zone");
+                if (toll.Price <= 0 || toll.Turns <= 0 || toll.Range <= 0 || toll.WarnBefore < 0 || toll.WarnBefore >= toll.Turns)
+                    throw Error(name, $"zone '{zone.Name}': toll price, turns and range must be positive, and warnBefore less than turns");
+            }
         }
         foreach (var group in place.Groups)
         {

@@ -34,7 +34,10 @@
   ],
   "start": [3, 20],
   "zones": [
-    { "name": "the Red Tooth camp", "faction": "goblins", "area": [30, 2, 27, 9] }
+    // "toll": guards call out the terms to anyone within "range" of the gate. "price" buys "turns" of
+    // safe passage; "warnBefore" turns before the end they remind you. Standing in the gate is the last warning.
+    { "name": "the Red Tooth camp", "faction": "goblins", "area": [30, 2, 27, 9],
+      "toll": { "gate": [43, 10], "price": 20, "turns": 150, "range": 4, "warnBefore": 20 } }
   ],
   // Squads placed by hand, based at "home" and going no farther than "leash" steps from it.
   // "order": "guard" holds the spots they start on; "patrol" walks "route" over and over.

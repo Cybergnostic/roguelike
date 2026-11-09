@@ -69,6 +69,23 @@ public sealed record CloseGateAction : GameAction
     }
 }
 
+/// <summary>Pays the toll at a nearby camp gate (the player only).</summary>
+public sealed record PayTollAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor != world.Player)
+            return false;
+        if (world.TollProblem() is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        world.PayToll();
+        return true;
+    }
+}
+
 /// <summary>Step in a direction; opening a closed gate or bumping a hostile actor uses the step.</summary>
 public sealed record MoveAction(Direction Direction) : GameAction
 {

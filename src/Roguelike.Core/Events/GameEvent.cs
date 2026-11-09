@@ -42,6 +42,20 @@ public sealed record SquadStoodDown(int SquadId, IReadOnlyList<int> MemberIds, S
 public sealed record CampAlarmed(string ZoneName) : GameEvent;
 public sealed record GateMoved(int ActorId, SadRogue.Primitives.Point At, bool Open) : GameEvent;
 
+/// <summary>A guard called out the terms to the player approaching the gate.</summary>
+public sealed record GateChallenged(int GuardId, string ZoneName, int Price, int Turns) : GameEvent;
+
+/// <summary>The player stands in the gate unpaid: one more step in means a fight.</summary>
+public sealed record TrespassWarned(int GuardId, string ZoneName) : GameEvent;
+
+public sealed record TollPaid(string ZoneName, int Price, int Turns) : GameEvent;
+
+/// <summary>The player is inside and their paid time is nearly up.</summary>
+public sealed record PassRunningOut(string ZoneName, int TurnsLeft) : GameEvent;
+
+/// <summary>The paid time is over. Inside: the player is a trespasser from now on.</summary>
+public sealed record PassExpired(string ZoneName, bool Inside) : GameEvent;
+
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;
 
@@ -114,6 +128,11 @@ public enum FailureReason
     NotOnStairs,
     NoGateToClose,
     NotHostileYet,
+    NoTollHere,
+    TollRefused,
+    TollAlreadyPaid,
+    NoOneToPay,
+    NotEnoughGold,
 }
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>

@@ -19,6 +19,7 @@
     "bow":            { "glyph": "}", "color": "#B48C5A" },
     "armor":          { "glyph": "[", "color": "#A0A0AA" },
     "potion":         { "glyph": "!", "color": "#E65A78" },
+    "coins":          { "glyph": "$", "color": "#F0D250" },
     "long_sword":     { "glyph": ")", "color": "#E6E6F0" },
     "chain_mail":     { "glyph": "[", "color": "#C8C8D2" }
   },

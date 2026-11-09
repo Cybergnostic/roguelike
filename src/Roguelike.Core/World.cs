@@ -76,6 +76,7 @@ public sealed class World
         public List<FloorItem> FloorItems { get; } = [];
         public List<Corpse> Corpses { get; } = [];
         public List<Lair> Lairs { get; } = [];
+        public List<Camp> Camps { get; } = [];
         public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
         public Dictionary<int, CachedPath> Paths { get; } = [];
         public DistanceMap TowardPlayer { get; } = new(map.Walkable);
@@ -118,6 +119,9 @@ public sealed class World
     }
 
     public IReadOnlyList<Lair> Lairs => _lairs;
+
+    /// <summary>The camps on this map.</summary>
+    public IReadOnlyList<Camp> Camps => _location.Camps;
 
     private int _nextCorpseId;
     private int _nextSquadId;
@@ -211,7 +215,7 @@ public sealed class World
             squad.HomeDistance.Update([home]);
             if (group.Territory is { } territory)
                 squad.Camp = camps.TryGetValue(territory, out var known) ? known
-                    : camps[territory] = new Camp(Map.Zones.First(z => z.Name == territory));
+                    : camps[territory] = BuildCamp(territory);
             if (group.Order == "guard")
                 foreach (var member in squad.Members)
                     squad.Posts[member.Id] = member.Position;
@@ -226,6 +230,16 @@ public sealed class World
         foreach (var spot in Content.Surface.Loot)
             if (RollLoot(spot.Table) is { } item)
                 PlaceOnFloor(item, new Point(spot.At[0], spot.At[1]));
+    }
+
+    private Camp BuildCamp(string zoneName)
+    {
+        var toll = Content.Surface.Zones.First(z => z.Name == zoneName).Toll is { } t
+            ? new TollTerms(new Point(t.Gate[0], t.Gate[1]), t.Price, t.Turns, t.Range, t.WarnBefore)
+            : null;
+        var camp = new Camp(Map.Zones.First(z => z.Name == zoneName), toll);
+        _location.Camps.Add(camp);
+        return camp;
     }
 
     /// <summary>Opens or closes a gate. Routes don't change: actors plan through closed gates and open them.</summary>
@@ -335,6 +349,7 @@ public sealed class World
         }
 
         UpdatePerception();
+        UpdateCamps();
         RunNonPlayerTurns();
 
         _actors.RemoveAll(a =>
@@ -408,6 +423,95 @@ public sealed class World
         }
 
         _squads.RemoveAll(s => s.Members.All(m => m.IsDead));
+    }
+
+    // ---- Camps: challenges, tolls and paid time ----
+
+    /// <summary>A step past the challenge range before guards forget they've already spoken to you.</summary>
+    private const int ChallengeForgetMargin = 2;
+
+    /// <summary>What the guards say this turn, and whether the player's paid time has run out.</summary>
+    private void UpdateCamps()
+    {
+        foreach (var camp in _location.Camps)
+        {
+            if (camp.Toll is not { } toll || camp.Provoked)
+                continue;
+            var at = Player.Position;
+            UpdatePass(camp, toll, at);
+            if (camp.HasPass(Turn))
+                continue;
+
+            int distance = Distance(at, toll.Gate);
+            if (distance > toll.Range + ChallengeForgetMargin)
+            {
+                camp.Challenged = camp.WarnedAtGate = false;
+                continue;
+            }
+            if (distance > toll.Range || !camp.Tolerates(at, Turn) || GuardWatching(camp) is not { } guard)
+                continue;
+            if (!camp.Challenged)
+            {
+                camp.Challenged = camp.TermsKnown = true;
+                Emit(new GateChallenged(guard.Id, camp.Zone.Name, toll.Price, toll.Turns));
+            }
+            if (camp.IsThreshold(at) && !camp.WarnedAtGate)
+            {
+                camp.WarnedAtGate = true;
+                Emit(new TrespassWarned(guard.Id, camp.Zone.Name));
+            }
+        }
+    }
+
+    private void UpdatePass(Camp camp, TollTerms toll, Point at)
+    {
+        if (camp.PassUntil is not { } until)
+            return;
+        if (Turn >= until)
+        {
+            camp.PassUntil = null;
+            camp.Challenged = camp.WarnedAtGate = false; // they'll ask again
+            Emit(new PassExpired(camp.Zone.Name, camp.IsInside(at)));
+        }
+        else if (camp.IsInside(at) && !camp.PassWarned && until - Turn <= toll.WarnBefore)
+        {
+            camp.PassWarned = true;
+            Emit(new PassRunningOut(camp.Zone.Name, until - Turn));
+        }
+    }
+
+    /// <summary>A living defender of the camp who can see the player, or null.</summary>
+    private Actor? GuardWatching(Camp camp) =>
+        _squads.Where(s => s.Camp == camp).SelectMany(s => s.Members).FirstOrDefault(m => !m.IsDead && CanSee(m, Player));
+
+    /// <summary>The camp whose gate is close enough to deal with, or null.</summary>
+    public Camp? TollCampNearby() =>
+        _location.Camps.FirstOrDefault(c => c.Toll is { } t && Distance(Player.Position, t.Gate) <= t.Range);
+
+    /// <summary>Why the player can't pay a toll right now, or null if they can.</summary>
+    public FailureReason? TollProblem()
+    {
+        if (TollCampNearby() is not { } camp)
+            return FailureReason.NoTollHere;
+        if (!camp.Tolerates(Player.Position, Turn))
+            return FailureReason.TollRefused; // too late to talk: they're already fighting you
+        if (camp.PassTurnsLeft(Turn) > camp.Toll!.WarnBefore)
+            return FailureReason.TollAlreadyPaid;
+        if (GuardWatching(camp) is null)
+            return FailureReason.NoOneToPay;
+        return Player.Gold < camp.Toll.Price ? FailureReason.NotEnoughGold : null;
+    }
+
+    /// <summary>Hands over the money and starts the paid time. Check <see cref="TollProblem"/> first.</summary>
+    public void PayToll()
+    {
+        var camp = TollCampNearby()!;
+        var toll = camp.Toll!;
+        Player.Gold -= toll.Price;
+        camp.PassUntil = Turn + toll.Turns;
+        camp.PassWarned = false;
+        camp.TermsKnown = true;
+        Emit(new TollPaid(camp.Zone.Name, toll.Price, toll.Turns));
     }
 
     public void Emit(GameEvent e) => _events.Add(e);
@@ -623,7 +727,10 @@ public sealed class World
             return null;
         int roll = Rng.NextInt(total);
         var entry = entries.First(e => (roll -= e.Weight) < 0);
-        return entry.Item is null ? null : CreateItem(Content.Items[entry.Item], depth: d);
+        if (entry.Item is null)
+            return null;
+        int count = entry.Max > entry.Min ? Rng.NextInt(entry.Min, entry.Max + 1) : entry.Min;
+        return CreateItem(Content.Items[entry.Item], count: count, depth: d);
     }
 
     private int RollEnchantment(int depth)
@@ -680,7 +787,7 @@ public sealed class World
     private bool Tolerated(Actor a, Actor b)
     {
         var other = a == Player ? b : b == Player ? a : null;
-        return other is not null && SquadOf(other)?.Camp is { } camp && camp.Tolerates(Player.Position);
+        return other is not null && SquadOf(other)?.Camp is { } camp && camp.Tolerates(Player.Position, Turn);
     }
 
     private int? _bumpWarnedAbout;
@@ -921,6 +1028,7 @@ public sealed class World
             BaseEvasion = def.Evasion,
             Inventory = new Inventory(def.InventoryCapacity),
             Equipment = new Equipment(),
+            Gold = def.Gold,
         });
         foreach (var k in def.Kit)
         {

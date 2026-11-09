@@ -6,6 +6,8 @@ public enum ItemCategory
     Bow,
     Armor,
     Potion,
+    /// <summary>Money: picked up into the purse (<see cref="Entities.Actor.Gold"/>), never carried in the pack.</summary>
+    Coins,
 }
 
 /// <summary>

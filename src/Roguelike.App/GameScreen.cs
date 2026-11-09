@@ -71,7 +71,7 @@ public sealed partial class GameScreen : ScreenObject
         if (FollowFile is not null)
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
         AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Close gate: C  Quit: Esc.", Theme.Text);
-        AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character", Theme.Text);
+        AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character  x examine  t toll", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
     }
@@ -172,7 +172,8 @@ public sealed partial class GameScreen : ScreenObject
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
-                LevelEntered or GameWon => Theme.Good,
+                GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
+                LevelEntered or GameWon or TollPaid => Theme.Good,
                 MinionCrumbled or AttributeRaised or SkillLearned or SpecialUsed => Theme.Good,
                 XpGained => Theme.Intent,
                 _ => Theme.Text,
@@ -366,6 +367,9 @@ public sealed partial class GameScreen : ScreenObject
         _status.Print(46, 0, $"{(_world.Depth == World.SurfaceDepth ? "Valley" : $"D{_world.Depth}")} T{_world.Turn}", Theme.Text);
         if (player.Character is { } c)
             _status.Print(58, 0, CanSpendXp() ? $"XP {c.Xp} (c)" : $"XP {c.Xp}", CanSpendXp() ? Theme.Warning : Theme.Text);
+        _status.Print(72, 0, $"Gold {player.Gold}", Theme.Text);
+        if (_world.Camps.FirstOrDefault(camp => camp.HasPass(_world.Turn)) is { } paid)
+            _status.Print(83, 0, $"Pass {paid.PassTurnsLeft(_world.Turn)}", Theme.Good);
 
         var flags = new List<string>();
         if (_world.ObserverMode) flags.Add(_autoplay ? "SPECTATING (auto)" : "SPECTATING");

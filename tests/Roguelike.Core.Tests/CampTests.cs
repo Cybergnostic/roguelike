@@ -25,7 +25,7 @@ public class CampTests
     private static Squad Sentries(World w) => w.Squads[0];
     private static Squad Reserve(World w) => w.Squads[1];
     private static Squad FrontPatrol(World w) => w.Squads[2];
-    private static Camp CampOf(World w) => Sentries(w).Camp!;
+    private static Camp CampOf(World w) => w.Camps[0];
 
     private static List<GameEvent> Run(World world, int turns)
     {
@@ -321,6 +321,251 @@ public class CampTests
         Assert.All(visited, p => Assert.True(World.Distance(p, spot) <= 5));
     }
 
+    // ---- The gate: challenge, last warning, toll ----
+
+    private static readonly Point JustOutsideGate = Gate + Direction.Down;
+    private static readonly Point JustInsideGate = Gate + Direction.Up;
+
+    private static void KillSquads(World w)
+    {
+        foreach (var member in w.Squads.SelectMany(s => s.Members))
+            member.Hp = 0;
+    }
+
+    /// <summary>Puts the player by the gate and pays, returning that turn's events.</summary>
+    private static IReadOnlyList<GameEvent> PayAtGate(World world)
+    {
+        world.Player.Position = JustOutsideGate;
+        return world.Step(new PayTollAction());
+    }
+
+    [Fact]
+    public void AGuardCallsOutTheTermsOnceAsYouApproach()
+    {
+        var world = Valley();
+        world.Player.Position = OutsideGate;
+
+        var events = Run(world, 10);
+
+        var challenge = Assert.Single(events.OfType<GateChallenged>());
+        Assert.Equal((20, 150), (challenge.Price, challenge.Turns));
+        Assert.True(CampOf(world).TermsKnown);
+        Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
+    }
+
+    [Fact]
+    public void GuardsAskAgainAfterYouHaveGoneAway()
+    {
+        var world = Valley();
+        world.Player.Position = OutsideGate;
+        Run(world, 2);
+        world.Player.Position = FarAway;
+        Run(world, 2);
+        world.Player.Position = OutsideGate;
+
+        Assert.Single(Run(world, 2).OfType<GateChallenged>());
+    }
+
+    [Fact]
+    public void NobodyChallengesYouWhenNoGuardCanSeeYou()
+    {
+        var world = Valley();
+        KillSquads(world);
+        world.Player.Position = OutsideGate;
+
+        Assert.DoesNotContain(Run(world, 3), e => e is GateChallenged);
+        Assert.False(CampOf(world).TermsKnown);
+    }
+
+    [Fact]
+    public void StandingInTheGateIsTheLastWarning()
+    {
+        var world = Valley();
+        world.Player.Position = Gate;
+
+        var events = Run(world, 5);
+
+        Assert.Single(events.OfType<TrespassWarned>());
+        Assert.DoesNotContain(events, e => e is SquadSpotted);
+        Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
+
+        var inside = world.Step(new MoveAction(Direction.Up));
+        Assert.Contains(inside, e => e is SquadSpotted s && s.TargetId == world.Player.Id);
+    }
+
+    [Fact]
+    public void PayingBuysSafeTimeInside()
+    {
+        var world = Valley();
+        int gold = world.Player.Gold;
+        var paid = PayAtGate(world);
+
+        Assert.Contains(paid, e => e is TollPaid { Price: 20, Turns: 150 });
+        Assert.Equal(gold - 20, world.Player.Gold);
+
+        world.Player.Position = JustInsideGate;
+        var events = Run(world, 100);
+
+        Assert.DoesNotContain(events, e => e is SquadSpotted);
+        Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
+    }
+
+    [Fact]
+    public void TheGuardsWarnYouBeforeYourTimeRunsOutAndThenAttack()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        world.Player.Position = JustInsideGate;
+
+        var waiting = Run(world, 140);
+        Assert.Single(waiting.OfType<PassRunningOut>());
+        Assert.DoesNotContain(waiting, e => e is PassExpired);
+
+        var after = Run(world, 15);
+        Assert.Contains(after, e => e is PassExpired { Inside: true });
+        Assert.Contains(after, e => e is SquadSpotted s && s.TargetId == world.Player.Id);
+    }
+
+    [Fact]
+    public void TimeRunningOutOutsideTheCampIsHarmless()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        world.Player.Position = FarAway;
+
+        var events = Run(world, 160);
+
+        Assert.Contains(events, e => e is PassExpired { Inside: false });
+        Assert.DoesNotContain(events, e => e is PassRunningOut);
+        Assert.DoesNotContain(events, e => e is SquadSpotted);
+    }
+
+    [Fact]
+    public void YouCanPayAgainOnlyWhenYourTimeIsNearlyUp()
+    {
+        var world = Valley();
+        world.Player.Gold = 100;
+        PayAtGate(world);
+
+        var tooSoon = world.Step(new PayTollAction());
+        Assert.Contains(tooSoon, e => e is ActionFailed { Reason: FailureReason.TollAlreadyPaid });
+        Assert.Equal(80, world.Player.Gold);
+
+        Run(world, 135);
+        var renewed = world.Step(new PayTollAction());
+        Assert.Contains(renewed, e => e is TollPaid);
+        Assert.Equal(60, world.Player.Gold);
+        Assert.True(CampOf(world).PassTurnsLeft(world.Turn) > 140);
+    }
+
+    [Fact]
+    public void YouCantPayWithoutTheMoney()
+    {
+        var world = Valley();
+        world.Player.Gold = 19;
+        world.Player.Position = JustOutsideGate;
+        int turn = world.Turn;
+
+        var events = world.Step(new PayTollAction());
+
+        Assert.Contains(events, e => e is ActionFailed { Reason: FailureReason.NotEnoughGold });
+        Assert.Equal(turn, world.Turn);
+        Assert.Equal(19, world.Player.Gold);
+    }
+
+    [Fact]
+    public void YouCantPayFromFarAway()
+    {
+        var world = Valley();
+        world.Player.Position = FarAway;
+        Assert.Contains(world.Step(new PayTollAction()), e => e is ActionFailed { Reason: FailureReason.NoTollHere });
+    }
+
+    [Fact]
+    public void YouCantPayWithNobodyThereToTakeIt()
+    {
+        var world = Valley();
+        KillSquads(world);
+        world.Player.Position = JustOutsideGate;
+        Assert.Contains(world.Step(new PayTollAction()), e => e is ActionFailed { Reason: FailureReason.NoOneToPay });
+    }
+
+    [Fact]
+    public void AnAttackedCampWontTakeYourMoney()
+    {
+        var world = Valley();
+        CampOf(world).Provoked = true;
+        world.Player.Position = JustOutsideGate;
+        Assert.Contains(world.Step(new PayTollAction()), e => e is ActionFailed { Reason: FailureReason.TollRefused });
+    }
+
+    [Fact]
+    public void YouCantBuyYourWayOutOfAFightInside()
+    {
+        var world = Valley();
+        world.Player.Position = JustInsideGate;
+        world.Step(new WaitAction());
+        Assert.Contains(world.Step(new PayTollAction()), e => e is ActionFailed { Reason: FailureReason.TollRefused });
+    }
+
+    [Fact]
+    public void AttackingAGuardVoidsWhatYouPaid()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        var guard = Sentries(world).Members[0];
+        world.Player.Position = JustInsideGate;
+
+        world.Step(new AttackAction(guard.Id));
+
+        Assert.False(CampOf(world).HasPass(world.Turn));
+        Assert.True(world.AreHostile(guard, world.Player));
+    }
+
+    [Fact]
+    public void CoinsGoInThePurseEvenWithAFullPack()
+    {
+        var world = World.Create(1);
+        var player = world.Player;
+        while (!player.Inventory!.IsFull)
+            player.Inventory.Add(world.CreateItem(world.Content.Items["dagger"], enchantment: 0));
+        var coins = world.CreateItem(world.Content.Items["gold"], count: 7);
+        world.PlaceOnFloor(coins, player.Position);
+        int gold = player.Gold;
+
+        world.Step(new PickUpAction());
+
+        Assert.Equal(gold + 7, player.Gold);
+        Assert.Empty(world.ItemsAt(player.Position));
+        Assert.DoesNotContain(player.Inventory!.Items, i => i == coins);
+    }
+
+    [Fact]
+    public void GoblinsSometimesDropAHandfulOfCoins()
+    {
+        var world = World.Create(1);
+        var rolled = Enumerable.Range(0, 400).Select(_ => world.RollLoot("goblin")).Where(i => i?.Def.Id == "gold").ToList();
+
+        Assert.NotEmpty(rolled);
+        Assert.All(rolled, i => Assert.InRange(i!.Count, 2, 6));
+    }
+
+    [Fact]
+    public void PayingPlaysTheSameEveryTime()
+    {
+        static List<string> Play()
+        {
+            var world = Valley(7);
+            var log = PayAtGate(world).Select(e => e.ToString()!).ToList();
+            world.Player.Position = JustInsideGate;
+            for (int t = 0; t < 170; t++) log.AddRange(world.Step(new WaitAction()).Select(e => e.ToString()!));
+            log.Add(world.Player.Position.ToString());
+            return log;
+        }
+
+        Assert.Equal(Play(), Play());
+    }
+
     [Fact]
     public void DungeonGoblinsAreStillHostile()
     {
@@ -351,6 +596,8 @@ public class CampTests
     [InlineData("\"territory\": \"the Red Tooth camp\", \"rally\": [40, 6]", "\"territory\": \"nowhere\", \"rally\": [40, 6]", "nowhere")]
     [InlineData("\"gate\": [43, 10]", "\"gate\": [43, 12]", "gate")]
     [InlineData("\"rally\": [40, 6]", "\"rally\": [0, 0]", "rally")]
+    [InlineData("\"toll\": { \"gate\": [43, 10]", "\"toll\": { \"gate\": [44, 10]", "toll gate")]
+    [InlineData("\"price\": 20", "\"price\": 0", "toll price")]
     public void ABrokenCampIsAContentError(string find, string replace, string expected)
     {
         var dir = Path.Combine(Path.GetTempPath(), "rl-content-" + Guid.NewGuid());

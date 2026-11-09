@@ -30,7 +30,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -56,6 +56,10 @@ public sealed partial class GameScreen
             OpenMenu("Drop which item?", inventory.Items, item => new DropAction(item.Id));
         else if (keyboard.IsKeyPressed(Keys.F))
             StartTargeting();
+        else if (keyboard.IsKeyPressed(Keys.X))
+            StartExamining();
+        else if (keyboard.IsKeyPressed(Keys.T))
+            return AskToPayToll();
         return null;
     }
 
@@ -98,8 +102,19 @@ public sealed partial class GameScreen
             _menu = null;
             _targeting = null;
             _sheetOpen = false;
+            _examine = null;
+            _askingToll = false;
             return null;
         }
+
+        if (_examine is not null)
+        {
+            ExamineInput(keyboard);
+            return null;
+        }
+
+        if (_askingToll)
+            return TollPromptInput(keyboard);
 
         if (_sheetOpen)
             return SheetInput(keyboard);
@@ -150,6 +165,10 @@ public sealed partial class GameScreen
             DrawMenu(menu);
         if (_sheetOpen)
             DrawSheet();
+        if (_examine is not null)
+            DrawExamine();
+        if (_askingToll)
+            DrawTollPrompt();
     }
 
     private void DrawTargeting(Targeting t)
