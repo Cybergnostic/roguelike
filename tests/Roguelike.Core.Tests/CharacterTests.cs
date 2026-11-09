@@ -179,8 +179,10 @@ public class CharacterTests
         next.Hp = 1_000;
         world.Player.Hp = 10_000;
 
-        // The runner has no defence and 1 HP: any roll kills, so the blow always carries on.
-        var events = world.Step(new AttackAction(doomed.Id));
+        // The runner has no defence and 1 HP: any hit kills, so the blow carries on once one lands.
+        var events = new List<Roguelike.Core.Events.GameEvent>();
+        for (int swing = 0; swing < 100 && !doomed.IsDead; swing++)
+            events.AddRange(world.Step(new AttackAction(doomed.Id)));
 
         Assert.True(doomed.IsDead);
         Assert.Contains(events, e => e is SpecialUsed { Special: "cleave" } u && u.TargetId == next.Id);

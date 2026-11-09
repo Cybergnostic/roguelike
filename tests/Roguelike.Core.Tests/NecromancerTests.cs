@@ -65,6 +65,8 @@ public class NecromancerTests
         var world = World.Create(1);
         world.ObserverMode = true; // keep the player out of it
         var necromancer = NecromancerOf(world);
+        foreach (var bones in world.Corpses.ToList())
+            world.RemoveCorpse(bones); // only the corpse staged here may be raised
         var goblin = world.SpawnMonster("goblin_warrior", SpotInSight(world, necromancer));
         world.Damage(necromancer, goblin, 1000, ranged: false);
         Rouse(world, necromancer);
@@ -275,10 +277,14 @@ public class NecromancerTests
     [Fact]
     public void TheWarrenMustersFreshBandsUntilItFalls()
     {
-        var world = World.Create(1);
+        static int LairGap(World w) =>
+            World.Distance(w.Lairs.Single(l => l.Zone.FactionId == "goblins").Zone.Heart, Tower(w).Heart);
+        var worlds = Enumerable.Range(0, 40).Select(seed => World.Create((ulong)seed)).ToList();
+        Assert.True(worlds.Count(w => LairGap(w) > 10) >= 30, "the lairs should usually be apart");
+
+        var world = worlds.First(w => LairGap(w) > 10);
         world.ObserverMode = true;
         var warren = world.Lairs.Single(l => l.Zone.FactionId == "goblins");
-        Assert.True(World.Distance(warren.Zone.Heart, Tower(world).Heart) > 10, "the lairs should be apart");
 
         // Clear out the roaming goblin bands so the warren is below its cap.
         foreach (var m in world.Squads.Where(s => s.Faction.Id == "goblins" && s.Home is null)

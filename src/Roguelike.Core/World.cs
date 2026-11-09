@@ -27,8 +27,16 @@ public sealed class World
     public ulong Seed { get; }
     public ContentDatabase Content { get; }
     public FactionRelations Relations => Content.Relations;
-    public IEnhancedRandom Rng { get; }
-    public GameMap Map { get; private set; }
+
+    /// <summary>
+    /// The randomness in use now: while a map is being built, that map's own stream, so what a
+    /// seed generates can't depend on how the game has been played; otherwise the play stream.
+    /// </summary>
+    public IEnhancedRandom Rng => _generating ?? _playRng;
+    private readonly IEnhancedRandom _playRng;
+    private IEnhancedRandom? _generating;
+
+    public GameMap Map => _location.Map;
     public Actor Player { get; }
 
     /// <summary>The player took the stairs down from the last level.</summary>
@@ -41,7 +49,7 @@ public sealed class World
     public IReadOnlyList<Squad> Squads => _squads;
 
     /// <summary>Distance map toward the player (debug heatmap, tests, bots).</summary>
-    public DistanceMap TowardPlayer { get; private set; }
+    public DistanceMap TowardPlayer => _location.TowardPlayer;
 
     /// <summary>Per-faction "toward enemies" and "away from enemies" maps, rebuilt lazily each turn.</summary>
     private sealed class FactionMaps(GameMap map)
@@ -52,7 +60,37 @@ public sealed class World
         public bool AwayDirty = true;
     }
 
-    private readonly Dictionary<Faction, FactionMaps> _factionMaps = [];
+    /// <summary>
+    /// Everything that belongs to one map. Locations are kept for the whole game, so a place you
+    /// leave is still there when you come back; time stands still in the ones you aren't in.
+    /// </summary>
+    private sealed class Location(int depth, GameMap map)
+    {
+        public int Depth { get; } = depth;
+        public GameMap Map { get; } = map;
+        public List<Actor> Actors { get; } = [];
+        public List<Squad> Squads { get; } = [];
+        public List<FloorItem> FloorItems { get; } = [];
+        public List<Corpse> Corpses { get; } = [];
+        public List<Lair> Lairs { get; } = [];
+        public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
+        public Dictionary<int, CachedPath> Paths { get; } = [];
+        public DistanceMap TowardPlayer { get; } = new(map.Walkable);
+        public AStar AStar { get; } = new(map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
+    }
+
+    private readonly Dictionary<int, Location> _locations = [];
+    private Location _location = null!; // set by the constructor
+
+    // The state of wherever the player is now.
+    private List<Actor> _actors => _location.Actors;
+    private List<Squad> _squads => _location.Squads;
+    private List<FloorItem> _floorItems => _location.FloorItems;
+    private List<Corpse> _corpses => _location.Corpses;
+    private List<Lair> _lairs => _location.Lairs;
+    private Dictionary<Faction, FactionMaps> _factionMaps => _location.FactionMaps;
+    private Dictionary<int, CachedPath> _paths => _location.Paths;
+    private AStar _aStar => _location.AStar;
 
     /// <summary>An item lying on the map.</summary>
     public sealed record FloorItem(Item Item, Point Position);
@@ -78,18 +116,10 @@ public sealed class World
 
     public IReadOnlyList<Lair> Lairs => _lairs;
 
-    private readonly List<Lair> _lairs = [];
-
-    private readonly List<Corpse> _corpses = [];
     private int _nextCorpseId;
     private int _nextSquadId;
-
-    private readonly List<FloorItem> _floorItems = [];
     private int _nextItemId;
-    private readonly List<Actor> _actors = [];
-    private readonly List<Squad> _squads = [];
     private readonly List<GameEvent> _events = [];
-    private AStar _aStar;
 
     /// <summary>
     /// Each actor's last A* path and how far along it is. Walls don't change once a level is
@@ -103,20 +133,35 @@ public sealed class World
         public int Next; // index of the next step to take
     }
 
-    private readonly Dictionary<int, CachedPath> _paths = [];
     private int _nextId;
     private readonly int _width, _height;
 
     private World(ulong seed, int width, int height, ContentDatabase content, int depth)
     {
         Seed = seed;
-        Depth = depth;
         Content = content;
-        Rng = new MizuchiRandom(seed);
+        _playRng = new MizuchiRandom(seed);
         (_width, _height) = (width, height);
-        Map = GenerateMap();
+        BeginLocation(depth);
         Player = CreatePlayer(Map.Rooms[0].Center);
-        (TowardPlayer, _aStar) = PopulateLevel();
+        FinishLocation();
+    }
+
+    /// <summary>A map's own seed, from the world seed and where the map is (SplitMix64's mixer).</summary>
+    private static ulong LocationSeed(ulong worldSeed, int depth)
+    {
+        ulong z = worldSeed + (ulong)depth * 0x9E3779B97F4A7C15UL;
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+        return z ^ (z >> 31);
+    }
+
+    /// <summary>Starts building a new map; the player must be placed before <see cref="FinishLocation"/>.</summary>
+    private void BeginLocation(int depth)
+    {
+        _generating = new MizuchiRandom(LocationSeed(Seed, depth));
+        _location = new Location(depth, GenerateMap());
+        _locations[depth] = _location;
     }
 
     private GameMap GenerateMap()
@@ -127,21 +172,19 @@ public sealed class World
         return map;
     }
 
-    /// <summary>Squads, items and stairs for the current map, then fresh pathing and perception.</summary>
-    private (DistanceMap, AStar) PopulateLevel()
+    /// <summary>Squads, items and stairs for the map being built, then perception.</summary>
+    private void FinishLocation()
     {
         SpawnSquads();
         SpawnFloorItems();
         PlaceStairs();
-        TowardPlayer = new DistanceMap(Map.Walkable);
-        _aStar = new AStar(Map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
+        _generating = null;
         UpdatePerception();
-        return (TowardPlayer, _aStar);
     }
 
     /// <summary>
-    /// The player goes down the stairs: a new level is generated around them (they keep everything
-    /// they carry and know). From the last level, the stairs lead out: the game is won.
+    /// The player goes down the stairs, to a level built on the first visit and kept from then on
+    /// (they keep everything they carry and know). From the last level, the stairs lead out: the game is won.
     /// </summary>
     public void Descend()
     {
@@ -151,19 +194,36 @@ public sealed class World
             Emit(new GameWon(Turn));
             return;
         }
-        Depth++;
-        _actors.RemoveAll(a => a != Player);
-        _squads.Clear();
-        _floorItems.Clear();
-        _corpses.Clear();
-        _lairs.Clear();
-        _factionMaps.Clear();
-        _paths.Clear();
-        Map = GenerateMap();
-        Player.Position = Map.Rooms[0].Center;
+        Travel(Depth + 1);
+    }
+
+    /// <summary>The player climbs back up the stairs to the level above, just as they left it.</summary>
+    public void Ascend() => Travel(Depth - 1);
+
+    private void Travel(int depth)
+    {
+        bool goingUp = depth < Depth;
+        _actors.Remove(Player);
+        if (_locations.TryGetValue(depth, out var known))
+        {
+            _location = known;
+            var arrival = (goingUp ? Map.StairsDown : Map.StairsUp)!.Value;
+            // Whoever is standing on the stairs makes room.
+            if (ActorAt(arrival) is { } inTheWay)
+                inTheWay.Position = Map.Tiles.Positions().Where(IsFree).MinBy(p => Distance(p, arrival));
+            Player.Position = arrival;
+            _actors.Insert(0, Player);
+            UpdatePerception();
+        }
+        else
+        {
+            BeginLocation(depth);
+            Player.Position = Map.Rooms[0].Center;
+            _actors.Add(Player);
+            FinishLocation();
+        }
         Player.Energy = 0;
-        PopulateLevel();
-        Emit(new LevelEntered(Depth));
+        Emit(new LevelEntered(depth, goingUp));
     }
 
     /// <summary>Stairs down in the room farthest (walking) from the arrival point that no lair holds.</summary>
@@ -179,13 +239,20 @@ public sealed class World
             .OrderBy(p => Distance(p, room.Center)).FirstOrDefault(room.Center);
         Map.SetTile(spot, Tile.StairsDown);
         Map.StairsDown = spot;
+
+        // The way back: under the player's feet, if there's a level above to go back to.
+        if (_locations.ContainsKey(Depth - 1))
+        {
+            Map.SetTile(Player.Position, Tile.StairsUp);
+            Map.StairsUp = Player.Position;
+        }
     }
 
     public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null, int depth = 1) =>
         new(seed, width, height, content ?? ContentDatabase.Default, depth);
 
     /// <summary>How deep this level is (1 = the first). Gates which items and +X values can appear.</summary>
-    public int Depth { get; private set; }
+    public int Depth => _location.Depth;
 
     /// <summary>Runs one player action and, if it used a turn, everyone else's turn.</summary>
     public IReadOnlyList<GameEvent> Step(GameAction playerAction)

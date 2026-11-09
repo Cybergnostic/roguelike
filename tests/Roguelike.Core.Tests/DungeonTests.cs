@@ -57,6 +57,153 @@ public class DungeonTests
         Assert.Contains(world.Actors, a => a != player);
     }
 
+    /// <summary>Everything a level starts with, in a form two games can compare.</summary>
+    private static List<string> Layout(World world) =>
+    [
+        .. world.Map.Tiles.Positions().Select(p => world.Map.Tiles[p].ToString()),
+        .. world.Actors.Where(a => a != world.Player).Select(a => $"{a.Kind} {a.Position} {a.MaxHp}"),
+        .. world.FloorItems.Select(f => $"{f.Item.Def.Id} {f.Item.Enchantment} {f.Item.Rarity} {f.Position}"),
+        .. world.Corpses.Select(c => $"{c.Kind} {c.Position}"),
+    ];
+
+    [Fact]
+    public void ASeedGivesTheSameLevelsHoweverYouPlay()
+    {
+        for (ulong seed = 0; seed < 5; seed++)
+        {
+            var hasty = World.Create(seed);
+            var slow = World.Create(seed);
+            slow.Player.Hp = 100_000; // this test is about levels, not survival
+
+            // Time passing on the first level uses up random numbers in one game only.
+            for (int turn = 0; turn < 150; turn++)
+                slow.Step(new WaitAction());
+
+            for (int level = 0; level < 3; level++)
+            {
+                TakeStairs(hasty);
+                TakeStairs(slow);
+                Assert.Equal(Layout(hasty), Layout(slow));
+            }
+        }
+    }
+
+    private static void ClimbBack(World world)
+    {
+        world.Player.Position = world.Map.StairsUp!.Value;
+        world.Step(new AscendAction());
+    }
+
+    [Fact]
+    public void ALevelYouLeaveIsStillThereWhenYouComeBack()
+    {
+        var world = World.Create(4);
+        var player = world.Player;
+        var map = world.Map;
+        var victim = world.Actors.First(a => a != player);
+        victim.Hp = 0;
+        world.Step(new WaitAction()); // the dead are cleared away
+        var survivors = world.Actors.Where(a => a != player).Select(a => (a, a.Position, a.Hp)).ToList();
+        var exploredCell = map.Tiles.Positions().First(p => map.Explored[p]);
+        int items = world.FloorItems.Count;
+
+        TakeStairs(world);
+        var below = world.Map;
+        TakeStairs(world);
+        ClimbBack(world);
+        Assert.Same(below, world.Map);
+        var events = world.Step(new WaitAction()); // a turn on the middle level, then all the way back
+        Assert.DoesNotContain(events, e => e is LevelEntered);
+        ClimbBack(world);
+
+        Assert.Equal(1, world.Depth);
+        Assert.Same(map, world.Map);
+        Assert.Equal(map.StairsDown, player.Position);
+        Assert.Equal(survivors, world.Actors.Where(a => a != player).Select(a => (a, a.Position, a.Hp)).ToList());
+        Assert.DoesNotContain(victim, world.Actors);
+        Assert.True(map.Explored[exploredCell]);
+        Assert.Equal(items, world.FloorItems.Count);
+    }
+
+    [Fact]
+    public void GoingBackDownReturnsToTheSameLevelAtItsStairsUp()
+    {
+        var world = World.Create(4);
+        TakeStairs(world);
+        var level2 = world.Map;
+        ClimbBack(world);
+
+        var events = TakeStairs(world);
+
+        Assert.Same(level2, world.Map);
+        Assert.Equal(level2.StairsUp, world.Player.Position);
+        Assert.Contains(events, e => e is LevelEntered { Depth: 2, GoingUp: false });
+    }
+
+    [Fact]
+    public void ClimbingUpIsAnnouncedAndUsesATurn()
+    {
+        var world = World.Create(4);
+        TakeStairs(world);
+        int turn = world.Turn;
+        world.Player.Position = world.Map.StairsUp!.Value;
+
+        var events = world.Step(new AscendAction());
+
+        Assert.Contains(events, e => e is LevelEntered { Depth: 1, GoingUp: true });
+        Assert.Equal(turn + 1, world.Turn);
+    }
+
+    [Fact]
+    public void TheFirstLevelHasNoStairsUpAndYouCantClimbWithoutThem()
+    {
+        var world = World.Create(4);
+        Assert.Null(world.Map.StairsUp);
+        var events = world.Step(new AscendAction());
+        Assert.Equal(1, world.Depth);
+        Assert.Contains(events, e => e is ActionFailed { Reason: FailureReason.NotOnStairs });
+    }
+
+    [Fact]
+    public void WhoeverStandsOnTheStairsMakesRoomWhenYouReturn()
+    {
+        var world = World.Create(4);
+        var stairs = world.Map.StairsDown!.Value;
+        var monster = world.Actors.First(a => a != world.Player);
+        world.Player.Position = stairs;
+        world.Step(new DescendAction());
+        // While the player is below, something ended up on the stairs of the level above.
+        monster.Position = stairs;
+
+        ClimbBack(world);
+
+        Assert.Equal(stairs, world.Player.Position);
+        Assert.NotEqual(stairs, monster.Position);
+        Assert.True(world.Map.Walkable[monster.Position]);
+    }
+
+    [Fact]
+    public void ReplayingTheSameInputsAcrossLevelsGivesTheSameGame()
+    {
+        static List<string> Play()
+        {
+            var world = World.Create(9);
+            world.Player.Hp = 100_000;
+            var log = new List<string>();
+            void Record(IEnumerable<GameEvent> events) => log.AddRange(events.Select(e => e.ToString()!));
+            for (int i = 0; i < 40; i++) Record(world.Step(new WaitAction()));
+            world.Player.Position = world.Map.StairsDown!.Value;
+            Record(world.Step(new DescendAction()));
+            for (int i = 0; i < 40; i++) Record(world.Step(new WaitAction()));
+            world.Player.Position = world.Map.StairsUp!.Value;
+            Record(world.Step(new AscendAction()));
+            for (int i = 0; i < 40; i++) Record(world.Step(new WaitAction()));
+            return log;
+        }
+
+        Assert.Equal(Play(), Play());
+    }
+
     [Fact]
     public void MonstersGrowWithDepth()
     {

@@ -67,7 +67,7 @@ public sealed partial class GameScreen : ScreenObject
         AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
         if (FollowFile is not null)
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
-        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: >  Quit: Esc.", Theme.Text);
+        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Quit: Esc.", Theme.Text);
         AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
@@ -97,8 +97,11 @@ public sealed partial class GameScreen : ScreenObject
 
         if (_world.IsOver)
         {
-            if (keyboard.IsKeyPressed(Keys.R))
+            bool sameSeed = keyboard.IsKeyPressed(Keys.S);
+            if (sameSeed || keyboard.IsKeyPressed(Keys.R))
             {
+                if (sameSeed)
+                    StartSeed = _world.Seed;
                 _world = NewWorld();
                 Draw();
             }
@@ -114,6 +117,8 @@ public sealed partial class GameScreen : ScreenObject
         bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
         if (keyboard.IsKeyPressed(Keys.OemPeriod) && shift)
             action = new DescendAction(); // '>'
+        else if (keyboard.IsKeyPressed(Keys.OemComma) && shift)
+            action = new AscendAction(); // '<'
         else if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
             || keyboard.IsKeyPressed(Keys.Space))
             action = new WaitAction();
@@ -177,6 +182,8 @@ public sealed partial class GameScreen : ScreenObject
             AddMessage(_world.Depth >= _world.Content.Dungeon.Levels
                 ? "Stairs lead up and out of the dungeon. (> to leave and win)"
                 : "There are stairs down here. (> to descend)", Theme.Warning);
+        if (playerMoved && _world.Map.StairsUp == _world.Player.Position)
+            AddMessage("There are stairs up here. (< to climb back)", Theme.Warning);
         bool canSpend = CanSpendXp();
         if (canSpend && !_couldSpendXp && !_sheetOpen)
             AddMessage("You feel you could learn something new. (c: character)", Theme.Warning);
@@ -184,7 +191,7 @@ public sealed partial class GameScreen : ScreenObject
         if (_world.IsOver)
         {
             _autoplay = false;
-            AddMessage("Press R to start a new game, Esc to quit.", _world.IsWon ? Theme.Good : Theme.Danger);
+            AddMessage($"R: new game.  S: retry this seed ({_world.Seed}).  Esc: quit.", _world.IsWon ? Theme.Good : Theme.Danger);
         }
     }
 

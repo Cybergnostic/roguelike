@@ -29,7 +29,7 @@ public sealed record SquadMustered(int SquadId, string FactionId, string ZoneNam
 public sealed record RaidLaunched(int SquadId, string FactionId, string ZoneName) : GameEvent;
 
 /// <summary>The player took the stairs and arrived on a new level.</summary>
-public sealed record LevelEntered(int Depth) : GameEvent;
+public sealed record LevelEntered(int Depth, bool GoingUp = false) : GameEvent;
 
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;

@@ -14,6 +14,8 @@ public enum Tile : byte
     Pillar,
     /// <summary>The way down to the next level (or, on the last level, out).</summary>
     StairsDown,
+    /// <summary>The way back up to the level above.</summary>
+    StairsUp,
 }
 
 /// <summary>
@@ -49,10 +51,13 @@ public sealed class GameMap
 
     public Zone? ZoneAt(Point p) => Zones.FirstOrDefault(z => z.Area.Contains(p));
 
-    public static bool IsOpen(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown;
+    public static bool IsOpen(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp;
 
     /// <summary>Where the stairs down are (every level has one).</summary>
     public Point? StairsDown { get; set; }
+
+    /// <summary>Where the stairs up are, on levels that have a level above to return to.</summary>
+    public Point? StairsUp { get; set; }
 
     public GameMap(ArrayView<Tile> tiles, IReadOnlyList<Rectangle> rooms)
     {

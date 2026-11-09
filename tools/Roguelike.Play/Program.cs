@@ -110,7 +110,7 @@ string? Describe(GameEvent e) => e switch
     CorpseRaised r => Seen(r.CasterId) || Seen(r.RaisedId) ? $"{Name(r.CasterId)} raises a {r.CorpseKind} corpse as {Name(r.RaisedId)}" : "(chanting somewhere)",
     MinionCrumbled m when Seen(m.ActorId) => $"{Name(m.ActorId)} crumbles to dust",
     ZoneEntered z => $"you enter {z.ZoneName}",
-    LevelEntered l => $"*** you descend to depth {l.Depth} ***",
+    LevelEntered l => l.GoingUp ? $"*** you climb back up to depth {l.Depth} ***" : $"*** you descend to depth {l.Depth} ***",
     GameWon => "*** YOU ESCAPE THE DUNGEON: YOU WIN ***",
     SquadMustered m => $"(drums: a band musters in {m.ZoneName})",
     RaidLaunched r => $"(war horns: {r.FactionId} raid {r.ZoneName})",
@@ -206,7 +206,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }

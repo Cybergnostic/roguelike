@@ -29,6 +29,7 @@
     "floor": { "glyph": ".", "color": "#5A5A64" },
     "lairfloor": { "glyph": 250, "color": "#7A5A9A" },
     "pillar":    { "glyph": 254, "color": "#A898B8" },
-    "stairsdown": { "glyph": ">", "color": "#F0E68C" }
+    "stairsdown": { "glyph": ">", "color": "#F0E68C" },
+    "stairsup":   { "glyph": "<", "color": "#F0E68C" }
   }
 }

@@ -36,6 +36,7 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         MinionCrumbled => null,
 
         ZoneEntered z => $"You enter {z.ZoneName}.",
+        LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",
         LevelEntered l when l.Depth >= world.Content.Dungeon.Levels => $"You descend to depth {l.Depth}, the bottom of the dungeon. The way out is somewhere here.",
         LevelEntered l => $"You descend the stairs to depth {l.Depth}.",
         GameWon g => $"You climb out of the dungeon alive after {g.Turn} turns. You win!",

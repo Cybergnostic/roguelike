@@ -34,6 +34,21 @@ public sealed record DescendAction : GameAction
     }
 }
 
+/// <summary>Takes the stairs back up (the player only).</summary>
+public sealed record AscendAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor != world.Player || world.Map.StairsUp != actor.Position)
+        {
+            world.Emit(new ActionFailed(actor.Id, FailureReason.NotOnStairs));
+            return false;
+        }
+        world.Ascend();
+        return true;
+    }
+}
+
 /// <summary>Step in a direction; bumping a hostile actor attacks it.</summary>
 public sealed record MoveAction(Direction Direction) : GameAction
 {

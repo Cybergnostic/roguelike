@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-09 (world decisions; camp slice is now the next milestone)
+Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts)
 
 ---
 
@@ -180,6 +180,10 @@ docs/PROJECT.md              this file
 11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
    except raised dead ("the dead rise only once"). Raised actors carry `MasterId`; `World.Damage`
    crumbles them when the master dies. Spawn monsters at runtime with `World.SpawnMonster`.
+12. **Locations:** all per-map state lives in `World.Location` and is kept for the whole game; add new
+   per-map state there, not on `World`. While a map is built, `world.Rng` is that map's own stream
+   (from world seed + location), so a seed gives the same maps however the game is played. Play
+   randomness is a separate stream.
 
 ---
 
@@ -217,7 +221,8 @@ The report gives: death rate, survivors' lowest HP and close calls (<25% HP), sh
 inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
 ### In-game keys
-Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Restart after death: `R`. Quit: `Esc`.
+Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. After a game: `R` new
+seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
@@ -340,13 +345,13 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **After honest enemy knowledge** (2026-11-09), tactical bot, 200 games (seeds 1000–1199), 20000-turn cap,
-  against the code just before it on the same seeds:
-  - Won **47%** (was 29%), died 51% (was 67%). Above the 20–30% target; deliberately not retuned yet, as
-    orders, search and camps will move it again and the bot's retreat-and-rest play gains the most.
-  - Death rate by depth: 8.0, 7.1, 5.8, 5.0, 2.0, 7.4, 5.8, 5.4, 10.8, 11.3% (was 10.0, 8.3, 7.3, 6.7, 7.3,
-    5.6, 10.2, 17.0, 17.0, 19.4).
-  - Close calls among survivors 37 of 99 (was 12 of 67). Squads idle 67%, engaged 20% (was 60%, 27%).
+- **Current: honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
+  20000-turn cap, about 90 s on this 12-thread machine (71000 turns/s):
+  - Won **39.6%**, died 57%. Before stored levels, same seeds: won 40.2%, died 57%, so that refactor is
+    balance-neutral. Honest knowledge took it from 34.7% (the affix baseline below) to about 40%.
+  - Above the 20–30% target; deliberately not retuned yet, as orders, search and camps will move it again.
+  - Death rate by depth: 8.5, 6.4, 6.2, 4.3, 4.6, 5.3, 9.4, 8.4, 12.8, 17.0%.
+  - 200 games can mislead: the honest-knowledge build won 47% on seeds 1000–1199 but 40% over 1000.
 - **With rarity tiers and affixes** (2026-11-08, commit 24c231b), tactical bot, 1000 games (seeds 1000–1999):
   - Won **34.7%**, died 62%, timed out 4%: items add about 14 points over the item-less baseline
     below. A bit above the 20–30% target (the 200-game sample said 29%); retune when the content
@@ -466,8 +471,8 @@ you, a quick way to see progression; spectating: time passes).
 - Ended with 5 unused healing potions.
 
 **Known issues / tech debt**
-- A seed only reproduces level 1. `World.Descend` generates from the same `Rng` as combat, so deeper
-  levels depend on how the earlier ones were played. Contradicts the seed decision in §2; fix in step 6b.
+- Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
+  are a perfect escape for now. Off-screen time and pursuit belong to later steps.
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
   forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
 - Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
@@ -521,8 +526,9 @@ you, a quick way to see progression; spectating: time passes).
    several ways through (see [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12 for acceptance criteria)
    - ~~a. Honest enemy knowledge: squads act only on sight, shouts and last-known position; no pathing
      to true positions of unseen enemies; a test pins it~~ (done 2026-11-09)
-   - b. Stored locations: per-level state moves out of `World` so maps can be left and revisited;
-     each location generates from its own seed-derived stream; the seed can be retried after death.
+   - ~~b. Stored locations: per-level state moves out of `World` so maps can be left and revisited;
+     each location generates from its own seed-derived stream; the seed can be retried after death~~
+     (done 2026-11-09; locations are keyed by depth for now, surface maps will need a real id)
    - c. A hand-built camp from a text map: road, palisade, working gate, cover, cave down. No
      generator until the camp is fun. Doors and gates must clear cached paths and update sight.
    - d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
