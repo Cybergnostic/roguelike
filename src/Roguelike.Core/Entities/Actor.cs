@@ -135,6 +135,12 @@ public sealed class Actor
 
     public Rank Rank { get; init; }
 
+    /// <summary>How it thinks without a commander (minds.json).</summary>
+    public Content.MindDef? Mind { get; init; }
+
+    /// <summary>The mind it gives its whole squad while it lives; null if it commands nobody.</summary>
+    public Content.MindDef? Commands { get; init; }
+
     /// <summary>How many times the player has spoken to it, so it can say the next thing.</summary>
     public int TimesTalkedTo { get; set; }
 

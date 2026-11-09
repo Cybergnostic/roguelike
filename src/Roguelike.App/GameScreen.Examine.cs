@@ -144,6 +144,8 @@ public sealed partial class GameScreen
         lines.Add(Stance(actor));
         if (_world.CouldFight(player, actor))
         {
+            if (_world.SquadOf(actor) is { } squad)
+                lines.Add((squad.Commander is { } boss && boss != actor ? $"{squad.Mind.Description} ({boss.Name})" : squad.Mind.Description, Theme.Intent));
             bool ranged = actor.Range > 0 && !_world.IsAdjacent(actor.Position, player.Position);
             lines.Add(($"You hit it {_world.HitChance(player, actor, false)}% in melee, {_world.HitChance(player, actor, true)}% with a bow.", Theme.Text));
             lines.Add(($"It hits you {_world.HitChance(actor, player, ranged)}%.", Theme.Text));

@@ -79,6 +79,7 @@
     ] },
     { "name": "camp reserve", "faction": "goblins", "leash": 12, "home": [37, 6],
       "order": "guard", "territory": "the {tribe} camp", "rally": [40, 6], "members": [
+      { "monster": "goblin_captain", "at": [37, 5] },
       { "monster": "goblin_warrior", "at": [36, 5] },
       { "monster": "goblin_archer",  "at": [37, 7] },
       { "monster": "goblin_shaman",  "at": [39, 6] }
@@ -159,6 +160,7 @@
   // If the player is away from this map then, it happens when they come back.
   "incursions": [
     { "turn": 300, "faction": "undead", "target": "the {tribe} camp", "members": [
+      { "monster": "bone_knight",      "at": [70, 7] },
       { "monster": "skeleton_warrior", "at": [71, 7] },
       { "monster": "skeleton_warrior", "at": [70, 6] },
       { "monster": "skeleton_warrior", "at": [70, 8] },

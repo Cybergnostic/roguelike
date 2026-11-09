@@ -8,10 +8,7 @@ namespace Roguelike.Core.AI.Squads;
 /// </summary>
 public static class SquadDirector
 {
-    private const int DeathMoralePenalty = 25;
     private const int WoundMoralePenalty = 8;
-    private const int ForgetEngageAfter = 6;   // turns without sight before Engage -> Alert
-    private const int GiveUpSearchAfter = 30;  // turns without sight before Alert -> Idle
 
     public static void Think(World world, Squad squad)
     {
@@ -21,6 +18,8 @@ public static class SquadDirector
         if (squad.IsWipedOut)
             return;
 
+        var mind = squad.Mind;
+
         // Pool perception: whoever sees an enemy shouts, and the squad hears it if the leader
         // is in earshot. A lone straggler's sighting stays with the straggler.
         Entities.Actor? spotter = null, target = null;
@@ -29,7 +28,7 @@ public static class SquadDirector
         squad.ClearSightings();
         foreach (var member in squad.Members)
         {
-            if (World.Distance(member.Position, leaderAt) > Squad.ShoutRange
+            if (World.Distance(member.Position, leaderAt) > mind.ShoutRange
                 || world.NearestVisibleHostile(member) is not { } seen)
                 continue;
             if (squad.IsLeashed && !squad.WithinLeash(seen.Position))
@@ -51,7 +50,7 @@ public static class SquadDirector
 
         if (squad.Surrendered || squad.Spared)
             return; // out of the fight: its members just wait, or keep clear
-        if (target == world.Player)
+        if (target == world.Player && mind.SizesUp)
             SizeUp(world, squad);
 
         if (squad.IsLeashed && spotter is null && squad.State is SquadState.Engage or SquadState.Alert
@@ -71,12 +70,12 @@ public static class SquadDirector
                 DispatchRunner(world, squad);
                 break;
 
-            case SquadState.Engage when sinceSeen > ForgetEngageAfter:
+            case SquadState.Engage when sinceSeen > mind.Memory:
                 squad.State = SquadState.Alert;
                 squad.Destination = squad.LastKnownTarget;
                 break;
 
-            case SquadState.Alert when sinceSeen > GiveUpSearchAfter && spotter is null:
+            case SquadState.Alert when sinceSeen > mind.Memory + mind.Searches && spotter is null:
                 squad.State = SquadState.Idle;
                 squad.Destination = null;
                 squad.HelpTargetSquadId = null; // the fight is over; call the runner back
@@ -96,7 +95,7 @@ public static class SquadDirector
                 break;
         }
 
-        if (!squad.IsFearless && squad.State != SquadState.Flee && squad.Morale < Squad.BreakingPoint)
+        if (!squad.IsFearless && squad.State != SquadState.Flee && squad.Morale < mind.BreaksAt)
         {
             squad.State = SquadState.Flee;
             squad.CallOffRaid(); // a broken war band goes home, whatever its orders
@@ -170,7 +169,7 @@ public static class SquadDirector
 
         if (squad.Posture != Posture.Desperate)
             return;
-        if (squad.Morale >= Squad.BreakingPoint && ThinksOfBegging(world, squad))
+        if (squad.Morale >= squad.Mind.BreaksAt && ThinksOfBegging(world, squad))
             return;
         int nearest = squad.Members.Min(m => World.Distance(m.Position, player.Position));
         if (mayRun && (!hasBow || nearest > rules.AllInWithin))
@@ -265,8 +264,14 @@ public static class SquadDirector
 
     private static void UpdateMorale(World world, Squad squad)
     {
+        var fallen = squad.Members.FirstOrDefault(m => m.IsDead && m.Commands is not null);
         int deaths = squad.Members.RemoveAll(m => m.IsDead);
-        squad.Morale -= deaths * DeathMoralePenalty;
+        squad.Morale -= deaths * squad.Mind.CasualtyMorale;
+        if (fallen is not null && squad.Commander is null && !squad.IsWipedOut)
+        {
+            squad.Morale -= fallen.Commands!.CommanderLoss;
+            world.Emit(new SquadLostCommander(squad.Id, fallen.Name, squad.Members.Select(m => m.Id).ToList()));
+        }
 
         foreach (var m in squad.Members)
         {

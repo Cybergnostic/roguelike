@@ -15,11 +15,24 @@ public sealed record MonsterDef(
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
     int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
     int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0, Rank Rank = Rank.Normal,
-    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null, int AttackTime = 100, int Stagger = 0);
+    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null, int AttackTime = 100, int Stagger = 0,
+    string Mind = "rabble", string? Commands = null);
 
 /// <summary>Someone the player can talk to. Lines: said in turn. Goods: for sale.</summary>
 public sealed record NpcDef(IReadOnlyList<string>? Lines = null, IReadOnlyList<WareDef>? Goods = null);
 public sealed record WareDef(string Item, int Price);
+
+public enum Surrounds { Never, WhenBold, Always }
+public enum HoldsCorridors { Never, WithShooters, Always }
+
+/// <summary>How a squad thinks (minds.json).</summary>
+public sealed record MindDef(string Id, string Name, string Description, int ShoutRange, int Memory, int Searches, bool SizesUp,
+    Surrounds Surround, HoldsCorridors HoldsCorridors, int BreaksAt, bool FocusFire = false, bool RotatesWounded = false,
+    bool ShootersKeepBack = false, int CommanderLoss = 0, bool AdvancesTogether = false, int CasualtyMorale = 25)
+{
+    /// <summary>For actors made by hand, without any content behind them.</summary>
+    public static readonly MindDef Default = new("rabble", "Rabble", "", 6, 6, 20, true, Surrounds.WhenBold, HoldsCorridors.Never, 40);
+}
 
 public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain, Frighten, Bash, Pin, Vanish, Bolt, Heal }
 
@@ -205,6 +218,7 @@ public sealed class ContentDatabase
     public IReadOnlyDictionary<string, Faction> Factions { get; }
     public FactionRelations Relations { get; }
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
+    public IReadOnlyDictionary<string, MindDef> Minds { get; }
     public IReadOnlyList<SquadTemplateDef> SquadTemplates { get; }
     public double RoomOccupancy { get; }
     public double FloorItemChance { get; }
@@ -261,8 +275,10 @@ public sealed class ContentDatabase
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
         DungeonDef dungeon, AffixRules affixes, PlaceDef surface, HistoryDef history,
-        IReadOnlyDictionary<string, AbilityDef> abilities, EliteRules elites, IReadOnlyList<ClassDef> classes)
+        IReadOnlyDictionary<string, AbilityDef> abilities, EliteRules elites, IReadOnlyList<ClassDef> classes,
+        IReadOnlyDictionary<string, MindDef> minds)
     {
+        Minds = minds;
         Classes = classes;
         Abilities = abilities;
         Elites = elites;
@@ -438,7 +454,25 @@ public sealed class ContentDatabase
 
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites, classes);
+            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites, classes, LoadMinds(directory, monsters));
+    }
+
+    private static Dictionary<string, MindDef> LoadMinds(string directory, Dictionary<string, MonsterDef> monsters)
+    {
+        const string name = "minds.json";
+        var minds = new Dictionary<string, MindDef>();
+        foreach (var mind in Read<MindFile>(directory, name).Minds)
+        {
+            if (!minds.TryAdd(mind.Id, mind))
+                throw Error(name, $"duplicate mind '{mind.Id}'");
+            if (mind.ShoutRange < 0 || mind.Memory < 0 || mind.Searches < 0 || mind.BreaksAt < 0 || mind.CommanderLoss < 0 || mind.CasualtyMorale < 0)
+                throw Error(name, $"mind '{mind.Id}': numbers can't be negative");
+        }
+        foreach (var monster in monsters.Values)
+            foreach (var id in new[] { monster.Mind, monster.Commands })
+                if (id is not null && !minds.ContainsKey(id))
+                    throw Error("monsters.json", $"'{monster.Id}' has unknown mind '{id}'");
+        return minds;
     }
 
     private static void ValidateClasses(List<ClassDef> classes, List<SkillTreeDef> trees, List<AttributeDef> attributes,
@@ -818,6 +852,7 @@ public sealed class ContentDatabase
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record AbilityFile(List<AbilityDef> Abilities);
     private sealed record ClassFile(List<ClassDef> Classes);
+    private sealed record MindFile(List<MindDef> Minds);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
         int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
     private sealed record AttributeFile(List<AttributeEntry> Attributes, AttributeRaiseRules Raise);

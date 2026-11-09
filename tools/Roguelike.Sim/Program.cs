@@ -15,6 +15,12 @@ if (options is null)
     return 1;
 }
 
+if (options.Trials)
+{
+    TrialReport.Print(options.Seeds, options.Start);
+    return 0;
+}
+
 if (options.Encounters)
 {
     Console.WriteLine($"{"valley fight",-26} {"won",6} {"died",6} {"hp left",8} {"turns",6}   (bot with the starting kit, {options.Seeds} games each)");
@@ -188,7 +194,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Encounters = false, string? ClassId = null)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Trials = false, bool Encounters = false, string? ClassId = null)
 {
     public static Options? Parse(string[] args)
     {
@@ -207,6 +213,7 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--map": o = o with { ShowMap = true }; break;
                 case "--class" when Next() is { } c: o = o with { ClassId = c }; break;
                 case "--encounters": o = o with { Encounters = true }; break;
+                case "--trials": o = o with { Trials = true }; break;
                 case "--trace": o = o with { Trace = true }; break;
                 default: return null;
             }

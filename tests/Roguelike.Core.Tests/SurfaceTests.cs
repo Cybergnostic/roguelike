@@ -39,7 +39,7 @@ public class SurfaceTests
         Assert.Equal(Tile.GateOpen, world.Map.Tiles[Gate]);
         Assert.Equal(Cave, world.Map.StairsDown);
         Assert.Equal(Tile.CaveMouth, world.Map.Tiles[Cave]);
-        Assert.Equal(9, world.Actors.Count(a => a.Faction.Id == "goblins"));
+        Assert.Equal(10, world.Actors.Count(a => a.Faction.Id == "goblins"));
         Assert.Equal(4, world.Squads.Count(s => s.Camp is not null));
     }
 

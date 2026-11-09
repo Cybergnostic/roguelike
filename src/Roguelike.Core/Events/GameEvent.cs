@@ -140,6 +140,9 @@ public sealed record BumpedWall(int ActorId, Point At) : GameEvent;
 public sealed record SquadSpotted(int SquadId, int SpotterId, int TargetId) : GameEvent;
 
 /// <summary>A squad's morale broke and it is fleeing.</summary>
+/// <summary>Whoever gave this squad its orders is dead, and it is left to its own devices.</summary>
+public sealed record SquadLostCommander(int SquadId, string CommanderName, IReadOnlyList<int> MemberIds) : GameEvent;
+
 public sealed record SquadRouted(int SquadId, IReadOnlyList<int> MemberIds) : GameEvent;
 
 /// <summary>A runner reached another squad and brought it into the fight.</summary>

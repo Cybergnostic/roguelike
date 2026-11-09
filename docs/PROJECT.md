@@ -65,6 +65,7 @@ loot (rarity tiers, +X gear).
 | **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
 | **One derived-stat vocabulary (`Stat`)** | Attributes, skills and item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
 | **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
+| **A squad's tactics come from what it is** (`minds.json`; user, 2026-11-09) | Each monster has a mind (mindless, beast, pack, rabble), and one with `commands` lifts its whole squad to that mind while it lives (drilled). Killing the commander drops the squad back and costs it morale. Minds are data: range of shouts, memory, sizing up, surrounding, holding corridors, advancing together, how much losses hurt | One tactics level for everyone; tactics by faction |
 | **Classes are data** (`classes.json`; user, 2026-11-09) | Each class sets attributes, gold, starting kit, the skill trees it can learn and the skills it starts with. A skill can grant an active ability with a cooldown (`abilities.json`), so adding a class needs no code. A class can't learn from another class's own trees; a game started with no class (tests, plain tools) only gets the general trees | Classes coded by hand; open skill choice for everyone |
 | **Tune with the tactical bot over many seeds** | Balance target (2026-11-08): the tactical bot wins about 20–30% and deaths rise with depth. A human plays differently; the bot measures the curve, not absolute difficulty | Tuning by feel from single games |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
@@ -86,6 +87,7 @@ data/                        game content (JSON with comments), copied next to e
   monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed, rank, abilities,
                              risesAs (corpse → undead), raise (necromancers), xp (kill reward), npc (lines, goods)
   abilities.json             active skills for elites, bosses and the player (kinds in AbilityKind; "power" scales with Magic)
+  minds.json                 how squads think: mindless, beast, pack, rabble, drilled
   classes.json               the player classes: attributes, gold, kit, skill trees, starting skills
   elites.json                the chance and kinds of elite squad members (title, stat changes, skills)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
@@ -238,6 +240,7 @@ dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
 dotnet run --project tools/Roguelike.Sim -c Release -- --encounters --seeds 300   # each valley fight, bot with the starting kit
+dotnet run --project tools/Roguelike.Sim -c Release -- --trials --seeds 200   # every class, build, stage and enemy, and each squad mind compared (~2 min)
 dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
 **Watching an agent play:** start the window with
@@ -380,7 +383,14 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: classes** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **35.2%**, Ranger **23.6%**, Rogue **17.8%**, Mystic **31.4%**. Classless was not re-measured.
+- **Current: squad minds** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **44.4%**, Ranger **37.0%**, Rogue **26.6%**, Mystic **41.0%**. All but the Rogue are above the 20–30% target: ordinary dungeon squads are now mindless or rabble, so they got easier. Not yet retuned.
+- **Trials** (`--trials`, 2026-11-09, 200 games per cell; fights with nothing else on the level). What they show:
+  - Thinking matters to characters who get reached. Six wolves, seasoned Soldier: beast 93%, pack 57%. Mystic: 72%, 15%. Goblin force, Soldier: rabble 91%, drilled 74%; Mystic 75%, 50%.
+  - Ranger and Rogue win 90–100% whatever the squad's mind. Nothing yet punishes them. Corridors help everyone (pack vs Mystic: 15% in the open, 50% in a corridor).
+  - Strength compounds on twin daggers (both hands get the full bonus): against the warlord's host a Rogue with attribute points in Dex alone wins 29%, Str alone 58%, both 78%. Str on a Soldier does nothing comparable.
+  - The bot's head-on fight with the necromancer's court is 0–5% for every build, far below its real win rates, so that row is not representative. Reason not established.
+  - Caveats: the tactical bot doesn't sneak or use doors; trial gear is the starting kit plus enchantment, so veteran and final characters are under-equipped.
+- **Classes** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **35.2%**, Ranger **23.6%**, Rogue **17.8%**, Mystic **31.4%**. Classless was not re-measured.
   The bot doesn't sneak, so the Rogue's Backstab rarely fires and its figure is a floor. Soldier and Mystic sit a little over the 20–30% target and Rogue a little under.
   Whole bandit den won: Soldier 53%, Ranger 87%, Rogue 63%, Mystic 26%. Run with `--class ID` (Sim and Play both take it, and so does `--encounters`).
 - **The big balance pass** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **28.0%**, died 72%, inside the 20–30% target.

@@ -28,6 +28,7 @@
     "bone_knight":      { "glyph": "K", "color": "#E6E2D2" },
     "wraith":           { "glyph": "W", "color": "#90A8E0", "rangedVerb": "chills" },
     "goblin_brute":     { "glyph": "G", "color": "#6EC846" },
+    "goblin_captain":   { "glyph": "G", "color": "#D0C040" },
     "goblin_warlord":   { "glyph": "G", "color": "#E0A030" }
   },
   // What a fight sounds like when you can tell who's in it (front end only).

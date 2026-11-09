@@ -138,11 +138,24 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     private GameAction Warrior(World world, Actor self)
     {
         var enemy = world.NearestVisibleHostile(self);
-        if (Squad.Posture == Posture.Bold && enemy is not null && Flank(world, self, enemy) is { } flank)
+        if (enemy is not null && StepsBack(world, self, enemy) is { } rotation)
+            return rotation;
+
+        if (enemy is not null && WaitsForTheLine(world, self, enemy))
+            return new WaitAction();
+
+        bool surrounds = Squad.Mind.Surround switch
+        {
+            Content.Surrounds.Always => Squad.Posture is Posture.Even or Posture.Bold,
+            // A half-hearted swarm: some go round, the rest just charge straight in.
+            Content.Surrounds.WhenBold => Squad.Posture == Posture.Bold && Squad.Members.IndexOf(self) % 2 == 0,
+            _ => false,
+        };
+        if (surrounds && enemy is not null && Flank(world, self, enemy) is { } flank)
             return flank;
 
         if (world.AdjacentHostile(self) is { } adjacent)
-            return new AttackAction(adjacent.Id);
+            return new AttackAction((Focus(world, self) is { } chosen && world.IsAdjacent(self.Position, chosen.Position) ? chosen : adjacent).Id);
 
         if (Squad.Posture == Posture.Wary && enemy is not null && World.Distance(self.Position, enemy.Position) <= KeepsOutOfReach)
             return world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable)) is { } back ? new MoveAction(back) : new WaitAction();
@@ -163,21 +176,66 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         return new MoveAction(step.Value);
     }
 
+    /// <summary>Below this share of its health, a fighter that can be relieved steps out of the line.</summary>
+    private const int RotatesBelowPercent = 40;
+
+    private bool IsFresh(Actor member) => member.Hp * 100 >= member.MaxHp * RotatesBelowPercent;
+
+    /// <summary>The badly hurt give way while a healthy comrade keeps the enemy busy. Null when it fights on.</summary>
+    private GameAction? StepsBack(World world, Actor self, Actor enemy)
+    {
+        if (!Squad.Mind.RotatesWounded || IsFresh(self))
+            return null;
+        int distance = World.Distance(self.Position, enemy.Position);
+        bool relieved = Squad.Members.Any(m => m != self && Squad.RoleOf(m) is SquadRole.Warrior or SquadRole.Runner && IsFresh(m)
+                                               && World.Distance(m.Position, enemy.Position) <= 2);
+        if (!relieved || distance > 3)
+            return null;
+        if (distance == 3)
+            return new WaitAction();
+        return BackOff(world, self, enemy) is { } back ? new MoveAction(back) : null;
+    }
+
+    /// <summary>A step that really takes it farther from this enemy, and not into anyone else's reach.</summary>
+    private Direction? BackOff(World world, Actor self, Actor enemy)
+    {
+        int now = World.Distance(self.Position, enemy.Position);
+        var away = Squad.AwayFromKnownThreats(world.Map.Passable);
+        return World.EightWay
+            .Where(d => world.IsFree(self.Position + d) && Squad.WithinLeash(self.Position + d)
+                        && World.Distance(self.Position + d, enemy.Position) > now
+                        && !NextToHostile(world, self, self.Position + d))
+            .Select(d => (Direction?)d)
+            .MinBy(d => away[self.Position + d!.Value] ?? double.MaxValue);
+    }
+
+    /// <summary>How far ahead of the rearmost fighter a drilled soldier will get before waiting for the line.</summary>
+    private const int LineSlack = 2;
+
+    /// <summary>Drilled fighters arrive together: anyone out in front holds until the others come up.</summary>
+    private bool WaitsForTheLine(World world, Actor self, Actor enemy)
+    {
+        if (!Squad.Mind.AdvancesTogether || World.Distance(self.Position, enemy.Position) <= 2)
+            return false;
+        var toward = Squad.TowardKnownThreats(world.Map.Passable);
+        if (toward[self.Position] is not { } mine)
+            return false;
+        var rear = Squad.Members.Where(m => m != self && Squad.RoleOf(m) == SquadRole.Warrior)
+            .Select(m => toward[m.Position]).Where(d => d is not null).Max();
+        return rear is { } behind && behind > mine + LineSlack;
+    }
+
+    /// <summary>The target the squad has settled on, if it fights that way and this member can see it.</summary>
+    private Actor? Focus(World world, Actor self) =>
+        Squad.Mind.FocusFire && Squad.TargetId is { } id && world.GetActor(id) is { IsDead: false } target && world.CanSee(self, target) ? target : null;
+
     /// <summary>Shoots like an archer, but stays behind whoever fights for him instead of leading them.</summary>
     private GameAction Caster(World world, Actor self)
     {
         var target = world.NearestVisibleHostile(self);
         if (target is not null && World.Distance(self.Position, target.Position) <= CasterKeepsBack)
         {
-            int now = World.Distance(self.Position, target.Position);
-            var away = Squad.AwayFromKnownThreats(world.Map.Passable);
-            var backOff = World.EightWay
-                .Where(d => world.IsFree(self.Position + d) && Squad.WithinLeash(self.Position + d)
-                            && World.Distance(self.Position + d, target.Position) > now
-                            && !NextToHostile(world, self, self.Position + d))
-                .Select(d => (Direction?)d)
-                .MinBy(d => away[self.Position + d!.Value] ?? double.MaxValue);
-            if (backOff is { } step)
+            if (BackOff(world, self, target) is { } step)
                 return new MoveAction(step);
         }
 
@@ -229,6 +287,14 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
 
         var target = world.NearestVisibleHostile(self);
+        if (Focus(world, self) is { } focus && World.Distance(self.Position, focus.Position) <= self.Range)
+            target = focus;
+
+        // With a fighter to cover it, a trained shooter gives ground rather than let anyone reach it.
+        if (target is not null && Squad.Mind.ShootersKeepBack && World.Distance(self.Position, target.Position) == 2
+            && Squad.WithRole(SquadRole.Warrior).Any() && BackOff(world, self, target) is { } giveGround)
+            return new MoveAction(giveGround);
+
         if (target is not null && World.Distance(self.Position, target.Position) <= self.Range)
         {
             if (world.HasClearShot(self.Position, target.Position))

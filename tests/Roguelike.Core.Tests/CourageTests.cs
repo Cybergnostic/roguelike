@@ -58,6 +58,7 @@ public class CourageTests
     public void ABoldPackSurroundsInsteadOfQueueing()
     {
         var (world, squad) = Encounter(4);
+        squad.MindOverride = world.Content.Minds["pack"];
         bool opposite = false;
         for (int t = 0; t < 14 && !opposite && !world.IsOver; t++)
         {

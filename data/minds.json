@@ -1,0 +1,35 @@
+{
+  // How a squad thinks. A monster's "mind" is what it is like on its own or with its own kind;
+  // a monster with "commands" lifts its whole squad to that mind for as long as it lives.
+  //   shoutRange: how far from the leader a sighting still reaches the rest
+  //   memory: turns it stays in the fight after losing sight of the enemy
+  //   searches: turns it goes on looking after that
+  //   sizesUp: weighs the enemy up (grows bold, wary, or runs) rather than just coming on
+  //   surround: never, whenBold, or always (unless it is afraid)
+  //   holdsCorridors: never, withShooters (needs someone shooting meanwhile), or always
+  //   focusFire: strikes the squad's chosen target when it can
+  //   rotatesWounded: the badly hurt step back while a healthy comrade holds the enemy
+  //   shootersKeepBack: archers step away from anyone closing in, if a fighter can cover them
+  //   breaksAt: morale below this and the squad runs
+  //   commanderLoss: morale lost when the one commanding this way falls
+  //   advancesTogether: fighters wait for the line instead of arriving one at a time
+  //   casualtyMorale: morale lost for each comrade who dies
+  "minds": [
+    { "id": "mindless", "name": "Mindless", "description": "It just comes at you.",
+      "shoutRange": 2, "memory": 4, "searches": 6, "sizesUp": false, "surround": "never",
+      "holdsCorridors": "never", "breaksAt": 0, "casualtyMorale": 0 },
+    { "id": "beast", "name": "Beast", "description": "Acts on instinct, alone.",
+      "shoutRange": 3, "memory": 3, "searches": 6, "sizesUp": false, "surround": "never",
+      "holdsCorridors": "never", "breaksAt": 40, "casualtyMorale": 25 },
+    { "id": "pack", "name": "Pack", "description": "Hunts as a pack.",
+      "shoutRange": 14, "memory": 10, "searches": 40, "sizesUp": true, "surround": "always",
+      "holdsCorridors": "always", "rotatesWounded": true, "breaksAt": 25, "casualtyMorale": 18 },
+    { "id": "rabble", "name": "Rabble", "description": "A brawling, undisciplined lot.",
+      "shoutRange": 6, "memory": 6, "searches": 20, "sizesUp": true, "surround": "whenBold",
+      "holdsCorridors": "never", "breaksAt": 40, "casualtyMorale": 25 },
+    { "id": "drilled", "name": "Drilled", "description": "Fights in order, under command.",
+      "shoutRange": 12, "memory": 12, "searches": 40, "sizesUp": true, "surround": "always",
+      "holdsCorridors": "withShooters", "focusFire": true, "rotatesWounded": true, "shootersKeepBack": true,
+      "breaksAt": 15, "commanderLoss": 40, "advancesTogether": true, "casualtyMorale": 10 }
+  ]
+}

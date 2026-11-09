@@ -1635,6 +1635,8 @@ public sealed class World
             BaseAttackTime = def.AttackTime,
             BaseStagger = def.Stagger,
             Rank = elite is not null ? Rank.Elite : def.Rank,
+            Mind = Content.Minds[def.Mind],
+            Commands = def.Commands is { } commands ? Content.Minds[commands] : null,
             Title = elite?.Title,
             XpMultiplier = elite?.Xp ?? 1,
             Abilities = (def.Abilities ?? []).Concat(elite?.Abilities ?? []).Select(id => Content.Abilities[id]).ToList(),
@@ -1803,6 +1805,9 @@ public sealed class World
                     _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0, Ancient: true));
         return built;
     }
+
+    /// <summary>Old bones on the floor, ready to be raised.</summary>
+    internal void LayBones(string monster, Point at) => _corpses.Add(new Corpse(_nextCorpseId++, monster, at, 0, Ancient: true));
 
     /// <summary>
     /// Sends a fresh squad out of a lair (see the lair's "muster"). Null if nobody could be placed.

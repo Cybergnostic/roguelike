@@ -83,6 +83,8 @@ public class TimeTests
         var goblin = FirstGoblin(world);
         world.Damage(world.Player, goblin, 999, ranged: false);
         Assert.NotEmpty(world.Corpses);
+        foreach (var guard in world.Squads.Where(s => s.Camp is not null).SelectMany(s => s.Members))
+            guard.Hp = 1000; // the camp can fall to a raid meanwhile, leaving fresh corpses in the same spots
 
         AwayFor(world, world.Content.Dungeon.CorpseGoneAfter + 20);
 
@@ -136,6 +138,8 @@ public class TimeTests
         int newestId = world.Actors.Max(a => a.Id);
         world.Damage(world.Player, sentries.Members[0], 999, ranged: false);
         world.Step(new WaitAction());
+        foreach (var guard in world.Squads.Where(s => s.Camp is not null).SelectMany(s => s.Members))
+            guard.Hp = 1000; // the undead attack on this schedule too, and this isn't about them
 
         var events = AwayFor(world, world.Content.Dungeon.TurnsPerReplacement + 5);
 

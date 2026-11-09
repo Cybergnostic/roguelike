@@ -97,6 +97,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             $"{Cap(Name(s.SpotterId))} spots {Name(s.TargetId)}!",
         SquadSpotted => null,
 
+        SquadLostCommander l when l.MemberIds.Any(isVisible) => $"With the {l.CommanderName} dead, the rest lose all order!",
+        SquadLostCommander => null,
         SquadRouted r when r.MemberIds.Any(isVisible) => "The goblins' nerve breaks - they flee!",
         SquadRouted => "You hear panicked shrieks in the distance.",
 

@@ -20,7 +20,7 @@ namespace Roguelike.Core.Simulation;
 /// </list>
 /// One instance per game: it keeps a little memory (how long it has been watching a fight).
 /// </summary>
-public sealed class TacticalBot : IPlayerBot
+public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
 {
     public string Name => "tactical";
 
@@ -42,7 +42,7 @@ public sealed class TacticalBot : IPlayerBot
     public GameAction Decide(World world)
     {
         var me = world.Player;
-        if (SpendXp(world, me) is { } purchase)
+        if (spendsXp && SpendXp(world, me) is { } purchase)
             return purchase;
 
         // A beggar in the way gets no mercy from a bot, or it could block a corridor forever.

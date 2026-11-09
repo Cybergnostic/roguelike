@@ -1,3 +1,4 @@
+using Roguelike.Core.Content;
 using Roguelike.Core.Entities;
 using SadRogue.Primitives;
 using SadRogue.Primitives.GridViews;
@@ -250,8 +251,12 @@ public sealed class Squad
     /// but only while someone can shoot at the enemy meanwhile, and only for a while.
     /// </summary>
     public bool IsHoldingPassage =>
-        State == SquadState.Engage && Posture is not (Posture.Bold or Posture.Desperate)
-        && HoldTurns is > 0 and <= MaxHoldTurns && WithRole(SquadRole.Archer).Any();
+        State == SquadState.Engage && HoldTurns is > 0 and <= MaxHoldTurns && Mind.HoldsCorridors switch
+        {
+            HoldsCorridors.Always => Posture != Posture.Desperate,
+            HoldsCorridors.WithShooters => Posture is not (Posture.Bold or Posture.Desperate) && WithRole(SquadRole.Archer).Any(),
+            _ => false,
+        };
 
     /// <summary>Squad the runner is fetching; null when no mission is pending.</summary>
     public int? HelpTargetSquadId { get; set; }
@@ -267,6 +272,15 @@ public sealed class Squad
     }
 
     public bool IsWipedOut => Members.Count == 0;
+
+    /// <summary>Forces how this squad thinks, whoever is in it (for trials).</summary>
+    public MindDef? MindOverride { get; set; }
+
+    /// <summary>Whoever gives this squad its orders, if anyone still does.</summary>
+    public Actor? Commander => Members.FirstOrDefault(m => m.Commands is not null);
+
+    /// <summary>A living commander's way of fighting, or else what its leader is like on its own.</summary>
+    public MindDef Mind => MindOverride ?? Commander?.Commands ?? Leader?.Mind ?? MindDef.Default;
 
     /// <summary>Squads made only of fearless members (e.g. undead) ignore morale.</summary>
     public bool IsFearless => Members.Count > 0 && Members.All(m => m.Fearless);
