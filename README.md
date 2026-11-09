@@ -4,6 +4,7 @@ A classical roguelike with a living dungeon: factions, squads, history-driven le
 Project handbook (vision, architecture, roadmap): [docs/PROJECT.md](docs/PROJECT.md).
 Long-term world and exploration direction: [docs/WORLD_DESIGN_VISION.md](docs/WORLD_DESIGN_VISION.md).
 Modern UI and visual direction: [docs/UI_DESIGN_VISION.md](docs/UI_DESIGN_VISION.md).
+Ongoing design ideas and brainstorming: [docs/IDEAS.md](docs/IDEAS.md).
 
 ## Layout
 
