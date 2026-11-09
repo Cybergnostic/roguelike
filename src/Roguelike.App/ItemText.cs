@@ -60,7 +60,7 @@ public static class ItemText
         {
             ItemCategory.Weapon => $"atk {item.AttackBonus}{Pace(item)}{(item.Def.Accuracy != 0 ? $", {item.Def.Accuracy:+0;-0} acc" : "")}{(item.Def.DualWield ? ", dual" : "")}",
             ItemCategory.Bow => $"atk {item.AttackBonus}, range {item.Def.Range}{Pace(item)}",
-            ItemCategory.Armor => $"def {item.DefenseBonus}",
+            ItemCategory.Armor => $"def {item.DefenseBonus}{(item.Def.Noise > 0 ? $", noise {item.Def.Noise}" : "")}",
             ItemCategory.Potion => $"heals {item.Def.Heal}",
             _ => "",
         };
@@ -91,6 +91,7 @@ public static class ItemText
         Stat.Accuracy => $"{value:+0;-0} acc",
         Stat.Evasion => $"{value:+0;-0} eva",
         Stat.Perception => $"{value:+0;-0} perception",
+        Stat.Stealth => $"{value:+0;-0} stealth",
         _ => $"{value:+0;-0} {stat}",
     };
 }

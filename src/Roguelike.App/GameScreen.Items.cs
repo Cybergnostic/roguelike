@@ -56,6 +56,8 @@ public sealed partial class GameScreen
             OpenMenu("Drop which item?", inventory.Items, item => new DropAction(item.Id));
         else if (keyboard.IsKeyPressed(Keys.F))
             StartTargeting();
+        else if (keyboard.IsKeyPressed(Keys.Z))
+            return new ToggleSneakAction();
         else if (keyboard.IsKeyPressed(Keys.M))
             _chronicleOpen = true;
         else if (keyboard.IsKeyPressed(Keys.X))

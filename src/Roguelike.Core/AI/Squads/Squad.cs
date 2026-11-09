@@ -69,6 +69,9 @@ public sealed class Squad
     /// <summary>Hands up, begging for mercy. It won't fight the player unless attacked.</summary>
     public bool Surrendered { get; set; }
 
+    /// <summary>While begging, it offered something it knows in exchange for its life.</summary>
+    public bool OffersSecret { get; set; }
+
     /// <summary>The player let it live. It will never bother them again.</summary>
     public bool Spared { get; set; }
 

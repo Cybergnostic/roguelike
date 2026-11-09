@@ -155,18 +155,60 @@ public class CourageTests
         Assert.NotEqual(SquadState.Flee, squad.State);
     }
 
-    /// <summary>A goblin down on its luck, within earshot, on a seed where it decides to beg.</summary>
-    private static (World World, Squad Squad, Actor Goblin, List<GameEvent> Events) Beggar()
+    /// <summary>A goblin down on its luck, within earshot, on a seed where it begs (and offers a secret, or doesn't).</summary>
+    private static (World World, Squad Squad, Actor Goblin, List<GameEvent> Events) Beggar(bool offers = false)
     {
-        for (ulong seed = 1; seed < 80; seed++)
+        for (ulong seed = 1; seed < 900; seed++)
         {
             var (world, squad) = Encounter(1, distance: 3, seed: seed);
             world.Player.Hp = 100;
             var events = world.Step(new WaitAction()).ToList();
-            if (squad.Surrendered)
+            if (squad.Surrendered && squad.OffersSecret == offers)
                 return (world, squad, squad.Members[0], events);
         }
         throw new InvalidOperationException("nobody begged");
+    }
+
+    [Fact]
+    public void MostBeggarsHaveNothingToTrade()
+    {
+        int begged = 0, offered = 0;
+        for (ulong seed = 1; seed < 500; seed++)
+        {
+            var (world, squad) = Encounter(1, distance: 3, seed: seed);
+            world.Step(new WaitAction());
+            begged += squad.Surrendered ? 1 : 0;
+            offered += squad.OffersSecret ? 1 : 0;
+        }
+        Assert.InRange(begged, 100, 260);
+        Assert.InRange(offered, 1, begged / 2);
+    }
+
+    [Fact]
+    public void SparingABeggarWithNothingToOfferRevealsNothing()
+    {
+        var (world, squad, goblin, _) = Beggar(offers: false);
+        var known = world.Map.Tiles.Positions().Count(p => world.Map.Explored[p]);
+
+        var events = world.Step(new SpareAction(goblin.Id));
+
+        Assert.Contains(events, e => e is BeggarSpared);
+        Assert.DoesNotContain(events, e => e is SecretTold);
+        Assert.True(squad.Spared);
+        Assert.InRange(world.Map.Tiles.Positions().Count(p => world.Map.Explored[p]), known, known + 80); // only what it can see from here
+    }
+
+    [Fact]
+    public void WithNothingLeftToFindNobodyOffersASecret()
+    {
+        for (ulong seed = 1; seed < 300; seed++)
+        {
+            var (world, squad) = Encounter(1, distance: 3, seed: seed);
+            foreach (var p in world.Map.Tiles.Positions())
+                world.Map.Explored[p] = true;
+            world.Step(new WaitAction());
+            Assert.False(squad.OffersSecret);
+        }
     }
 
     [Fact]
@@ -199,7 +241,7 @@ public class CourageTests
     [Fact]
     public void SparingOneRevealsSomethingOnTheMap()
     {
-        var (world, squad, goblin, _) = Beggar();
+        var (world, squad, goblin, _) = Beggar(offers: true);
         var stairs = world.Map.StairsDown!.Value;
         Assert.False(world.Map.Explored[stairs]);
 

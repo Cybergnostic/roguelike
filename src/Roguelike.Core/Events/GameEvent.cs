@@ -64,7 +64,7 @@ public sealed record Talked(int NpcId, string? Line, bool HasGoods) : GameEvent;
 
 public sealed record ItemBought(int ActorId, Item Item, int Price) : GameEvent;
 
-public enum SoundKind { Fight, Death, Chanting, Gate }
+public enum SoundKind { Fight, Death, Chanting, Gate, Footsteps }
 
 /// <summary>
 /// Something the player heard but couldn't see. From: which way it came from, if they could tell.
@@ -73,6 +73,11 @@ public enum SoundKind { Fight, Death, Chanting, Gate }
 /// </summary>
 public sealed record SoundHeard(SoundKind Kind, Direction? From, bool Near, string? FactionA, string? FactionB) : GameEvent;
 
+/// <summary>A squad heard the player and has gone to look.</summary>
+public sealed record SquadHeardPlayer(int SquadId, IReadOnlyList<int> MemberIds) : GameEvent;
+
+public sealed record SneakChanged(bool Sneaking) : GameEvent;
+
 /// <summary>A squad saw the player and lost its nerve before a blow was struck.</summary>
 public sealed record SquadCowed(int SquadId, IReadOnlyList<int> MemberIds) : GameEvent;
 
@@ -80,15 +85,18 @@ public sealed record SquadCowed(int SquadId, IReadOnlyList<int> MemberIds) : Gam
 public sealed record SquadTaunted(int SpeakerId, int Line) : GameEvent;
 
 /// <summary>A squad gave up and begged for its life. Line: which of its faction's pleas.</summary>
-public sealed record SquadPleaded(int SquadId, int SpeakerId, int Line) : GameEvent;
+public sealed record SquadPleaded(int SquadId, int SpeakerId, int Line, bool OffersSecret) : GameEvent;
+
+/// <summary>The player let a beggar go, with nothing asked or offered.</summary>
+public sealed record BeggarSpared(int ActorId) : GameEvent;
 
 /// <summary>The player walked up to someone begging for mercy, and has to decide.</summary>
 public sealed record MercyAsked(int ActorId) : GameEvent;
 
-public enum SecretKind { Stairs, Treasure, Place, Purse }
+public enum SecretKind { Stairs, Treasure, Place }
 
-/// <summary>Someone spared gave up what they knew. From: which way it lies. Amount: gold, for a purse.</summary>
-public sealed record SecretTold(int ActorId, SecretKind Kind, Direction? From, int Amount = 0) : GameEvent;
+/// <summary>Someone spared gave up what they knew. From: which way it lies.</summary>
+public sealed record SecretTold(int ActorId, SecretKind Kind, Direction From) : GameEvent;
 
 /// <summary>An elite or boss used a skill. TargetId: who it was aimed at, if anyone.</summary>
 public sealed record AbilityUsed(int ActorId, string AbilityId, int? TargetId) : GameEvent;

@@ -34,7 +34,8 @@ public sealed partial class GameScreen
     private void DrawMercyPrompt()
     {
         _status.Clear();
-        _status.Print(2, 0, $"The {_beggar!.Name} begs for its life.   s: spare it and hear what it knows   k: kill it   Esc: not yet", Theme.Warning, Theme.PanelBackground);
+        var offer = _world.SquadOf(_beggar!) is { OffersSecret: true } ? "spare it and hear what it knows" : "let it go";
+        _status.Print(2, 0, $"The {_beggar!.Name} begs for its life.   s: {offer}   k: kill it   Esc: not yet", Theme.Warning, Theme.PanelBackground);
     }
 
     private IReadOnlyList<WareDef> Wares => _world.NpcOf(_shop!)?.Goods ?? [];

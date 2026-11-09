@@ -27,6 +27,9 @@ public sealed class Faction(string id, string name)
     /// <summary>What they say when begging for their lives. Empty: this faction never begs.</summary>
     public IReadOnlyList<string> Pleas { get; init; } = [];
 
+    /// <summary>What they say when they have something to trade for their lives.</summary>
+    public IReadOnlyList<string> Offers { get; init; } = [];
+
     public override string ToString() => Id;
 }
 

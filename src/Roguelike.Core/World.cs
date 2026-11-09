@@ -602,6 +602,7 @@ public sealed class World
         var zoneBefore = Map.ZoneAt(Player.Position);
         int depthBefore = Depth;
         int timeCost = playerAction.TimeCost(this, Player);
+        int noiseMade = playerAction.NoiseMade(this, Player);
         if (!playerAction.Perform(this, Player))
             return [.. _events];
         ActionsTaken++;
@@ -623,6 +624,7 @@ public sealed class World
         ReadStoneUnderfoot();
         UpdateCamps();
         CheckObjective();
+        HeardByNearbySquads(noiseMade);
 
         // A quick action leaves part of the turn unspent, and a slow one borrows from the next:
         // the world moves on only when a whole turn's worth of time has gone by.
@@ -664,6 +666,33 @@ public sealed class World
         return true;
     });
 
+    // ---- What others hear of the player ----
+
+    /// <summary>How far the actor's footsteps carry: armour makes it worse, Stealth better, and sneaking halves it.</summary>
+    public int FootstepNoise(Actor actor)
+    {
+        int noise = Content.Dungeon.FootstepNoise + (actor.Equipment?.Armor?.Def.Noise ?? 0) - actor.Bonus(Stat.Stealth);
+        return Math.Max(1, actor.Sneaking ? noise / 2 : noise);
+    }
+
+    /// <summary>Calm squads that hear the player go to where the noise came from. It tells them nothing else.</summary>
+    private void HeardByNearbySquads(int radius)
+    {
+        if (radius <= 0 || ObserverMode)
+            return;
+        foreach (var squad in _squads)
+        {
+            if (squad.State != SquadState.Idle || squad.Surrendered || squad.Spared
+                || !squad.Members.Any(m => !m.IsDead && AreHostile(m, Player) && Distance(m.Position, Player.Position) <= radius))
+                continue;
+            squad.State = SquadState.Alert;
+            squad.LastKnownTarget = squad.Destination = Player.Position;
+            squad.LastSeenTurn = Turn;
+            squad.TargetId = Player.Id;
+            Emit(new SquadHeardPlayer(squad.Id, squad.Members.Select(m => m.Id).ToList()));
+        }
+    }
+
     // ---- What the player hears ----
 
     private const int SoundEvery = 6;   // turns between reports from one patch of the map
@@ -681,7 +710,7 @@ public sealed class World
         var senses = Content.Dungeon;
         int bonus = Player.Bonus(Stat.Perception) * senses.HearPerPoint;
         int distance = Distance(at, Player.Position);
-        if (distance > senses.HearRange + bonus)
+        if (distance > (kind == SoundKind.Footsteps ? senses.HearFootsteps + bonus / 2 : senses.HearRange + bonus))
             return;
         var patch = (at.X / SoundPatch, at.Y / SoundPatch, kind);
         if (_location.LastSoundOn.TryGetValue(patch, out int last) && Turn - last < SoundEvery)
@@ -1228,7 +1257,8 @@ public sealed class World
         if (target.IsDead || IsUntouchable(target))
             return false;
         int dx = observer.Position.X - target.Position.X, dy = observer.Position.Y - target.Position.Y;
-        return dx * dx + dy * dy <= SightRadiusSquared && HasLineOfSight(observer.Position, target.Position);
+        double reach = target.Sneaking ? Math.Max(1.5, Content.Dungeon.SneakSight - target.Bonus(Stat.Stealth) * 0.5) : Math.Sqrt(SightRadiusSquared);
+        return dx * dx + dy * dy <= reach * reach && HasLineOfSight(observer.Position, target.Position);
     }
 
     private const int SightRadiusSquared = FovRadius * FovRadius + FovRadius; // ~ radius 8.5
@@ -1459,41 +1489,33 @@ public sealed class World
             Abilities = (def.Abilities ?? []).Concat(elite?.Abilities ?? []).Select(id => Content.Abilities[id]).ToList(),
         });
 
-    /// <summary>
-    /// What someone spared has to offer: the way down if the player hasn't found it, then anything
-    /// valuable on this level, then a place they haven't seen, and failing all that, their purse.
-    /// </summary>
+    /// <summary>The thing on this level a local would know that the player hasn't found: the way down, valuables, then a place.</summary>
+    private (SecretKind Kind, Point At)? FindSecret()
+    {
+        if (Map.StairsDown is { } stairs && !Map.Explored[stairs])
+            return (SecretKind.Stairs, stairs);
+        if (_floorItems.FirstOrDefault(f => !Map.Explored[f.Position] && f.Item.Rarity > Rarity.Common) is { } treasure)
+            return (SecretKind.Treasure, treasure.Position);
+        if (Map.Zones.FirstOrDefault(z => !Map.Explored[z.Heart]) is { } zone)
+            return (SecretKind.Place, zone.Heart);
+        return null;
+    }
+
+    /// <summary>Whether there's anything left on this level worth trading a life for.</summary>
+    public bool HasSecretToTell() => FindSecret() is not null;
+
+    /// <summary>Marks what the beggar knows on the player's map.</summary>
     public void TellSecret(Actor beggar)
     {
         const int Shown = 2;
-        void Reveal(Point at)
+        if (FindSecret() is not { } secret)
         {
-            foreach (var p in Map.Tiles.Positions().Where(p => Distance(p, at) <= Shown))
-                Map.Explored[p] = true;
+            Emit(new BeggarSpared(beggar.Id)); // the player found it while they were begging
+            return;
         }
-        Direction Toward(Point at) => Direction.GetDirection(Player.Position, at);
-
-        if (Map.StairsDown is { } stairs && !Map.Explored[stairs])
-        {
-            Reveal(stairs);
-            Emit(new SecretTold(beggar.Id, SecretKind.Stairs, Toward(stairs)));
-        }
-        else if (_floorItems.FirstOrDefault(f => !Map.Explored[f.Position] && f.Item.Rarity > Rarity.Common) is { } treasure)
-        {
-            Reveal(treasure.Position);
-            Emit(new SecretTold(beggar.Id, SecretKind.Treasure, Toward(treasure.Position)));
-        }
-        else if (Map.Zones.FirstOrDefault(z => !Map.Explored[z.Heart]) is { } zone)
-        {
-            Reveal(zone.Heart);
-            Emit(new SecretTold(beggar.Id, SecretKind.Place, Toward(zone.Heart)));
-        }
-        else
-        {
-            int gold = Rng.NextInt(10, 31);
-            Player.Gold += gold;
-            Emit(new SecretTold(beggar.Id, SecretKind.Purse, null, gold));
-        }
+        foreach (var p in Map.Tiles.Positions().Where(p => Distance(p, secret.At) <= Shown))
+            Map.Explored[p] = true;
+        Emit(new SecretTold(beggar.Id, secret.Kind, Direction.GetDirection(Player.Position, secret.At)));
     }
 
     /// <summary>What someone has to say and sell, if they're a person to talk to.</summary>

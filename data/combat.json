@@ -12,6 +12,10 @@
   // (the player's HP x best attack). Anyone else already fighting the player counts on the squad's side.
   // Above boldAbove it swarms; below waryBelow it hangs back; below terrifiedBelow it runs. If the player
   // has a bow and it's within allInWithin cells, running is pointless, so it charges instead.
+  // pleaChance: how often a hopeless squad that talks begs at all. secretChance: how often a beggar has
+  // something to trade, and then only if there's still something on the level the player hasn't found.
+  "pleaChance": 0.35,
+  "secretChance": 0.3,
   "boldAbove": 1.2,
   "waryBelow": 0.6,
   "terrifiedBelow": 0.2,

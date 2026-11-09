@@ -17,6 +17,20 @@ public abstract record GameAction
 
     /// <summary>How long it takes, asked before it happens. 100 is one ordinary turn.</summary>
     public virtual int TimeCost(World world, Actor actor) => 100;
+
+    /// <summary>How many cells away the player's doing this can be heard. 0: silent.</summary>
+    public virtual int NoiseMade(World world, Actor actor) => 0;
+}
+
+/// <summary>Starts or stops moving carefully. Takes no time.</summary>
+public sealed record ToggleSneakAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        actor.Sneaking = !actor.Sneaking;
+        world.Emit(new SneakChanged(actor.Sneaking));
+        return false;
+    }
 }
 
 public sealed record WaitAction : GameAction
@@ -126,7 +140,10 @@ public sealed record SpareAction(int ActorId) : GameAction
             return false;
         squad.Surrendered = false;
         squad.Spared = true;
-        world.TellSecret(beggar);
+        if (squad.OffersSecret)
+            world.TellSecret(beggar);
+        else
+            world.Emit(new BeggarSpared(beggar.Id));
         return true;
     }
 }
@@ -186,7 +203,11 @@ public sealed record PayTollAction : GameAction
 public sealed record MoveAction(Direction Direction) : GameAction
 {
     public override int TimeCost(World world, Actor actor) =>
-        world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime : 100;
+        world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime
+        : actor.Sneaking ? world.Content.Dungeon.SneakStepTime : 100;
+
+    public override int NoiseMade(World world, Actor actor) =>
+        world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? world.Content.Dungeon.FightNoise : world.FootstepNoise(actor);
 
     public override bool Perform(World world, Actor actor)
     {
@@ -235,6 +256,8 @@ public sealed record MoveAction(Direction Direction) : GameAction
         var from = actor.Position;
         actor.Position = target;
         world.Emit(new ActorMoved(actor.Id, from, target));
+        if (actor != world.Player && world.CouldFight(world.Player, actor))
+            world.Noise(target, Events.SoundKind.Footsteps, actor);
         return true;
     }
 }
@@ -242,6 +265,8 @@ public sealed record MoveAction(Direction Direction) : GameAction
 public sealed record AttackAction(int TargetId) : GameAction
 {
     public override int TimeCost(World world, Actor actor) => actor.MeleeAttackTime;
+
+    public override int NoiseMade(World world, Actor actor) => world.Content.Dungeon.FightNoise;
 
     public override bool Perform(World world, Actor actor)
     {

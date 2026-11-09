@@ -40,7 +40,7 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
     int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1,
-    double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
+    double PleaChance = 0.35, double SecretChance = 0.3, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -106,7 +106,8 @@ public sealed record SquadTemplateDef(string Name, string Faction, int Weight, I
 public sealed record DungeonDef(int Levels = 1, double MonsterHpPerLevel = 0, double XpPerLevel = 0,
     int AttackEveryLevels = 0, int AccuracyEveryLevels = 0, double RoomOccupancyPerLevel = 0, int DefenseEveryLevels = 0,
     int CorpseWithersAfter = 400, int CorpseGoneAfter = 1500, int CalmAfter = 30, int TurnsPerHealedHp = 20, int TurnsPerReplacement = 400,
-    int HearRange = 32, int HearDirectionRange = 20, int HearWhoRange = 8, int HearPerPoint = 4)
+    int HearRange = 32, int HearDirectionRange = 20, int HearWhoRange = 8, int HearPerPoint = 4,
+    int FootstepNoise = 3, int FightNoise = 7, int SneakStepTime = 150, double SneakSight = 5.5, int HearFootsteps = 5)
 {
     public int HpFor(int baseHp, int depth) => (int)Math.Round(baseHp * (1 + MonsterHpPerLevel * (depth - 1)));
     public int XpFor(int baseXp, int depth) => (int)Math.Round(baseXp * (1 + XpPerLevel * (depth - 1)));
@@ -328,7 +329,7 @@ public sealed class ContentDatabase
 
         var factions = new Dictionary<string, Faction>();
         foreach (var f in factionFile.Factions)
-            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid, Taunts = f.Taunts ?? [], Pleas = f.Pleas ?? [] }))
+            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid, Taunts = f.Taunts ?? [], Pleas = f.Pleas ?? [], Offers = f.Offers ?? [] }))
                 throw Error("factions.json", $"duplicate faction '{f.Id}'");
         if (!factions.ContainsKey(Faction.PlayerId))
             throw Error("factions.json", $"missing the '{Faction.PlayerId}' faction");
@@ -763,7 +764,7 @@ public sealed class ContentDatabase
     private static InvalidDataException Error(string file, string message) => new($"{file}: {message}");
 
     private sealed record FactionFile(List<FactionEntry> Factions, List<RelationEntry> Relations);
-    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null, List<string>? Taunts = null, List<string>? Pleas = null);
+    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null, List<string>? Taunts = null, List<string>? Pleas = null, List<string>? Offers = null);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record AbilityFile(List<AbilityDef> Abilities);

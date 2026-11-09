@@ -193,12 +193,15 @@ public static class SquadDirector
             || squad.Members.FirstOrDefault(m => world.CanSee(m, world.Player) && World.Distance(m.Position, world.Player.Position) <= WithinEarshot) is not { } mouth)
             return false;
         squad.HasPleaded = true;
-        if (world.Rng.NextInt(100) >= 50)
+        var rules = world.Content.Combat;
+        if (world.Rng.NextDouble() >= rules.PleaChance)
             return false;
         squad.Surrendered = true;
         squad.State = SquadState.Idle;
         squad.Destination = null;
-        world.Emit(new SquadPleaded(squad.Id, mouth.Id, world.Rng.NextInt(squad.Faction.Pleas.Count)));
+        squad.OffersSecret = squad.Faction.Offers.Count > 0 && world.HasSecretToTell() && world.Rng.NextDouble() < rules.SecretChance;
+        var lines = squad.OffersSecret ? squad.Faction.Offers : squad.Faction.Pleas;
+        world.Emit(new SquadPleaded(squad.Id, mouth.Id, world.Rng.NextInt(lines.Count), squad.OffersSecret));
         return true;
     }
 

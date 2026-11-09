@@ -18,6 +18,12 @@
       { "id": "eagle_eye", "name": "Eagle Eye", "description": "Shoot farther.",
         "ranks": 2, "cost": [35, 55], "requires": ["steady_aim"], "perRank": { "range": 1 } }
     ]},
+    { "id": "senses", "name": "Senses", "skills": [
+      { "id": "perception", "name": "Perception", "description": "Tell more of what you hear, from farther off.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "perception": 1 } },
+      { "id": "stealth", "name": "Stealth", "description": "Quieter footsteps; harder to spot when sneaking.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "stealth": 1 } }
+    ]},
     { "id": "survival", "name": "Survival", "skills": [
       { "id": "thick_skin", "name": "Thick Skin", "description": "Shrug off part of every hit.",
         "ranks": 2, "cost": [60, 90], "perRank": { "defense": 1 } },

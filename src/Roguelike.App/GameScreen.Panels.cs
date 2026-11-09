@@ -173,6 +173,7 @@ public sealed partial class GameScreen
         if (_showSquads) flags.Add("SQUADS");
         if (_heatmap != 0) flags.Add($"HEAT: {HeatmapName}");
         if (_classic) flags.Add("CLASSIC");
+        if (player.Sneaking) flags.Add("SNEAKING");
         flags.Add(_world.Depth == World.SurfaceDepth ? "Depth: surface" : $"Depth: {_world.Depth}");
         var text = string.Join("   ", flags);
         _status.Print(Width - text.Length - 2, 0, text, flags.Count > 1 ? Theme.Warning : Theme.Intent, bg);
@@ -197,6 +198,7 @@ public sealed partial class GameScreen
         ("t", "Toll"), ("f", "Fire bow"),
         ("g", "Pick up"), ("e", "Equip"),
         ("q", "Drink"), ("<>", "Stairs"),
+        ("z", "Sneak"), ("C", "Close gate"),
     ];
 
     private void DrawKeys()

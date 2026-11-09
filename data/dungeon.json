@@ -24,6 +24,15 @@
   "hearDirectionRange": 20,
   "hearWhoRange": 8,
   "hearPerPoint": 4,
+  // Sneaking. Footsteps carry "footstepNoise" cells, plus the armour's noise, minus Stealth; sneaking
+  // halves that and each step takes "sneakStepTime" (100 is a normal step). A fight carries "fightNoise".
+  // Enemies spot a sneaker within "sneakSight" cells (a walker, within 8.5), less half a cell per Stealth.
+  // Footsteps of enemies can be heard within "hearFootsteps", plus "hearPerPoint" / 2 per Perception.
+  "footstepNoise": 3,
+  "fightNoise": 7,
+  "sneakStepTime": 150,
+  "sneakSight": 5.5,
+  "hearFootsteps": 5,
   "calmAfter": 30,
   "turnsPerHealedHp": 20,
   "turnsPerReplacement": 400

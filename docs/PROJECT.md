@@ -196,7 +196,7 @@ docs/PROJECT.md              this file
 11a. **Squads size up the player** (`SquadDirector.SizeUp`, thresholds in combat.json) from what they can see: their HP x attack against
    the player's apparent health (capped at max HP), best attack and armour. Others already at the player's throat count on their side.
    `Squad.Posture`: Bold (surround), Even, Wary (no bow: keep out of reach), Desperate (run, or charge if a bow has them close). Leashed
-   squads and the fearless never run from it. Factions with `pleas` may beg (`Squad.Surrendered`); sparing one reveals something.
+   squads and the fearless never run from it. Factions with `pleas` may beg (`Squad.Surrendered`), and sometimes offer a secret if the level still has one (`combat.json` pleaChance, secretChance).
 11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
    except raised dead ("the dead rise only once"). Raised actors carry `MasterId`; `World.Damage`
    crumbles them when the master dies. Spawn monsters at runtime with `World.SpawnMonster`.
@@ -245,7 +245,7 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Walk into someone in the hamlet to talk (and buy from the peddler). Gates: walk into one to open it, `C`
-closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
+closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Sneak: `z`. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Plain look without lighting: `F4`.
@@ -369,7 +369,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: squads size up the player** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **25.7%**, died 74%, inside the 20–30% target.
+- **Current: sneaking, hearing and rarer secrets** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **29.1%**, died 70%, inside the 20–30% target.
+  Death rate by depth: 5.9, 18.0, 9.1, 6.6, 5.5, 9.1, 47.3%. The bot never sneaks, and now also learns nothing from Stealth.
+- **Squads size up the player** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **25.7%**, died 74%, inside the 20–30% target.
   Death rate by depth: 4.3, 17.2, 11.4, 6.4, 7.0, 8.4, 53.2%. The bot kills anyone begging next to it.
 - **Weapon speeds and elastic leashes** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **21.9%**, died 77%, inside the 20–30% target.
   Death rate by depth: 6.1, 19.4, 12.2, 10.7, 9.5, 8.4, 54.0%.
@@ -612,8 +614,9 @@ you, a quick way to see progression; spectating: time passes).
    18px square map cells with a scrolling view, firelight and torchlight, darker memory, panel layout (in sight, this place,
    inspect, HP strip, log, key guide). `F4` switches to a plain look. Still from the prototype: mouse (click to inspect, walk
    here), gate talk with choices in the panel, a journal, proportional panel fonts, smoke, screen scaling.
-10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.
-    Hearing is in: `World.Noise`, `SoundHeard`, and `Stat.Perception` (from Wisdom for now; a Perception skill can add to the same stat).
+10. ~~**Better sneaking**~~ (done 2026-11-09): `z` sneaks (slower, quieter, spotted from closer). Footstep noise = 3 + armour noise - Stealth, halved
+    sneaking; calm squads that hear it go to look (`SquadHeardPlayer`). `Stat.Perception` (Wisdom, Perception skill) and `Stat.Stealth` (Dexterity, Stealth skill)
+    drive what the player hears (`World.Noise`, `SoundHeard`) and how quiet they are. Athletics and other secondary skills later.
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
 13. **Wider region**: more sites, rethink the surface map.

@@ -78,6 +78,9 @@ public sealed class Actor
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
 
+    /// <summary>Moving carefully: slower, quieter and harder to spot.</summary>
+    public bool Sneaking { get; set; }
+
     /// <summary>Melee attack: natural attack, wielded weapon (including its +X), attributes and skills.</summary>
     public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
 
