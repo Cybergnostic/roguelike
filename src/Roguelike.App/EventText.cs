@@ -37,6 +37,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 
         ZoneEntered z => $"You enter {z.ZoneName}.",
         LevelEntered { Depth: World.SurfaceDepth } => "You climb out of the cave into the open air.",
+        CampAlarmed c => $"A horn sounds from {c.ZoneName}!",
+        SquadStoodDown { Reason: StandDownReason.IntruderLeft } s when s.MemberIds.Any(isVisible) => "The goblins watch you go, and turn back to their posts.",
+        SquadStoodDown s when s.MemberIds.Any(isVisible) => "The goblins break off the chase and head back to camp.",
+        SquadStoodDown => null,
         GateMoved g when g.ActorId == world.Player.Id => g.Open ? "You push the gate open." : "You pull the gate shut.",
         GateMoved g => g.Open ? "You hear a gate creak open." : "You hear a gate slam shut.",
         LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",
@@ -97,6 +101,7 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.NotDrinkable => "You can't drink that.",
             FailureReason.NotOnStairs => "There are no stairs here.",
             FailureReason.NoGateToClose => "There's no open gate within reach.",
+            FailureReason.NotHostileYet => "They're leaving you alone. Move into them again to attack.",
             _ => null,
         },
 

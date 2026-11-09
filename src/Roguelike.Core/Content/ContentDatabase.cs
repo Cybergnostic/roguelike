@@ -112,8 +112,13 @@ public sealed record CorpseEntry(string Monster, int Count);
 public sealed record PlaceZone(string Name, string Faction, int[] Area);
 public sealed record PlaceMember(string Monster, int[] At);
 
-/// <summary>A squad placed by hand: it waits at Home and goes at most Leash steps from it.</summary>
-public sealed record PlaceGroup(string Name, string Faction, int Leash, int[] Home, IReadOnlyList<PlaceMember> Members);
+/// <summary>
+/// A squad placed by hand, based at Home and going at most Leash steps from it. Order: "guard" (each
+/// member holds the spot it starts on) or "patrol" (walks Route over and over). Territory: the zone
+/// it defends. Rally: where it falls back to when its nerve breaks. Gate: the gate it shuts once attacked.
+/// </summary>
+public sealed record PlaceGroup(string Name, string Faction, int Leash, int[] Home, IReadOnlyList<PlaceMember> Members,
+    string Order = "guard", IReadOnlyList<int[]>? Route = null, string? Territory = null, int[]? Rally = null, int[]? Gate = null);
 public sealed record PlaceLoot(string Table, int[] At);
 
 /// <summary>A hand-drawn map (surface.json): terrain as rows of characters, plus who and what is on it.</summary>
@@ -375,6 +380,19 @@ public sealed class ContentDatabase
             if (group.Leash < 0 || group.Members.Count == 0)
                 throw Error(name, $"group '{group.Name}': needs members and a leash >= 0");
             CheckCell(group.Home, $"group '{group.Name}' home");
+            if (group.Order is not ("guard" or "patrol"))
+                throw Error(name, $"group '{group.Name}': unknown order '{group.Order}' (known: guard, patrol)");
+            if (group.Order == "patrol" && group.Route is not { Count: > 0 })
+                throw Error(name, $"group '{group.Name}': a patrol needs a route");
+            foreach (var stop in group.Route ?? [])
+                CheckCell(stop, $"group '{group.Name}' route");
+            if (group.Rally is { } rally)
+                CheckCell(rally, $"group '{group.Name}' rally");
+            if (group.Territory is { } territory && place.Zones.All(z => z.Name != territory))
+                throw Error(name, $"group '{group.Name}': unknown territory '{territory}'");
+            if (group.Gate is { } gate && (gate is not [var gx, var gy] || gx < 0 || gy < 0 || gx >= place.Width || gy >= place.Height
+                || place.TileAt(gx, gy) is not (Map.Tile.GateOpen or Map.Tile.GateClosed)))
+                throw Error(name, $"group '{group.Name}': gate must be the position of a gate");
             foreach (var member in group.Members)
             {
                 if (!monsters.TryGetValue(member.Monster, out var def))

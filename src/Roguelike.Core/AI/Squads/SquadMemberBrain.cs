@@ -76,7 +76,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (world.AdjacentHostile(self) is { } adjacent)
             return new AttackAction(adjacent.Id);
 
-        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
+        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Passable));
         if (step is null)
             return new WaitAction();
 
@@ -94,7 +94,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     {
         if (world.AdjacentHostile(self) is { } adjacent)
         {
-            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
+            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable));
             return away is { } a ? new MoveAction(a) : new AttackAction(adjacent.Id);
         }
 
@@ -116,7 +116,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
 
         // Close in, but never into melee reach: a shooter that can't shoot waits instead.
-        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
+        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Passable));
         if (step is not { } s || NextToHostile(world, self, self.Position + s))
             return new WaitAction();
         return new MoveAction(s);
@@ -147,7 +147,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         int distance = enemy is null ? int.MaxValue : World.Distance(self.Position, enemy.Position);
         if (distance <= 3)
         {
-            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
+            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable));
             if (away is { } a)
                 return new MoveAction(a);
             if (world.AdjacentHostile(self) is { } adjacent)
@@ -155,7 +155,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
         else if (distance > 5)
         {
-            var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
+            var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Passable));
             if (step is { } s)
                 return new MoveAction(s);
         }
@@ -211,7 +211,13 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private GameAction Flee(World world, Actor self)
     {
-        var step = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
+        // A camp's defenders fall back behind their walls, and make a stand once they're there.
+        if (Squad.Rally is { } rally && World.Distance(self.Position, rally) > 1 && world.StepToward(self, rally) is { } toRally)
+            return new MoveAction(toRally);
+        if (Squad.Rally is not null)
+            return world.AdjacentHostile(self) is { } foe ? new AttackAction(foe.Id) : new WaitAction();
+
+        var step = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable));
         if (step is { } s)
             return new MoveAction(s);
         // Cornered: fight back.
@@ -231,6 +237,21 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     private GameAction Patrol(World world, Actor self)
     {
         var leader = Squad.Leader;
+
+        // Once the camp has been attacked, the gate gets shut.
+        if (leader == self && Squad.Camp is { Provoked: true } && Squad.GateToClose is { } gate
+            && world.Map.Tiles[gate] == Map.Tile.GateOpen)
+        {
+            if (World.Distance(self.Position, gate) == 1)
+                return world.ActorAt(gate) is null ? new CloseGateAction() : new WaitAction();
+            if (self.Position != gate && world.StepToward(self, gate) is { } toGate)
+                return new MoveAction(toGate);
+        }
+
+        if (Squad.Posts.TryGetValue(self.Id, out var post))
+            return self.Position != post && world.StepToward(self, post) is { } toPost
+                ? new MoveAction(toPost) : new WaitAction();
+
         if (leader == self)
         {
             // Amble, so the group can keep up; raiders march, pausing only for stragglers.

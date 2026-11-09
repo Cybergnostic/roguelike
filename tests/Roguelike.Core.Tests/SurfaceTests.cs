@@ -39,8 +39,8 @@ public class SurfaceTests
         Assert.Equal(Tile.GateOpen, world.Map.Tiles[Gate]);
         Assert.Equal(Cave, world.Map.StairsDown);
         Assert.Equal(Tile.CaveMouth, world.Map.Tiles[Cave]);
-        Assert.Equal(7, world.Actors.Count(a => a != world.Player));
-        Assert.Equal(2, world.Squads.Count);
+        Assert.Equal(8, world.Actors.Count(a => a != world.Player));
+        Assert.Equal(3, world.Squads.Count);
     }
 
     [Fact]
@@ -190,23 +190,6 @@ public class SurfaceTests
 
         Assert.Equal(Tile.GateOpen, world.Map.Tiles[Gate]);
         Assert.Contains(events, e => e is ActionFailed { Reason: FailureReason.NoGateToClose });
-    }
-
-    [Fact]
-    public void ClosingAGateMakesPathsGoAroundIt()
-    {
-        var world = Valley();
-        world.Player.Hp = 10_000;
-        var walker = world.Squads[1].Members[0];
-        walker.Position = Gate + Direction.Up;
-        var outside = Gate + new Point(0, 3);
-        Assert.Equal(Direction.Down, world.StepToward(walker, outside)); // straight through and remembered
-
-        world.SetGate(Gate, open: false, world.Player);
-
-        var step = world.StepToward(walker, outside);
-        Assert.NotNull(step);
-        Assert.NotEqual(Gate, walker.Position + step.Value);
     }
 
     [Fact]

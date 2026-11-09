@@ -30,6 +30,16 @@ public sealed record RaidLaunched(int SquadId, string FactionId, string ZoneName
 
 /// <summary>The player took the stairs and arrived on a new level.</summary>
 public sealed record LevelEntered(int Depth, bool GoingUp = false) : GameEvent;
+public enum StandDownReason
+{
+    /// <summary>The trespasser left the camp's ground.</summary>
+    IntruderLeft,
+    /// <summary>The enemy got too far from the squad's home to be worth chasing.</summary>
+    TooFarFromHome,
+}
+
+public sealed record SquadStoodDown(int SquadId, IReadOnlyList<int> MemberIds, StandDownReason Reason) : GameEvent;
+public sealed record CampAlarmed(string ZoneName) : GameEvent;
 public sealed record GateMoved(int ActorId, SadRogue.Primitives.Point At, bool Open) : GameEvent;
 
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
@@ -103,6 +113,7 @@ public enum FailureReason
     NotDrinkable,
     NotOnStairs,
     NoGateToClose,
+    NotHostileYet,
 }
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>

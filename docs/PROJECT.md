@@ -154,7 +154,8 @@ docs/PROJECT.md              this file
 4. **AI layering:** `SquadDirector.Think` runs once per squad per turn (pooled perception,
    morale, state transitions, runner dispatch), then each actor's `IBrain.Decide` returns an action.
 5. **Hostility and perception:** `world.AreHostile(a, b)` (faction table; the observer-mode player is
-   nobody's enemy). `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
+   nobody's enemy; a squad with a `Camp` tolerates the player unless they're inside its zone or have
+   attacked it). `world.CouldFight(a, b)` is the faction table alone. `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
    Bresenham line of sight. `world.PlayerCanSee(actor)`: the player's FOV (UI, bots only).
    AI never asks "where is the player"; it asks `NearestVisibleHostile` / `AdjacentHostile`.
 6. **Dijkstra maps and knowledge:** AI moves on `Squad.TowardKnownThreats` / `AwayFromKnownThreats`:
@@ -187,7 +188,8 @@ docs/PROJECT.md              this file
    (from world seed + location), so a seed gives the same maps however the game is played. Play
    randomness is a separate stream. The surface is `World.SurfaceDepth` (0); its cave leads to level 1.
    Scaling and loot treat it as level 1 (`DangerDepth`). Walkable and see-through are separate grids
-   (brush is one, not the other). Change gates with `World.SetGate`, which also drops cached paths.
+   (brush is one, not the other). Change gates with `World.SetGate`. AI routes use `Map.Passable`,
+   which counts closed gates: a planned step into one opens it.
 
 ---
 
@@ -226,7 +228,7 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Gates: walk into one to open it, `C`
-closes an adjacent one. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
+closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
@@ -349,7 +351,10 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
+- **Current: squads search where they lost someone** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **36.7%**, died 59%. Death rate by depth: 9.8, 8.7, 6.8, 3.4, 4.9, 4.5, 8.1, 10.8, 13.9, 17.7%.
+  - The bot only plays the dungeon; these numbers say nothing about the camp.
+- **Honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
   20000-turn cap, about 90 s on this 12-thread machine (71000 turns/s):
   - Won **39.6%**, died 57%. Before stored levels, same seeds: won 40.2%, died 57%, so that refactor is
     balance-neutral. Honest knowledge took it from 34.7% (the affix baseline below) to about 40%.
@@ -477,8 +482,9 @@ you, a quick way to see progression; spectating: time passes).
 **Known issues / tech debt**
 - Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
   are a perfect escape for now. Off-screen time and pursuit belong to later steps.
-- The camp's goblins still attack on sight (the player is hostile in factions.json until step 6d) and
-  only stand at their posts. AI paths treat a closed gate as a wall, so shutting the gate pens them in.
+- Stepping inside the camp brings an attack with no warning (step 6e adds one). Dungeon goblins are
+  still hostile on sight: only squads with a `Camp` tolerate the player.
+- Camp squads don't answer arrows from beyond their leash, so a long bow can pick them off from outside.
 - Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
   forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
@@ -498,9 +504,8 @@ you, a quick way to see progression; spectating: time passes).
 - Undead don't raid or forage. Possible next step: the necromancer sends servants to drag corpses
   back to the tower.
 - The warren has no architecture of its own yet (it's a plain room with a name).
-- Squads that lose someone go to the last known position and stand there until they give up (about
-  30 turns); searching nearby belongs to step 6d. The squad's state is still shared, so a member out
-  of earshot follows the squad's state even though it couldn't have heard (rare: followers stay close).
+- The squad's state is shared, so a member out of earshot follows the squad's state even though it
+  couldn't have heard (rare: followers stay close).
 - Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
 - `ActorAt` is a linear scan; switch to a spatial index (GoRogue `SpatialMap`) when actor counts grow.
 - Terrain changes must go through `GameMap.SetTile` (walkability cache). Cached A* paths assume walls
@@ -539,8 +544,9 @@ you, a quick way to see progression; spectating: time passes).
    - ~~c. A hand-built camp from a text map: road, palisade, working gate, cover, cave down. No
      generator until the camp is fun. Doors and gates must clear cached paths and update sight~~
      (done 2026-11-09: `data/surface.json`; the road passes out of the guards' sight)
-   - d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
-     to a rally point. Separate faction relation from access policy (the player starts neutral).
+   - ~~d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
+     to a rally point. Separate faction relation from access policy (the player starts neutral)~~
+     (done 2026-11-09: `Camp`, orders in `data/surface.json`; goblins open and shut the gate)
    - e. Warning and toll (needs money, which doesn't exist yet), plus examine mode.
    - f. Human playtests against the §12 list.
 7. **History generator**: eras → map features → factions → artifacts

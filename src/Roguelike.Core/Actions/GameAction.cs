@@ -93,6 +93,14 @@ public sealed record MoveAction(Direction Direction) : GameAction
         {
             if (world.AreHostile(actor, other))
                 return new AttackAction(other.Id).Perform(world, actor);
+            // Someone leaving you alone: the first bump is a warning, the second means it.
+            if (actor == world.Player && world.CouldFight(actor, other))
+            {
+                if (world.AlreadyWarnedAbout(other))
+                    return new AttackAction(other.Id).Perform(world, actor);
+                world.Emit(new ActionFailed(actor.Id, FailureReason.NotHostileYet));
+                return false;
+            }
             if (!world.CanSwap(actor, other))
                 return false;
 

@@ -145,6 +145,22 @@ public sealed class Squad
 
     public bool WithinLeash(Point p) => !IsLeashed || DistanceFromHome(p) <= Leash;
 
+    /// <summary>The camp this squad defends, if any; it decides who the squad treats as an enemy.</summary>
+    public Camp? Camp { get; set; }
+
+    /// <summary>Guard order: the spot each member holds while nothing is happening.</summary>
+    public Dictionary<int, Point> Posts { get; } = [];
+
+    /// <summary>Patrol order: the stops the squad walks in turn, and the one it's heading for.</summary>
+    public IReadOnlyList<Point>? Route { get; set; }
+    public int RouteStop { get; set; }
+
+    /// <summary>Where the squad runs when its nerve breaks, instead of just away from the enemy.</summary>
+    public Point? Rally { get; set; }
+
+    /// <summary>The gate this squad shuts once its camp has been attacked.</summary>
+    public Point? GateToClose { get; set; }
+
     /// <summary>Where the squad is heading while idle (patrol) or alert (investigating).</summary>
     public Point? Destination { get; set; }
 

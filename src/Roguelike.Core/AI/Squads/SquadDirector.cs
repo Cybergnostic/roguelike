@@ -23,12 +23,18 @@ public static class SquadDirector
         // is in earshot. A lone straggler's sighting stays with the straggler.
         Entities.Actor? spotter = null, target = null;
         var leaderAt = squad.Leader!.Position;
+        bool seenBeyondReach = false;
         squad.ClearSightings();
         foreach (var member in squad.Members)
         {
             if (World.Distance(member.Position, leaderAt) > Squad.ShoutRange
                 || world.NearestVisibleHostile(member) is not { } seen)
                 continue;
+            if (squad.Camp is not null && !squad.WithinLeash(seen.Position))
+            {
+                seenBeyondReach = true; // too far out to be worth chasing
+                continue;
+            }
             squad.ReportSighting(seen.Position);
             if (spotter is null)
                 (spotter, target) = (member, seen);
@@ -40,6 +46,15 @@ public static class SquadDirector
             squad.LastSeenTurn = world.Turn;
         }
         int sinceSeen = squad.LastSeenTurn < 0 ? int.MaxValue : world.Turn - squad.LastSeenTurn;
+
+        if (squad.Camp is not null && spotter is null && squad.State is SquadState.Engage or SquadState.Alert
+            && squad.TargetId == world.Player.Id)
+        {
+            if (!world.AreHostile(squad.Leader!, world.Player))
+                StandDown(world, squad, StandDownReason.IntruderLeft);
+            else if (seenBeyondReach || (squad.LastKnownTarget is { } last && !squad.WithinLeash(last)))
+                StandDown(world, squad, StandDownReason.TooFarFromHome);
+        }
 
         switch (squad.State)
         {
@@ -86,8 +101,44 @@ public static class SquadDirector
             squad.Destination = null;
         }
 
+        if (squad.State == SquadState.Alert)
+            SearchNearby(world, squad);
+
         if (squad.State == SquadState.Idle)
             UpdatePatrol(world, squad);
+    }
+
+    /// <summary>The squad has a reason to stop: it forgets the chase and goes back to its orders.</summary>
+    private static void StandDown(World world, Squad squad, StandDownReason reason)
+    {
+        squad.State = SquadState.Idle;
+        squad.Destination = null;
+        squad.LastKnownTarget = null;
+        squad.TargetId = null;
+        squad.LastSeenTurn = -1;
+        squad.HelpTargetSquadId = null;
+        world.Emit(new SquadStoodDown(squad.Id, squad.Members.Select(m => m.Id).ToList(), reason));
+    }
+
+    /// <summary>On reaching the place they were looking for, searchers try somewhere close by.</summary>
+    private static void SearchNearby(World world, Squad squad)
+    {
+        const int SearchRadius = 5;
+        const int MaxWalk = 7;
+        if (squad.Destination is not { } here || squad.LastKnownTarget is not { } center
+            || SadRogue.Primitives.Distance.Chebyshev.Calculate(squad.Leader!.Position, here) > 1)
+            return;
+        var reach = squad.TowardKnownThreats(world.Map.Passable);
+        for (int tries = 0; tries < 10; tries++)
+        {
+            var p = center + new SadRogue.Primitives.Point(
+                world.Rng.NextInt(-SearchRadius, SearchRadius + 1), world.Rng.NextInt(-SearchRadius, SearchRadius + 1));
+            if (p != here && world.Map.InBounds(p) && reach[p] <= MaxWalk && squad.WithinLeash(p))
+            {
+                squad.Destination = p;
+                return;
+            }
+        }
     }
 
     private static void UpdateMorale(World world, Squad squad)
@@ -123,6 +174,13 @@ public static class SquadDirector
 
     private static void UpdatePatrol(World world, Squad squad)
     {
+        if (squad.Route is { Count: > 0 } route)
+        {
+            if (SadRogue.Primitives.Distance.Chebyshev.Calculate(squad.Leader!.Position, route[squad.RouteStop]) <= 1)
+                squad.RouteStop = (squad.RouteStop + 1) % route.Count;
+            squad.Destination = route[squad.RouteStop];
+            return;
+        }
         if (squad.Home is { } home)
         {
             squad.Destination = home;

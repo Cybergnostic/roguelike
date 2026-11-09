@@ -46,12 +46,16 @@ public sealed class GameMap
     private readonly ArrayView<Tile> _tiles;
     private readonly CellGrid _walkable;
     private readonly CellGrid _transparent;
+    private readonly CellGrid _passable;
 
     /// <summary>Cells the player has ever seen. Pure game state, so it lives in the core.</summary>
     public ArrayView<bool> Explored { get; }
 
     public IGridView<bool> Walkable { get; }
     public IGridView<bool> Transparent { get; }
+
+    /// <summary>Where actors can plan a route: walkable cells and closed gates, which they open on arrival.</summary>
+    public IGridView<bool> Passable { get; }
 
     /// <summary>The player's field of view. Recalculated by <see cref="World"/> after each turn.</summary>
     public IFOV PlayerFov { get; }
@@ -69,6 +73,8 @@ public sealed class GameMap
 
     public static bool IsTransparent(Tile tile) => IsWalkable(tile) && tile != Tile.Brush;
 
+    public static bool IsPassable(Tile tile) => IsWalkable(tile) || tile == Tile.GateClosed;
+
     /// <summary>Where the stairs down are (every level has one).</summary>
     public Point? StairsDown { get; set; }
 
@@ -84,13 +90,16 @@ public sealed class GameMap
         Explored = new ArrayView<bool>(Width, Height);
         _walkable = new CellGrid(Width, Height);
         _transparent = new CellGrid(Width, Height);
+        _passable = new CellGrid(Width, Height);
         for (int i = 0; i < Width * Height; i++)
         {
             _walkable.Cells[i] = IsWalkable(tiles[i]);
             _transparent.Cells[i] = IsTransparent(tiles[i]);
+            _passable.Cells[i] = IsPassable(tiles[i]);
         }
         Walkable = _walkable;
         Transparent = _transparent;
+        Passable = _passable;
         PlayerFov = new RecursiveShadowcastingFOV(Transparent);
     }
 
@@ -100,6 +109,7 @@ public sealed class GameMap
         int i = p.Y * Width + p.X;
         _walkable.Cells[i] = IsWalkable(tile);
         _transparent.Cells[i] = IsTransparent(tile);
+        _passable.Cells[i] = IsPassable(tile);
     }
 
     public bool InBounds(Point p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;

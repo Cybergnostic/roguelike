@@ -327,7 +327,10 @@ public sealed partial class GameScreen : ScreenObject
         var role = squad.RoleOf(actor);
         return squad.State switch
         {
+            SquadState.Flee when squad.Rally is not null => "falling back",
             SquadState.Flee => "fleeing in panic",
+            SquadState.Idle when squad.Camp is not null && !_world.AreHostile(actor, _world.Player) && _world.CanSee(actor, _world.Player) => "watching you",
+            SquadState.Idle when squad.Route is not null => "on patrol",
             SquadState.Idle when role == SquadRole.Necromancer => "brooding",
             SquadState.Idle when squad.Home is not null => "guarding",
             SquadState.Idle when squad.IsRaiding => "marching to raid",

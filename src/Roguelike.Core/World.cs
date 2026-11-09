@@ -79,7 +79,7 @@ public sealed class World
         public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
         public Dictionary<int, CachedPath> Paths { get; } = [];
         public DistanceMap TowardPlayer { get; } = new(map.Walkable);
-        public AStar AStar { get; } = new(map.Walkable, SadRogue.Primitives.Distance.Chebyshev);
+        public AStar AStar { get; } = new(map.Passable, SadRogue.Primitives.Distance.Chebyshev);
     }
 
     private readonly Dictionary<int, Location> _locations = [];
@@ -193,6 +193,7 @@ public sealed class World
     /// <summary>The squads and loot drawn on the surface map.</summary>
     private void PopulateSurface()
     {
+        var camps = new Dictionary<string, Camp>();
         foreach (var group in Content.Surface.Groups)
         {
             var squad = new Squad(_nextSquadId++, Content.Factions[group.Faction]);
@@ -206,8 +207,20 @@ public sealed class World
             var home = new Point(group.Home[0], group.Home[1]);
             squad.Home = home;
             squad.Leash = group.Leash;
-            squad.HomeDistance = new DistanceMap(Map.Walkable);
+            squad.HomeDistance = new DistanceMap(Map.Passable);
             squad.HomeDistance.Update([home]);
+            if (group.Territory is { } territory)
+                squad.Camp = camps.TryGetValue(territory, out var known) ? known
+                    : camps[territory] = new Camp(Map.Zones.First(z => z.Name == territory));
+            if (group.Order == "guard")
+                foreach (var member in squad.Members)
+                    squad.Posts[member.Id] = member.Position;
+            else
+                squad.Route = group.Route!.Select(p => new Point(p[0], p[1])).ToList();
+            if (group.Rally is { } rally)
+                squad.Rally = new Point(rally[0], rally[1]);
+            if (group.Gate is { } gate)
+                squad.GateToClose = new Point(gate[0], gate[1]);
             _squads.Add(squad);
         }
         foreach (var spot in Content.Surface.Loot)
@@ -215,11 +228,10 @@ public sealed class World
                 PlaceOnFloor(item, new Point(spot.At[0], spot.At[1]));
     }
 
-    /// <summary>Opens or closes a gate. Paths planned around the old state no longer apply.</summary>
+    /// <summary>Opens or closes a gate. Routes don't change: actors plan through closed gates and open them.</summary>
     public void SetGate(Point at, bool open, Actor actor)
     {
         Map.SetTile(at, open ? Tile.GateOpen : Tile.GateClosed);
-        _paths.Clear();
         Emit(new GateMoved(actor.Id, at, open));
     }
 
@@ -309,6 +321,7 @@ public sealed class World
         int depthBefore = Depth;
         if (!playerAction.Perform(this, Player))
             return [.. _events];
+        _bumpWarnedAbout = null;
         if (IsWon || Depth != depthBefore)
         {
             Turn++;
@@ -423,7 +436,15 @@ public sealed class World
     /// </summary>
     public void ResolveAttack(Actor attacker, Actor target, bool ranged)
     {
-        SquadOf(target)?.LearnOfAttacker(attacker, Turn);
+        if (SquadOf(target) is { } targetSquad)
+        {
+            targetSquad.LearnOfAttacker(attacker, Turn);
+            if (attacker == Player && targetSquad.Camp is { Provoked: false } camp)
+            {
+                camp.Provoked = true;
+                Emit(new CampAlarmed(camp.Zone.Name));
+            }
+        }
         if (Rng.NextInt(100) >= HitChance(attacker, target, ranged))
         {
             Emit(new ActorAttacked(attacker.Id, target.Id, 0, ranged, Missed: true));
@@ -620,6 +641,9 @@ public sealed class World
 
     public bool IsFree(Point p) => Map.InBounds(p) && Map.Walkable[p] && ActorAt(p) is null;
 
+    /// <summary>Like <see cref="IsFree"/>, but counts a closed gate: stepping into one opens it.</summary>
+    private bool IsFreeToStep(Point p) => Map.InBounds(p) && Map.Passable[p] && ActorAt(p) is null;
+
     /// <summary>
     /// Allied monsters may trade places (Brogue-style) so they can't deadlock in corridors.
     /// The player is never pushed around.
@@ -645,9 +669,30 @@ public sealed class World
     public bool IsUntouchable(Actor target) => ObserverMode && target == Player;
 
     /// <summary>Hostile per the faction table. The player in observer mode is nobody's enemy.</summary>
-    public bool AreHostile(Actor a, Actor b) =>
+    public bool AreHostile(Actor a, Actor b) => CouldFight(a, b) && !Tolerated(a, b);
+
+    /// <summary>Their factions are enemies, whether or not they're fighting right now.</summary>
+    public bool CouldFight(Actor a, Actor b) =>
         a != b && !a.IsDead && !b.IsDead && !IsUntouchable(a) && !IsUntouchable(b)
         && Relations.AreHostile(a.Faction, b.Faction);
+
+    /// <summary>One is the player and the other belongs to a camp that's leaving the player alone.</summary>
+    private bool Tolerated(Actor a, Actor b)
+    {
+        var other = a == Player ? b : b == Player ? a : null;
+        return other is not null && SquadOf(other)?.Camp is { } camp && camp.Tolerates(Player.Position);
+    }
+
+    private int? _bumpWarnedAbout;
+
+    /// <summary>True if the player was already warned about attacking this actor; otherwise records the warning.</summary>
+    public bool AlreadyWarnedAbout(Actor target)
+    {
+        if (_bumpWarnedAbout == target.Id)
+            return true;
+        _bumpWarnedAbout = target.Id;
+        return false;
+    }
 
     /// <summary>Monster perception: within sight radius and an unobstructed line.</summary>
     public bool CanSee(Actor observer, Actor target)
@@ -763,7 +808,7 @@ public sealed class World
         foreach (var dir in EightWay)
         {
             var p = self.Position + dir;
-            if (!IsFree(p) || map[p] is not { } value || value >= here)
+            if (!IsFreeToStep(p) || map[p] is not { } value || value >= here)
                 continue;
             int crowding = EightWay.Count(d => ActorAt(p + d) is { } a && a != self && !AreHostile(a, self));
             if (value < bestValue - 1e-9 || (Math.Abs(value - bestValue) < 1e-9 && crowding < bestCrowding))
@@ -815,7 +860,7 @@ public sealed class World
 
         if (NextPathStep(self, goal) is { } next)
         {
-            if (IsFree(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker) && !SameQueue(self, blocker)))
+            if (IsFreeToStep(next) || (ActorAt(next) is { } blocker && CanSwap(self, blocker) && !SameQueue(self, blocker)))
                 return Direction.GetDirection(self.Position, next);
         }
 
@@ -823,7 +868,7 @@ public sealed class World
         foreach (var dir in EightWay)
         {
             var p = self.Position + dir;
-            if (IsFree(p) && Distance(p, goal) < current)
+            if (IsFree(p) && Distance(p, goal) < current) // shuffling closer never opens a gate
                 return dir;
         }
         return null;

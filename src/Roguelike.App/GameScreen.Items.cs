@@ -79,7 +79,7 @@ public sealed partial class GameScreen
             return;
         }
         var targets = _world.Actors
-            .Where(a => _world.AreHostile(player, a) && _world.PlayerCanSee(a))
+            .Where(a => _world.CouldFight(player, a) && _world.PlayerCanSee(a))
             .OrderBy(a => World.Distance(a.Position, player.Position))
             .ToList();
         if (targets.Count == 0)
