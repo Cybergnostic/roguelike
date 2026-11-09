@@ -18,8 +18,8 @@
     { "id": "short_bow",       "name": "short bow",       "category": "bow",    "attack": 3, "range": 6, "attackTime": 80 },
     { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8, "attackTime": 130, "minDepth": 2 },
     { "id": "leather_armor",   "name": "leather armor",   "category": "armor",  "defense": 1, "noise": 1 },
-    { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3, "noise": 3, "moveTime": 110, "arrowGuard": 1, "brace": 1, "counter": 15, "menace": 15, "minDepth": 3 },
-    { "id": "plate_armor",     "name": "plate armor",     "category": "armor",  "defense": 5, "noise": 5, "moveTime": 125, "arrowGuard": 3, "brace": 2, "counter": 30, "menace": 35, "minDepth": 4 },
+    { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3, "noise": 3, "moveTime": 110, "arrowGuard": 1, "menace": 15, "minDepth": 3 },
+    { "id": "plate_armor",     "name": "plate armor",     "category": "armor",  "defense": 5, "noise": 5, "moveTime": 125, "arrowGuard": 3, "brace": 2, "counter": 20, "menace": 35, "minDepth": 4 },
     { "id": "healing_potion",  "name": "potion of healing", "plural": "potions of healing", "category": "potion", "heal": 15 },
     // Money: goes in the purse when picked up. "min"/"max" in a loot table say how many.
     { "id": "gold",            "name": "gold coin",       "plural": "gold coins", "category": "coins" },

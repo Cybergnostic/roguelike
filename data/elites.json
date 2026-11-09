@@ -2,8 +2,8 @@
   // Now and then a member of a squad is an elite: stronger, with a skill of its own, worth more,
   // and sure to drop something. Chance = "chance" + "chancePerLevel" per level below "minDepth".
   // "roles": which squad roles this kind of elite can be. "hp": multiplies HP. "xp": multiplies XP.
-  "chance": 0.08,
-  "chancePerLevel": 0.02,
+  "chance": 0.12,
+  "chancePerLevel": 0.03,
   "minDepth": 2,
   "kinds": [
     { "id": "brutal",  "title": "brutal",  "roles": ["warrior"], "hp": 1.7, "attack": 2, "xp": 2.5, "abilities": ["charge"] },

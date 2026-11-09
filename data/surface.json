@@ -112,7 +112,8 @@
       "order": "patrol", "route": [[10, 31], [38, 31], [38, 33], [26, 40], [10, 40]], "members": [
       { "monster": "wolf", "at": [10, 31] },
       { "monster": "wolf", "at": [11, 31] },
-      { "monster": "wolf", "at": [12, 31] }
+      { "monster": "wolf", "at": [12, 31] },
+      { "monster": "wolf", "at": [13, 31] }
     ] },
     { "name": "spiders", "faction": "beasts", "leash": 8, "home": [32, 37], "members": [
       { "monster": "giant_spider", "at": [32, 36] },

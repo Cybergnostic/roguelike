@@ -21,10 +21,10 @@
     { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "xp": 8, "evasion": 2, "loot": "goblin", "risesAs": "goblin_zombie" },
 
     // Wild animals. They hunt the player and leave everyone else alone.
-    { "id": "wolf",         "faction": "beasts", "role": "warrior", "maxHp": 8,  "attack": 4, "defense": 0, "xp": 8,  "speed": 140 },
-    { "id": "boar", "stagger": 15,         "faction": "beasts", "role": "warrior", "maxHp": 16, "attack": 5, "defense": 1, "xp": 10, "abilities": ["charge"] },
-    { "id": "giant_spider", "faction": "beasts", "role": "warrior", "maxHp": 10, "attack": 5, "defense": 0, "xp": 12, "evasion": 2, "speed": 120 },
-    { "id": "bear", "stagger": 25,         "faction": "beasts", "role": "warrior", "rank": "elite", "maxHp": 34, "attack": 9, "defense": 1, "xp": 40, "abilities": ["charge"] },
+    { "id": "wolf",         "faction": "beasts", "role": "warrior", "maxHp": 10,  "attack": 5, "defense": 0, "xp": 8,  "speed": 140 },
+    { "id": "boar", "stagger": 15,         "faction": "beasts", "role": "warrior", "maxHp": 20, "attack": 6, "defense": 1, "xp": 10, "abilities": ["charge"] },
+    { "id": "giant_spider", "faction": "beasts", "role": "warrior", "maxHp": 13, "attack": 6, "defense": 0, "xp": 12, "evasion": 2, "speed": 120 },
+    { "id": "bear", "stagger": 25,         "faction": "beasts", "role": "warrior", "rank": "elite", "maxHp": 44, "attack": 11, "defense": 1, "xp": 40, "abilities": ["charge"] },
 
     // Bandits, who work the road from their den.
     { "id": "bandit",        "faction": "bandits", "role": "warrior", "maxHp": 11, "attack": 5, "defense": 1, "xp": 12, "loot": "bandit" },

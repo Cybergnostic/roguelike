@@ -15,6 +15,14 @@ if (options is null)
     return 1;
 }
 
+if (options.Encounters)
+{
+    Console.WriteLine($"{"valley fight",-26} {"won",6} {"died",6} {"hp left",8} {"turns",6}   (bot with the starting kit, {options.Seeds} games each)");
+    foreach (var r in Encounters.Run(options.Seeds, options.Start))
+        Console.WriteLine($"{r.Name,-26} {100.0 * r.Won / r.Games,5:0}% {100.0 * r.Died / r.Games,5:0}% {100 * r.HpLeftWhenWon,7:0}% {r.Turns,6:0}");
+    return 0;
+}
+
 if (options.ShowMap)
 {
     // Print the level for seed --start as text: # wall, . floor, @ player, letters = monsters.
@@ -180,7 +188,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Encounters = false)
 {
     public static Options? Parse(string[] args)
     {
@@ -197,6 +205,7 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--observer": o = o with { Observer = true }; break;
                 case "--games": o = o with { PerGame = true }; break;
                 case "--map": o = o with { ShowMap = true }; break;
+                case "--encounters": o = o with { Encounters = true }; break;
                 case "--trace": o = o with { Trace = true }; break;
                 default: return null;
             }

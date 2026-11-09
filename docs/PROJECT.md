@@ -137,6 +137,7 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Examine.cs      examine mode (x) and the toll prompt (t); shows only what the player knows
   GameScreen.Chronicle.cs    what the stones tell (m): words the site's history for the player
   GameScreen.Shop.cs         buying from people in the valley (opens after talking to anyone with goods)
+  GameScreen.Popups.cs       what floats over the map (speech, grunts, noises, tooltip) and the mouse; cosmetic, uses no game randomness
   ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
   Theme.cs                   ALL visuals: glyphs, colours, the lighting formula (swap for tiles later)
   GameScreen.Panels.cs       everything around the map: place bar, in sight, this place, status strip, log, key guide
@@ -234,6 +235,7 @@ dotnet run --project src/Roguelike.App          # play, from the valley (--dunge
 dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
+dotnet run --project tools/Roguelike.Sim -c Release -- --encounters --seeds 300   # each valley fight, bot with the starting kit
 dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
 **Watching an agent play:** start the window with
@@ -256,6 +258,10 @@ Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, tinted ring = ch
 "toward enemies" and "flee"),
 `F5` spectator mode (invisible, invulnerable), `P` autoplay (playing: the aggressive bot plays for
 you, a quick way to see progression; spectating: time passes).
+
+### Testing the window without touching the user's screen
+Run the app on a private display: `Xvfb :77 -screen 0 1500x900x24 +extension GLX`, then `DISPLAY=:77 LIBGL_ALWAYS_SOFTWARE=1` for the app, xdotool and `import -window root`.
+It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedown, wait, keyup/mouseup) or the game misses them.
 
 ### API gotchas found so far
 - `World.Distance(a, b)` (static helper) clashes with `SadRogue.Primitives.Distance` inside `World`;
@@ -371,7 +377,10 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: heavy armour and speed** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **57.5%**, died 42%, well above the 20–30% target.
+- **Current: the big balance pass** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **28.0%**, died 72%, inside the 20–30% target.
+  Death rate by depth: 5.4, 9.4, 8.6, 10.6, 11.8, 9.0, 49.7% (the last level is the boss). Monster HP +26% a level, elites 12% + 3% a level, the warlord from level 4, brace only on plate with a 20% counter.
+  Valley fights (`--encounters --seeds 300`, bot with the starting kit, alone against one group): wolves won 93%, spiders 87%, boars 95%, bear 67%, den sentries 100%, den crew 50%, whole den 46%.
+- **Heavy armour and speed** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **57.5%**, died 42%, well above the 20–30% target.
   Death rate by depth: 5.3, 14.6, 3.7, 1.7, 1.3, 2.1, 21.6%. The same build with `brace` removed from items.json won 32.0%, so bracing (extra armour and a free counter each turn) is what's too strong, at least for a bot that often holds still in corridors. Not retuned: the user will balance later.
 - **Sneaking, hearing and rarer secrets** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **29.1%**, died 70%, inside the 20–30% target.
   Death rate by depth: 5.9, 18.0, 9.1, 6.6, 5.5, 9.1, 47.3%. The bot never sneaks, and now also learns nothing from Stealth.
@@ -622,7 +631,8 @@ you, a quick way to see progression; spectating: time passes).
     sneaking; calm squads that hear it go to look (`SquadHeardPlayer`). `Stat.Perception` (Wisdom, Perception skill) and `Stat.Stealth` (Dexterity, Stealth skill)
     drive what the player hears (`World.Noise`, `SoundHeard`) and how quiet they are. Athletics and other secondary skills later.
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
-11a. ~~**Heavy builds and speed, first version**~~ (done 2026-11-09). Still to come from the design: weighty blows that stagger, a short charge, a speed affix.
+11a. ~~**Heavy builds and speed**~~ (done 2026-11-09): slower steps, arrow guard, brace, menace, stagger, the charge (`v`), Fleet Foot. Still to come: a speed affix.
+11b. ~~**Popups, mouse, gate talk**~~ (done 2026-11-09): speech, grunts and noises over the map; hover tooltip and Inspect, left click pins, right click walks; the guards' challenge as a choice in the side panel (1-3 or click).
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
 13. **Wider region**: more sites, rethink the surface map.
 14. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
