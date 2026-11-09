@@ -12,6 +12,31 @@ public sealed partial class GameScreen
 {
     private Actor? _shop;
 
+    /// <summary>Someone begging for mercy, while the player decides.</summary>
+    private Actor? _beggar;
+
+    private GameAction? MercyInput(Keyboard keyboard)
+    {
+        var beggar = _beggar!;
+        if (keyboard.IsKeyPressed(Keys.S))
+        {
+            _beggar = null;
+            return new SpareAction(beggar.Id);
+        }
+        if (keyboard.IsKeyPressed(Keys.K))
+        {
+            _beggar = null;
+            return new AttackAction(beggar.Id);
+        }
+        return null;
+    }
+
+    private void DrawMercyPrompt()
+    {
+        _status.Clear();
+        _status.Print(2, 0, $"The {_beggar!.Name} begs for its life.   s: spare it and hear what it knows   k: kill it   Esc: not yet", Theme.Warning, Theme.PanelBackground);
+    }
+
     private IReadOnlyList<WareDef> Wares => _world.NpcOf(_shop!)?.Goods ?? [];
 
     private GameAction? ShopInput(Keyboard keyboard)

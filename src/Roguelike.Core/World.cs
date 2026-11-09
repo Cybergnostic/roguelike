@@ -1206,7 +1206,9 @@ public sealed class World
     private bool Tolerated(Actor a, Actor b)
     {
         var other = a == Player ? b : b == Player ? a : null;
-        return other is not null && SquadOf(other)?.Camp is { } camp && camp.Tolerates(Player.Position, Turn);
+        if (other is null || SquadOf(other) is not { } squad)
+            return false;
+        return squad.Surrendered || squad.Spared || (squad.Camp is { } camp && camp.Tolerates(Player.Position, Turn));
     }
 
     private int? _bumpWarnedAbout;
@@ -1456,6 +1458,43 @@ public sealed class World
             XpMultiplier = elite?.Xp ?? 1,
             Abilities = (def.Abilities ?? []).Concat(elite?.Abilities ?? []).Select(id => Content.Abilities[id]).ToList(),
         });
+
+    /// <summary>
+    /// What someone spared has to offer: the way down if the player hasn't found it, then anything
+    /// valuable on this level, then a place they haven't seen, and failing all that, their purse.
+    /// </summary>
+    public void TellSecret(Actor beggar)
+    {
+        const int Shown = 2;
+        void Reveal(Point at)
+        {
+            foreach (var p in Map.Tiles.Positions().Where(p => Distance(p, at) <= Shown))
+                Map.Explored[p] = true;
+        }
+        Direction Toward(Point at) => Direction.GetDirection(Player.Position, at);
+
+        if (Map.StairsDown is { } stairs && !Map.Explored[stairs])
+        {
+            Reveal(stairs);
+            Emit(new SecretTold(beggar.Id, SecretKind.Stairs, Toward(stairs)));
+        }
+        else if (_floorItems.FirstOrDefault(f => !Map.Explored[f.Position] && f.Item.Rarity > Rarity.Common) is { } treasure)
+        {
+            Reveal(treasure.Position);
+            Emit(new SecretTold(beggar.Id, SecretKind.Treasure, Toward(treasure.Position)));
+        }
+        else if (Map.Zones.FirstOrDefault(z => !Map.Explored[z.Heart]) is { } zone)
+        {
+            Reveal(zone.Heart);
+            Emit(new SecretTold(beggar.Id, SecretKind.Place, Toward(zone.Heart)));
+        }
+        else
+        {
+            int gold = Rng.NextInt(10, 31);
+            Player.Gold += gold;
+            Emit(new SecretTold(beggar.Id, SecretKind.Purse, null, gold));
+        }
+    }
 
     /// <summary>What someone has to say and sell, if they're a person to talk to.</summary>
     public NpcDef? NpcOf(Actor actor) => Content.Monsters.GetValueOrDefault(actor.Kind)?.Npc;

@@ -62,6 +62,7 @@ public sealed class CommandPlayer(World world)
             case "ascend": return [new AscendAction()];
             case "close": return [new CloseGateAction()];
             case "pay": return [new PayTollAction()];
+            case "spare": return [new SpareAction(Arg(1, -1))];
             case "buy" when c.Length > 2: return [new BuyAction(Arg(1, -1), c[2])];
             case "stairs":
                 if (world.Map.StairsDown is { } stairs && world.Map.Explored[stairs])

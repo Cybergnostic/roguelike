@@ -69,6 +69,7 @@ public class CombatTests
     {
         var (world, goblin) = Duel();
         world.Player.Hp = 100_000;
+        goblin.Hp = 100_000; // it has to last long enough for both a hit and a miss
         var attacks = new List<ActorAttacked>();
         for (int i = 0; i < 100; i++)
             attacks.AddRange(world.Step(new AttackAction(goblin.Id)).OfType<ActorAttacked>());

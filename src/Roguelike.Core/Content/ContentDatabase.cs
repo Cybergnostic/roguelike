@@ -39,7 +39,8 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// MinDamage gets through.
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
-    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1);
+    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1,
+    double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -327,7 +328,7 @@ public sealed class ContentDatabase
 
         var factions = new Dictionary<string, Faction>();
         foreach (var f in factionFile.Factions)
-            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid }))
+            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid, Taunts = f.Taunts ?? [], Pleas = f.Pleas ?? [] }))
                 throw Error("factions.json", $"duplicate faction '{f.Id}'");
         if (!factions.ContainsKey(Faction.PlayerId))
             throw Error("factions.json", $"missing the '{Faction.PlayerId}' faction");
@@ -762,7 +763,7 @@ public sealed class ContentDatabase
     private static InvalidDataException Error(string file, string message) => new($"{file}: {message}");
 
     private sealed record FactionFile(List<FactionEntry> Factions, List<RelationEntry> Relations);
-    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null);
+    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null, List<string>? Taunts = null, List<string>? Pleas = null);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record AbilityFile(List<AbilityDef> Abilities);

@@ -117,6 +117,20 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
     }
 }
 
+/// <summary>Lets someone begging for mercy live, in return for what they know.</summary>
+public sealed record SpareAction(int ActorId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.GetActor(ActorId) is not { IsDead: false } beggar || world.SquadOf(beggar) is not { Surrendered: true } squad)
+            return false;
+        squad.Surrendered = false;
+        squad.Spared = true;
+        world.TellSecret(beggar);
+        return true;
+    }
+}
+
 /// <summary>Speaks to someone next to the player. Takes no time.</summary>
 public sealed record TalkAction(int NpcId) : GameAction
 {
@@ -197,6 +211,11 @@ public sealed record MoveAction(Direction Direction) : GameAction
                 return new AttackAction(other.Id).Perform(world, actor);
             if (actor == world.Player && world.NpcOf(other) is not null)
                 return new TalkAction(other.Id).Perform(world, actor);
+            if (actor == world.Player && world.SquadOf(other) is { Surrendered: true })
+            {
+                world.Emit(new MercyAsked(other.Id));
+                return false;
+            }
             // Someone leaving you alone: the first bump is a warning, the second means it.
             if (actor == world.Player && world.CouldFight(actor, other))
             {

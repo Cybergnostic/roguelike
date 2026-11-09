@@ -45,6 +45,11 @@ public sealed class TacticalBot : IPlayerBot
         if (SpendXp(world, me) is { } purchase)
             return purchase;
 
+        // A beggar in the way gets no mercy from a bot, or it could block a corridor forever.
+        foreach (var dir in World.EightWay)
+            if (world.ActorAt(me.Position + dir) is { } beggar && world.SquadOf(beggar) is { Surrendered: true })
+                return new AttackAction(beggar.Id);
+
         var hostiles = world.Actors
             .Where(a => a != me && !a.IsDead && world.AreHostile(me, a) && world.PlayerCanSee(a))
             .ToList();

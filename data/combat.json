@@ -8,6 +8,14 @@
   // 3. A second weapon in the off hand strikes too, at offHandAccuracy and offHandAttack.
   "offHandAccuracy": -4,
   "offHandAttack": -1,
+  // How a squad sizes up the player: (its total HP x total attack, softened by the player's armour) over
+  // (the player's HP x best attack). Anyone else already fighting the player counts on the squad's side.
+  // Above boldAbove it swarms; below waryBelow it hangs back; below terrifiedBelow it runs. If the player
+  // has a bow and it's within allInWithin cells, running is pointless, so it charges instead.
+  "boldAbove": 1.2,
+  "waryBelow": 0.6,
+  "terrifiedBelow": 0.2,
+  "allInWithin": 3,
   "baseHitChance": 75,
   "hitChancePerPoint": 5,
   "minHitChance": 5,

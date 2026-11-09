@@ -212,7 +212,7 @@ public class SquadTests(ITestOutputHelper output)
     public void AggressiveBotSeesEveryTacticAcrossManyGames()
     {
         var results = Enumerable.Range(0, 30)
-            .Select(seed => Simulator.Run((ulong)seed, new AggressiveBot(), maxTurns: 600))
+            .Select(seed => Simulator.Run((ulong)seed, new AggressiveBot(), maxTurns: 1500)) // long enough to reach the levels where runners appear
             .ToList();
         int Count(string key) => results.Sum(r => r.EventCounts.GetValueOrDefault(key));
 

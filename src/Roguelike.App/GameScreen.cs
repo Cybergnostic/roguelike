@@ -208,7 +208,8 @@ public sealed partial class GameScreen : ScreenObject
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
-                LoreDiscovered => Theme.Warning,
+                LoreDiscovered or SquadTaunted or SquadCowed or SquadPleaded => Theme.Warning,
+                SecretTold => Theme.Good,
                 Talked or ItemBought => Theme.Intent,
                 TheftCommitted { WitnessId: not null } => Theme.Danger,
                 IncursionBegan or CampAttackedWhileAway or CampReinforced => Theme.Warning,
@@ -223,6 +224,8 @@ public sealed partial class GameScreen : ScreenObject
         }
         if (events.OfType<Talked>().FirstOrDefault(t => t.HasGoods) is { } trade && _world.GetActor(trade.NpcId) is { } seller)
             _shop = seller;
+        if (events.OfType<MercyAsked>().FirstOrDefault() is { } plea && _world.GetActor(plea.ActorId) is { } beggar)
+            _beggar = beggar;
         if (playerMoved)
             DescribeItemsUnderfoot();
         if (playerMoved && _world.Map.StairsDown == _world.Player.Position)
@@ -414,6 +417,16 @@ public sealed partial class GameScreen : ScreenObject
         var role = squad.RoleOf(actor);
         if (role == SquadRole.Civilian)
             return "going about their day";
+        if (squad.Surrendered)
+            return "begging for mercy";
+        if (squad.Spared)
+            return "keeping well clear of you";
+        if (squad.State == SquadState.Engage && role is SquadRole.Warrior or SquadRole.Runner)
+        {
+            if (squad.Posture == Posture.Bold) return "closing in on you";
+            if (squad.Posture == Posture.Wary) return "circling, keeping back";
+            if (squad.Posture == Posture.Desperate) return "charging, nothing to lose";
+        }
         return squad.State switch
         {
             SquadState.Flee when squad.Rally is not null => "falling back",

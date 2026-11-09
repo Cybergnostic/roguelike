@@ -16,6 +16,19 @@ public enum SquadRole
     Civilian,
 }
 
+/// <summary>How a squad rates its chances against the player, from what it can see.</summary>
+public enum Posture
+{
+    /// <summary>About even: fights by the usual tactics.</summary>
+    Even,
+    /// <summary>Thinks it can take them: closes in from all sides.</summary>
+    Bold,
+    /// <summary>Thinks it would lose, and there's no bow at its back: keeps out of reach until the odds change.</summary>
+    Wary,
+    /// <summary>Would lose badly and can't get away: charges, because there's nothing else to do.</summary>
+    Desperate,
+}
+
 public enum SquadState
 {
     /// <summary>Unaware of the player: patrols between rooms as a group.</summary>
@@ -45,6 +58,23 @@ public sealed class Squad
 
     public SquadState State { get; set; } = SquadState.Idle;
     public int Morale { get; set; } = MaxMorale;
+
+    public Posture Posture { get; set; } = Posture.Even;
+
+    /// <summary>It lost its nerve at the sight of the player, and won't come looking again before this turn.</summary>
+    public int AvoidingUntil { get; set; } = -1;
+
+    public bool IsAvoiding(int turn) => turn < AvoidingUntil;
+
+    /// <summary>Hands up, begging for mercy. It won't fight the player unless attacked.</summary>
+    public bool Surrendered { get; set; }
+
+    /// <summary>The player let it live. It will never bother them again.</summary>
+    public bool Spared { get; set; }
+
+    /// <summary>It has already begged once, or shouted its one taunt.</summary>
+    internal bool HasPleaded { get; set; }
+    internal bool HasTaunted { get; set; }
 
     /// <summary>The enemy the squad is focused on, where it was last seen, and when.</summary>
     public int? TargetId { get; set; }
@@ -105,6 +135,7 @@ public sealed class Squad
     /// </summary>
     internal void LearnOfAttacker(Actor attacker, int turn)
     {
+        Surrendered = false; // no more begging once the blows start
         TargetId = attacker.Id;
         LastKnownTarget = attacker.Position;
         LastSeenTurn = turn;
@@ -140,6 +171,7 @@ public sealed class Squad
         LastSeenTurn = -1;
         HelpTargetSquadId = null;
         HoldTurns = 0;
+        Posture = Posture.Even;
         _stretch = 0;
         CallOffRaid();
         ClearSightings();
@@ -210,7 +242,8 @@ public sealed class Squad
     /// but only while someone can shoot at the enemy meanwhile, and only for a while.
     /// </summary>
     public bool IsHoldingPassage =>
-        State == SquadState.Engage && HoldTurns is > 0 and <= MaxHoldTurns && WithRole(SquadRole.Archer).Any();
+        State == SquadState.Engage && Posture is not (Posture.Bold or Posture.Desperate)
+        && HoldTurns is > 0 and <= MaxHoldTurns && WithRole(SquadRole.Archer).Any();
 
     /// <summary>Squad the runner is fetching; null when no mission is pending.</summary>
     public int? HelpTargetSquadId { get; set; }

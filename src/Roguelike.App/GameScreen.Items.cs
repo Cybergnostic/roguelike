@@ -30,7 +30,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null || _beggar is not null;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -108,8 +108,12 @@ public sealed partial class GameScreen
             _askingToll = false;
             _chronicleOpen = false;
             _shop = null;
+            _beggar = null;
             return null;
         }
+
+        if (_beggar is not null)
+            return MercyInput(keyboard);
 
         if (_shop is not null)
             return ShopInput(keyboard);
@@ -186,6 +190,8 @@ public sealed partial class GameScreen
             DrawChronicle();
         if (_shop is not null)
             DrawShop();
+        if (_beggar is not null)
+            DrawMercyPrompt();
     }
 
     private void DrawTargeting(Targeting t)

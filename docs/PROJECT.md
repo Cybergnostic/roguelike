@@ -193,6 +193,10 @@ docs/PROJECT.md              this file
    quick action can pass with no reply and a slow one can give two) → update FOV and maps → each squad thinks → each
    non-player actor gains `Speed` energy and acts once per 100 (zombies at 50 act every other turn;
    actors created this turn wait) → remove dead → turn++ → regen → update FOV.
+11a. **Squads size up the player** (`SquadDirector.SizeUp`, thresholds in combat.json) from what they can see: their HP x attack against
+   the player's apparent health (capped at max HP), best attack and armour. Others already at the player's throat count on their side.
+   `Squad.Posture`: Bold (surround), Even, Wary (no bow: keep out of reach), Desperate (run, or charge if a bow has them close). Leashed
+   squads and the fearless never run from it. Factions with `pleas` may beg (`Squad.Surrendered`); sparing one reveals something.
 11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
    except raised dead ("the dead rise only once"). Raised actors carry `MasterId`; `World.Damage`
    crumbles them when the master dies. Spawn monsters at runtime with `World.SpawnMonster`.
@@ -365,7 +369,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: weapon speeds and elastic leashes** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **21.9%**, died 77%, inside the 20–30% target.
+- **Current: squads size up the player** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **25.7%**, died 74%, inside the 20–30% target.
+  Death rate by depth: 4.3, 17.2, 11.4, 6.4, 7.0, 8.4, 53.2%. The bot kills anyone begging next to it.
+- **Weapon speeds and elastic leashes** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **21.9%**, died 77%, inside the 20–30% target.
   Death rate by depth: 6.1, 19.4, 12.2, 10.7, 9.5, 8.4, 54.0%.
 - **Seven levels with the crypt boss and elites** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **30.9%**, died 68%.
   Death rate by depth: 9.7, 17.8, 7.2, 4.8, 5.0, 5.0, 47.1% (the warlord's warren makes level 2 hard; the last level is the boss).

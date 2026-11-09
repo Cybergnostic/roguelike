@@ -55,6 +55,16 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         Talked { Line: { } line } t => $"{Cap(Name(t.NpcId))} says: \"{Expand(line)}\"",
         Talked => null,
         ItemBought b => $"You buy {ItemText.AName(b.Item)} for {b.Price} gold.",
+        SquadCowed c when c.MemberIds.Any(isVisible) => "They take one look at you and turn to run.",
+        SquadCowed => null,
+        SquadTaunted t when isVisible(t.SpeakerId) => $"{Cap(Name(t.SpeakerId))} shouts: \"{Said(t.SpeakerId, f => f.Taunts, t.Line)}\"",
+        SquadTaunted => null,
+        SquadPleaded p when isVisible(p.SpeakerId) => $"{Cap(Name(p.SpeakerId))} throws down its weapon: \"{Said(p.SpeakerId, f => f.Pleas, p.Line)}\" (walk into it to decide)",
+        SquadPleaded => null,
+        SecretTold { Kind: SecretKind.Purse } s => $"\"Here, take it, all of it!\" (+{s.Amount} gold)",
+        SecretTold { Kind: SecretKind.Stairs } s => $"\"The way down! It's to the {Wind(s.From!.Value)}!\" (marked on your map)",
+        SecretTold { Kind: SecretKind.Treasure } s => $"\"There's treasure, to the {Wind(s.From!.Value)}!\" (marked on your map)",
+        SecretTold s => $"\"There's a place to the {Wind(s.From!.Value)} you ought to see.\" (marked on your map)",
         LoreDiscovered => "Old words are carved into this stone. You stop and read them. (m: what the stones tell)",
         XpGained { Source: XpSource.Lore } x => $"You understand this place a little better. (+{x.Amount} XP)",
         TheftCommitted { WitnessId: { } guard } => $"{Cap(Name(guard))} sees you take it!",
@@ -136,6 +146,9 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 
         _ => null,
     };
+
+    private string Said(int speaker, Func<Roguelike.Core.Entities.Faction, IReadOnlyList<string>> lines, int line) =>
+        world.GetActor(speaker) is { } a && lines(a.Faction) is { Count: > 0 } said ? said[line % said.Count] : "...";
 
     private static string Wind(SadRogue.Primitives.Direction direction) => direction.Type switch
     {

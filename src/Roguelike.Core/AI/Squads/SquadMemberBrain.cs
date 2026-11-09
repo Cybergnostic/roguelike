@@ -48,6 +48,11 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     {
         var role = Squad.RoleOf(self);
 
+        if (Squad.Surrendered)
+            return new WaitAction();
+        if (Squad.Spared)
+            return world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable)) is { } clear ? new MoveAction(clear) : new WaitAction();
+
         // People who aren't fighters get out of the way.
         if (role == SquadRole.Civilian && Squad.State is SquadState.Engage or SquadState.Alert or SquadState.Flee)
             return Flee(world, self) is AttackAction ? new WaitAction() : Flee(world, self);
@@ -132,8 +137,17 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private GameAction Warrior(World world, Actor self)
     {
+        var enemy = world.NearestVisibleHostile(self);
+        if (Squad.Posture == Posture.Bold && enemy is not null && Flank(world, self, enemy) is { } flank)
+            return flank;
+
         if (world.AdjacentHostile(self) is { } adjacent)
             return new AttackAction(adjacent.Id);
+
+        if (Squad.Posture == Posture.Wary && enemy is not null && World.Distance(self.Position, enemy.Position) <= KeepsOutOfReach)
+            return world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable)) is { } back ? new MoveAction(back) : new WaitAction();
+        if (Squad.Posture == Posture.Wary && enemy is not null && World.Distance(self.Position, enemy.Position) == KeepsOutOfReach + 1)
+            return new WaitAction();
 
         var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Passable));
         if (step is null)
@@ -176,6 +190,34 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
                 return new WaitAction();
         }
         return Archer(world, self);
+    }
+
+    /// <summary>How close a wary fighter will let the enemy come.</summary>
+    private const int KeepsOutOfReach = 2;
+    private const int FlankFrom = 6;
+
+    /// <summary>
+    /// A confident pack closes in from all sides: each fighter takes its own place in the ring around
+    /// the enemy, spaced apart. Null when there's nothing to gain, and it just fights as usual.
+    /// </summary>
+    private GameAction? Flank(World world, Actor self, Actor enemy)
+    {
+        var fighters = Squad.Members.Where(m => Squad.RoleOf(m) is SquadRole.Warrior or SquadRole.Runner && !m.IsDead).ToList();
+        int distance = World.Distance(self.Position, enemy.Position);
+        if (fighters.Count < 2 || distance > FlankFrom || !Squad.WithinLeash(enemy.Position))
+            return null;
+
+        var ring = World.EightWay.Select(d => enemy.Position + d)
+            .Where(p => world.Map.InBounds(p) && world.Map.Walkable[p] && (p == self.Position || world.ActorAt(p) is null))
+            .ToList();
+        if (ring.Count == 0)
+            return null;
+        var slot = ring[fighters.IndexOf(self) * ring.Count / fighters.Count % ring.Count];
+        if (slot == self.Position)
+            return null;
+        if (distance == 1 && World.Distance(self.Position, slot) > 1)
+            return null; // already at its throat, and its place is too far round: just hit it
+        return world.StepToward(self, slot) is { } step ? new MoveAction(step) : null;
     }
 
     private GameAction Archer(World world, Actor self)

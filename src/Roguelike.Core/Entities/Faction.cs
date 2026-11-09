@@ -21,6 +21,12 @@ public sealed class Faction(string id, string name)
     /// <summary>This faction's standing orders for raids, if it makes any.</summary>
     public RaidPlan? Raid { get; init; }
 
+    /// <summary>What its members shout when they fancy their chances. Empty: this faction doesn't talk.</summary>
+    public IReadOnlyList<string> Taunts { get; init; } = [];
+
+    /// <summary>What they say when begging for their lives. Empty: this faction never begs.</summary>
+    public IReadOnlyList<string> Pleas { get; init; } = [];
+
     public override string ToString() => Id;
 }
 

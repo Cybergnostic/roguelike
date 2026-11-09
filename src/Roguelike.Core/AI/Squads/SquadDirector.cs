@@ -16,6 +16,7 @@ public static class SquadDirector
     public static void Think(World world, Squad squad)
     {
         squad.CoolDown(world.Turn);
+        bool wasRunning = squad.State == SquadState.Flee;
         UpdateMorale(world, squad);
         if (squad.IsWipedOut)
             return;
@@ -48,6 +49,11 @@ public static class SquadDirector
         }
         int sinceSeen = squad.LastSeenTurn < 0 ? int.MaxValue : world.Turn - squad.LastSeenTurn;
 
+        if (squad.Surrendered || squad.Spared)
+            return; // out of the fight: its members just wait, or keep clear
+        if (target == world.Player)
+            SizeUp(world, squad);
+
         if (squad.IsLeashed && spotter is null && squad.State is SquadState.Engage or SquadState.Alert
             && squad.TargetId == world.Player.Id)
         {
@@ -76,6 +82,14 @@ public static class SquadDirector
                 squad.HelpTargetSquadId = null; // the fight is over; call the runner back
                 break;
 
+            case SquadState.Flee when spotter is null && squad.IsAvoiding(world.Turn):
+                break; // keeping well away
+
+            case SquadState.Flee when spotter is null && squad.AvoidingUntil >= 0:
+                squad.AvoidingUntil = -1;
+                squad.SettleDown(); // the scare has worn off, and nobody's keen to go back
+                break;
+
             case SquadState.Flee when spotter is null && squad.Morale >= Squad.RallyPoint:
                 squad.State = SquadState.Alert; // regrouped; go looking again
                 squad.Destination = squad.LastKnownTarget;
@@ -88,6 +102,13 @@ public static class SquadDirector
             squad.CallOffRaid(); // a broken war band goes home, whatever its orders
             world.Emit(new SquadRouted(squad.Id, squad.Members.Select(m => m.Id).ToList()));
         }
+
+        // Caught while running, a squad that talks may try begging instead.
+        const int CaughtWithin = 2;
+        if (wasRunning && squad.State == SquadState.Flee && target == world.Player && !squad.IsFearless
+            && squad.Members.Min(m => World.Distance(m.Position, world.Player.Position)) <= CaughtWithin
+            && ThinksOfBegging(world, squad))
+            return;
 
         // Warriors hold the mouth of a corridor the enemy is standing in, giving archers time.
         squad.HoldTurns = squad.State == SquadState.Engage && spotter is not null
@@ -107,6 +128,78 @@ public static class SquadDirector
 
         if (squad.State == SquadState.Idle)
             UpdatePatrol(world, squad);
+    }
+
+    private const int AvoidTurns = 40;
+
+    /// <summary>Weighs up the player from what the squad can see, and decides how to go about this fight.</summary>
+    private static void SizeUp(World world, Squad squad)
+    {
+        var rules = world.Content.Combat;
+        var player = world.Player;
+        double hp = squad.Members.Sum(m => m.Hp), attack = squad.Members.Sum(m => m.Attack);
+
+        // Anyone else already at the player's throat makes this a much better moment to join in.
+        foreach (var other in world.Actors)
+            if (other != player && !other.IsDead && !squad.Members.Contains(other) && world.AreHostile(other, player)
+                && World.Distance(other.Position, player.Position) <= 2)
+            {
+                hp += other.Hp;
+                attack += other.Attack;
+            }
+
+        attack *= 5.0 / (5 + Math.Max(0, player.Defense));
+        double theirs = Math.Clamp(player.Hp, 1, player.MaxHp) * Math.Max(1, Math.Max(player.Attack, player.Equipment?.Bow is null ? 0 : player.RangedAttack));
+        double odds = hp * attack / theirs;
+
+        bool hasBow = player.Equipment?.Bow is not null;
+        bool mayRun = !squad.IsLeashed && !squad.IsFearless; // nobody abandons what they're guarding
+        var previous = squad.Posture;
+        squad.Posture = odds >= rules.BoldAbove ? Posture.Bold
+            : squad.IsFearless || odds >= rules.WaryBelow ? Posture.Even
+            : odds >= rules.TerrifiedBelow ? (hasBow ? Posture.Even : Posture.Wary)
+            : Posture.Desperate;
+
+        if (squad.Posture == Posture.Bold && previous != Posture.Bold && !squad.HasTaunted && squad.Faction.Taunts.Count > 0)
+        {
+            squad.HasTaunted = true;
+            if (squad.Members.FirstOrDefault(m => world.CanSee(m, player)) is { } mouth)
+                world.Emit(new SquadTaunted(mouth.Id, world.Rng.NextInt(squad.Faction.Taunts.Count)));
+        }
+
+        if (squad.Posture != Posture.Desperate)
+            return;
+        if (squad.Morale >= Squad.BreakingPoint && ThinksOfBegging(world, squad))
+            return;
+        int nearest = squad.Members.Min(m => World.Distance(m.Position, player.Position));
+        if (mayRun && (!hasBow || nearest > rules.AllInWithin))
+        {
+            squad.Posture = Posture.Even;
+            if (squad.State != SquadState.Flee)
+                world.Emit(new SquadCowed(squad.Id, squad.Members.Select(m => m.Id).ToList()));
+            squad.State = SquadState.Flee;
+            squad.AvoidingUntil = world.Turn + AvoidTurns;
+            squad.CallOffRaid();
+        }
+        else if (!mayRun && !squad.IsFearless)
+            squad.Posture = Posture.Even; // holds its ground at home, by the usual tactics
+    }
+
+    /// <summary>Close to a hopeless fight, a squad that talks may throw itself on the player's mercy, once.</summary>
+    private static bool ThinksOfBegging(World world, Squad squad)
+    {
+        const int WithinEarshot = 5;
+        if (squad.HasPleaded || squad.Faction.Pleas.Count == 0
+            || squad.Members.FirstOrDefault(m => world.CanSee(m, world.Player) && World.Distance(m.Position, world.Player.Position) <= WithinEarshot) is not { } mouth)
+            return false;
+        squad.HasPleaded = true;
+        if (world.Rng.NextInt(100) >= 50)
+            return false;
+        squad.Surrendered = true;
+        squad.State = SquadState.Idle;
+        squad.Destination = null;
+        world.Emit(new SquadPleaded(squad.Id, mouth.Id, world.Rng.NextInt(squad.Faction.Pleas.Count)));
+        return true;
     }
 
     /// <summary>The squad has a reason to stop: it forgets the chase and goes back to its orders.</summary>
