@@ -10,5 +10,14 @@
   "attackEveryLevels": 2,
   "accuracyEveryLevels": 3,
   "defenseEveryLevels": 4,
-  "roomOccupancyPerLevel": 0.03
+  "roomOccupancyPerLevel": 0.03,
+  // Time. A corpse withers after "corpseWithersAfter" turns and is gone after "corpseGoneAfter"
+  // (the ancient dead the history leaves don't rot further). Coming back after "calmAfter" turns,
+  // everyone has settled down. While you're away monsters regain 1 HP per "turnsPerHealedHp",
+  // and a camp replaces one fallen guard per "turnsPerReplacement".
+  "corpseWithersAfter": 400,
+  "corpseGoneAfter": 1500,
+  "calmAfter": 30,
+  "turnsPerHealedHp": 20,
+  "turnsPerReplacement": 400
 }

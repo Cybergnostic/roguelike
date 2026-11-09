@@ -126,6 +126,20 @@ public sealed class Squad
     public int StragglerWait { get; set; }
     public const int MaxStragglerWait = 10;
 
+    /// <summary>Time has passed: whatever the squad was doing, it's over, and it goes back to its orders.</summary>
+    internal void SettleDown()
+    {
+        State = SquadState.Idle;
+        Destination = null;
+        TargetId = null;
+        LastKnownTarget = null;
+        LastSeenTurn = -1;
+        HelpTargetSquadId = null;
+        HoldTurns = 0;
+        CallOffRaid();
+        ClearSightings();
+    }
+
     public void CallOffRaid()
     {
         RaidTarget = null;
@@ -150,6 +164,9 @@ public sealed class Squad
 
     /// <summary>Guard order: the spot each member holds while nothing is happening.</summary>
     public Dictionary<int, Point> Posts { get; } = [];
+
+    /// <summary>What kind of guard holds each post, so a fallen one can be replaced in kind.</summary>
+    public Dictionary<int, string> PostKinds { get; } = [];
 
     /// <summary>Patrol order: the stops the squad walks in turn, and the one it's heading for.</summary>
     public IReadOnlyList<Point>? Route { get; set; }

@@ -24,6 +24,9 @@ public sealed class Camp(Zone zone, TollTerms? toll = null)
     /// <summary>Someone has attacked the camp. From now on its squads fight the player on sight.</summary>
     public bool Provoked { get; set; }
 
+    /// <summary>Its defenders were wiped out by someone else: nobody here deals with travellers any more.</summary>
+    public bool Overrun { get; internal set; }
+
     /// <summary>The turn the player's paid time runs out, if they have any.</summary>
     public int? PassUntil { get; internal set; }
 

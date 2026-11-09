@@ -34,6 +34,8 @@ public enum Tile : byte
     Inscription,
     /// <summary>Fallen rock: blocks movement and sight, like a pillar with a story.</summary>
     Rubble,
+    /// <summary>A gate smashed open: anyone can pass and see through, and it can't be shut.</summary>
+    GateBroken,
 }
 
 /// <summary>
@@ -75,7 +77,7 @@ public sealed class GameMap
     public Zone? ZoneAt(Point p) => Zones.FirstOrDefault(z => z.Area.Contains(p));
 
     public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp
-        or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth or Tile.Waystone or Tile.Inscription;
+        or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth or Tile.Waystone or Tile.Inscription or Tile.GateBroken;
 
     public static bool IsTransparent(Tile tile) => IsWalkable(tile) && tile != Tile.Brush;
 

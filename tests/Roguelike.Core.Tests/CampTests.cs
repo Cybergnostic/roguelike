@@ -817,22 +817,6 @@ public class CampTests
     }
 
     [Fact]
-    public void AnIncursionWaitsUntilThePlayerIsBack()
-    {
-        var world = Valley();
-        world.Player.Position = world.Map.StairsDown!.Value;
-        world.Step(new DescendAction());
-        world.Player.Hp = 100_000;
-        world.ObserverMode = true;
-        Run(world, 320);
-        world.ObserverMode = false;
-        world.Player.Position = world.Map.StairsUp!.Value;
-        world.Step(new AscendAction());
-
-        Assert.Single(world.Step(new WaitAction()).OfType<IncursionBegan>());
-    }
-
-    [Fact]
     public void AnUnopposedIncursionReachesTheCampAndEnds()
     {
         var world = Valley();

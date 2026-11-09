@@ -191,7 +191,7 @@ docs/PROJECT.md              this file
    per-map state there, not on `World`. While a map is built, `world.Rng` is that map's own stream
    (from world seed + location), so a seed gives the same maps however the game is played. Play
    randomness is a separate stream. The surface is `World.SurfaceDepth` (0); its cave leads to level 1.
-   Scaling and loot treat it as level 1 (`DangerDepth`). Walkable and see-through are separate grids
+   Time spent away is applied on return by `World.CatchUp`, in outline. Scaling and loot treat it as level 1 (`DangerDepth`). Walkable and see-through are separate grids
    (brush is one, not the other). Change gates with `World.SetGate`. AI routes use `Map.Passable`,
    which counts closed gates: a planned step into one opens it.
 
@@ -355,7 +355,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: the history generator with tribes and plague** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+- **Current: the finished camp and time passing** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **55.7%**, died 42%.
+  About 59000 turns/s. The bot rarely goes back up, so this barely tests time passing.
+- **The history generator with tribes and plague** (2026-11-09), same setup:
   - Won **55.1%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
     not measured apart from the rest). Left as it is: the user will balance later.
   - Death rate by depth: 9.5, 7.9, 3.1, 1.6, 1.9, 2.9, 4.7, 4.2, 6.9, 9.5%.
@@ -490,8 +492,9 @@ you, a quick way to see progression; spectating: time passes).
 - Ended with 5 unused healing potions.
 
 **Known issues / tech debt**
-- Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
-  are a perfect escape for now. Off-screen time and pursuit belong to later steps.
+- Places the player has left catch up in outline when they return (`World.CatchUp`), not turn by turn: only corpses,
+  healing, calming down, replacing guards and a due incursion. Raids and musters don't run while away.
+- Monsters don't follow on the stairs, so stairs are a perfect escape for now.
 - Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
 - A theft nobody saw is never discovered: guards don't notice missing goods. Gold buys nothing but the toll.
 - The camp only reacts to the undead attack by fighting: it doesn't shut its gate or sound a horn for it.
@@ -578,8 +581,10 @@ you, a quick way to see progression; spectating: time passes).
      mine fell), and plague as a third kind of fall~~ (done 2026-11-09)
    - c. Later: more kinds of fall and tribe, per-level identity below the mine, factions that want the heirloom,
      the incursion depending on the history (it's the same every run).
-8. **Time passing in places the player has left**: camps and levels change while they're away, and show it on return.
-   Corpses rot and wither away eventually (user, 2026-11-09).
+8. ~~**Time passing in places the player has left, first version**~~ (done 2026-11-09): corpses wither and rot away
+   (user's request; the ancient dead don't), and on return monsters have healed and calmed, camps have replaced fallen
+   guards, and an attack that came due was fought without the player, leaving a broken gate, bodies, or a fallen camp.
+   Later: raids and musters while away, repairs, supplies, pursuit up the stairs.
 9. **Graphics and interface**: bring the user's Enhanced ASCII browser prototype into the game
    (https://claude.ai/code/artifact/fd537e04-08d9-409e-8e67-936186d89a81), screen scaling, longer log, mouse, journal.
 10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.

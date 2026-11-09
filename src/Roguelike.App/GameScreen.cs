@@ -177,7 +177,7 @@ public sealed partial class GameScreen : ScreenObject
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
                 LoreDiscovered => Theme.Warning,
                 TheftCommitted { WitnessId: not null } => Theme.Danger,
-                IncursionBegan => Theme.Warning,
+                IncursionBegan or CampAttackedWhileAway or CampReinforced => Theme.Warning,
                 LevelEntered or GameWon or TollPaid or ObjectiveCompleted => Theme.Good,
                 MinionCrumbled or AttributeRaised or SkillLearned or SpecialUsed => Theme.Good,
                 XpGained => Theme.Intent,
@@ -254,7 +254,7 @@ public sealed partial class GameScreen : ScreenObject
         {
             if (!fov[corpse.Position] && !_reveal)
                 continue;
-            var look = Theme.ForCorpse(corpse.Kind);
+            var look = Theme.ForCorpse(corpse.Kind, _world.IsWithered(corpse));
             _map.SetGlyph(corpse.Position.X, corpse.Position.Y, look.Glyph, look.Foreground, _map.Surface[corpse.Position.X, corpse.Position.Y].Background);
         }
         DrawFloorItems();

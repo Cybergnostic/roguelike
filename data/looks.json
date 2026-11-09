@@ -43,6 +43,7 @@
     "cavemouth":  { "glyph": ">", "color": "#B0A090" },
     "waystone":   { "glyph": 239, "color": "#C8C8D2" },
     "inscription": { "glyph": 234, "color": "#D8C890" },
-    "rubble":      { "glyph": 177, "color": "#7A7468" }
+    "rubble":      { "glyph": 177, "color": "#7A7468" },
+    "gatebroken":  { "glyph": "'", "color": "#8A6A3A" }
   }
 }

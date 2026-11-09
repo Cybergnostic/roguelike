@@ -59,6 +59,12 @@ public sealed record PassExpired(string ZoneName, bool Inside) : GameEvent;
 /// <summary>The player took something belonging to a camp. WitnessId: the guard who saw it, if any.</summary>
 public sealed record TheftCommitted(string ZoneName, int? WitnessId) : GameEvent;
 
+/// <summary>Coming back, the player finds a camp was attacked while they were gone. Held: its defenders won.</summary>
+public sealed record CampAttackedWhileAway(string ZoneName, bool Held, int DefendersLost) : GameEvent;
+
+/// <summary>Coming back, the player finds fresh guards have replaced some of a camp's dead.</summary>
+public sealed record CampReinforced(string ZoneName, int Count) : GameEvent;
+
 /// <summary>A squad arrived from elsewhere and is marching on a place.</summary>
 public sealed record IncursionBegan(int SquadId, string FactionId, string ZoneName) : GameEvent;
 

@@ -82,6 +82,9 @@ public sealed class World
         public List<Lair> Lairs { get; } = [];
         public List<Camp> Camps { get; } = [];
         public List<PlaceIncursion> PendingIncursions { get; } = [];
+
+        /// <summary>The turn the player last left, to know how much time has passed here.</summary>
+        public int LeftOnTurn { get; set; }
         public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
         public Dictionary<int, CachedPath> Paths { get; } = [];
         public DistanceMap TowardPlayer { get; } = new(map.Walkable);
@@ -117,7 +120,13 @@ public sealed class World
     public IReadOnlyList<FloorItem> FloorItems => _floorItems;
 
     /// <summary>What's left after a monster dies. Necromancers raise these.</summary>
-    public sealed record Corpse(int Id, string Kind, Point Position, int Turn);
+    public sealed record Corpse(int Id, string Kind, Point Position, int Turn, bool Ancient = false);
+
+    /// <summary>Old enough to have dried out. The ancient dead always are.</summary>
+    public bool IsWithered(Corpse corpse) => corpse.Ancient || Turn - corpse.Turn >= Content.Dungeon.CorpseWithersAfter;
+
+    /// <summary>Recent dead rot away in time; the ancient dead have done all the rotting they will.</summary>
+    private void RotCorpses() => _corpses.RemoveAll(c => !c.Ancient && Turn - c.Turn >= Content.Dungeon.CorpseGoneAfter);
 
     public IReadOnlyList<Corpse> Corpses => _corpses;
 
@@ -265,7 +274,7 @@ public sealed class World
         foreach (var entry in field.Corpses)
             for (int i = 0; i < entry.Count; i++)
                 if (RandomFreeFloor(rooms[i % rooms.Count]) is { } p && !CorpsesAt(p).Any())
-                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
+                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0, Ancient: true));
         var template = Content.SquadTemplates.First(t => t.Name == field.Squad);
         for (int i = 0; i < field.Squads; i++)
             FillSquad(template, rooms[i % rooms.Count]);
@@ -320,7 +329,10 @@ public sealed class World
                     : camps[territory] = BuildCamp(territory);
             if (group.Order == "guard")
                 foreach (var member in squad.Members)
+                {
                     squad.Posts[member.Id] = member.Position;
+                    squad.PostKinds[member.Id] = member.Kind;
+                }
             else
                 squad.Route = group.Route!.Select(p => new Point(p[0], p[1])).ToList();
             if (group.Rally is { } rally)
@@ -396,10 +408,13 @@ public sealed class World
     private void Travel(int depth)
     {
         bool goingUp = depth < Depth;
+        _location.LeftOnTurn = Turn;
         _actors.Remove(Player);
+        int? turnsAway = null;
         if (_locations.TryGetValue(depth, out var known))
         {
             _location = known;
+            turnsAway = Turn - known.LeftOnTurn;
             var arrival = (goingUp ? Map.StairsDown : Map.StairsUp)!.Value;
             // Whoever is standing on the stairs makes room.
             if (ActorAt(arrival) is { } inTheWay)
@@ -417,6 +432,122 @@ public sealed class World
         }
         Player.Energy = 0;
         Emit(new LevelEntered(depth, goingUp));
+        if (turnsAway is { } away)
+        {
+            CatchUp(away);
+            UpdatePerception();
+        }
+    }
+
+    // ---- Time that passed while the player was somewhere else ----
+
+    /// <summary>A place the player comes back to has gone on without them, in outline rather than turn by turn.</summary>
+    private void CatchUp(int away)
+    {
+        RotCorpses();
+        FightMissedIncursions();
+        if (away < Content.Dungeon.CalmAfter)
+            return;
+
+        int healed = away / Content.Dungeon.TurnsPerHealedHp;
+        foreach (var actor in _actors.Where(a => a != Player && !a.IsDead))
+            actor.Hp = Math.Min(actor.MaxHp, actor.Hp + healed);
+        foreach (var squad in _squads)
+        {
+            squad.SettleDown();
+            squad.Morale = Math.Min(Squad.MaxMorale, squad.Morale + away);
+            foreach (var member in squad.Members)
+                if (squad.Posts.TryGetValue(member.Id, out var post) && IsFree(post))
+                    member.Position = post;
+        }
+        _paths.Clear();
+        ReplaceFallenGuards(away);
+    }
+
+    /// <summary>A camp not wiped out sends for new guards, one per so many turns, for the posts left empty.</summary>
+    private void ReplaceFallenGuards(int away)
+    {
+        foreach (var camp in _location.Camps.Where(c => !c.Overrun))
+        {
+            int allowed = away / Content.Dungeon.TurnsPerReplacement, replaced = 0;
+            foreach (var squad in _squads.Where(s => s.Camp == camp).ToList())
+                foreach (var (id, post) in squad.Posts.ToList())
+                {
+                    if (replaced >= allowed || squad.Members.Any(m => m.Id == id) || !IsFree(post))
+                        continue;
+                    var kind = squad.PostKinds[id];
+                    var fresh = SpawnMonster(kind, post, squad);
+                    squad.Posts.Remove(id);
+                    squad.PostKinds.Remove(id);
+                    squad.Posts[fresh.Id] = post;
+                    squad.PostKinds[fresh.Id] = kind;
+                    replaced++;
+                }
+            if (replaced > 0)
+                Emit(new CampReinforced(camp.Zone.Name, replaced));
+        }
+    }
+
+    /// <summary>An attack on a camp that came due while the player was gone is settled by comparing the two sides.</summary>
+    private void FightMissedIncursions()
+    {
+        var pending = _location.PendingIncursions;
+        foreach (var incursion in pending.Where(i => Turn >= i.Turn).ToList())
+        {
+            pending.Remove(incursion);
+            var zone = SurfaceZone(incursion.Target);
+            var camp = _location.Camps.First(c => c.Zone == zone);
+            var defenders = _squads.Where(s => s.Camp == camp).SelectMany(s => s.Members).Where(m => !m.IsDead).ToList();
+            double attack = incursion.Members.Sum(m => (double)Content.Monsters[m.Monster].MaxHp * Content.Monsters[m.Monster].Attack);
+            double defence = defenders.Sum(d => (double)d.Hp * d.Attack);
+            bool held = defence * (0.8 + Rng.NextDouble() * 0.4) >= attack;
+
+            var battleground = camp.Toll?.Gate ?? zone.Heart;
+            int lost = held ? (int)Math.Round(defenders.Count * Math.Min(0.7, attack / Math.Max(1, defence) * 0.5)) : defenders.Count;
+            for (int i = 0; i < lost; i++)
+            {
+                var dead = defenders[Rng.NextInt(defenders.Count)];
+                defenders.Remove(dead);
+                Fall(dead, battleground);
+            }
+            _squads.RemoveAll(s => s.Members.Count == 0);
+
+            if (camp.Toll is { } toll)
+                Map.SetTile(toll.Gate, Tile.GateBroken);
+
+            if (held)
+                foreach (var member in incursion.Members)
+                    _corpses.Add(new Corpse(_nextCorpseId++, member.Monster, EmptyCellNear(battleground), Turn));
+            else
+            {
+                camp.Overrun = true;
+                OccupyCamp(incursion, zone, Math.Min(0.7, 1 - defence / Math.Max(1, attack)));
+            }
+            Emit(new CampAttackedWhileAway(zone.Name, held, lost));
+        }
+    }
+
+    /// <summary>The winners of a fight the player missed move into the place they took.</summary>
+    private void OccupyCamp(PlaceIncursion incursion, Zone zone, double share)
+    {
+        var squad = new Squad(_nextSquadId++, Content.Factions[incursion.Faction]);
+        _squads.Add(squad);
+        int survivors = Math.Max(1, (int)Math.Round(incursion.Members.Count * share));
+        foreach (var member in incursion.Members.Take(survivors))
+            SpawnMonster(member.Monster, Map.Tiles.Positions().Where(IsFree).MinBy(p => Distance(p, zone.Heart)), squad);
+        squad.Home = zone.Heart;
+    }
+
+    private Point EmptyCellNear(Point place) =>
+        Map.Tiles.Positions().Where(p => IsFree(p) && !CorpsesAt(p).Any()).MinBy(p => Distance(p, place));
+
+    /// <summary>Someone dies off-screen, leaving a body where the fighting was.</summary>
+    private void Fall(Actor dead, Point place)
+    {
+        _corpses.Add(new Corpse(_nextCorpseId++, dead.Kind, EmptyCellNear(place), Turn));
+        dead.Hp = 0;
+        _actors.Remove(dead);
+        SquadOf(dead)?.Members.Remove(dead);
     }
 
     /// <summary>Stairs down in the room farthest (walking) from the arrival point that no lair holds.</summary>
@@ -489,12 +620,16 @@ public sealed class World
             return true;
         });
         Turn++;
+        if (Turn % CorpseCheckEvery == 0)
+            RotCorpses();
         int regen = RegenInterval;
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
         UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
         return [.. _events];
     }
+
+    private const int CorpseCheckEvery = 10;
 
     /// <summary>Turns per HP the player regains: player.json's interval, shortened by Regen bonuses (never below 2).</summary>
     public int RegenInterval =>
@@ -1343,7 +1478,7 @@ public sealed class World
         foreach (var entry in lair.Corpses ?? [])
             for (int i = 0; i < entry.Count; i++)
                 if (RandomFreeFloor(room) is { } p && !CorpsesAt(p).Any())
-                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
+                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0, Ancient: true));
         return built;
     }
 

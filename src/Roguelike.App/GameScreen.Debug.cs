@@ -177,7 +177,8 @@ public sealed partial class GameScreen
     }
 
     private string CampLabel(Camp camp) =>
-        camp.Provoked ? "ALARMED"
+        camp.Overrun ? "OVERRUN"
+        : camp.Provoked ? "ALARMED"
         : camp.HasPass(_world.Turn) ? $"paid {camp.PassTurnsLeft(_world.Turn)}"
         : "quiet";
 

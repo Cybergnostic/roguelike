@@ -105,7 +105,7 @@ public sealed partial class GameScreen
             foreach (var item in _world.ItemsAt(p))
                 lines.Add((Capitalize(ItemText.AName(item)), Theme.ForItem(item).Foreground));
             foreach (var corpse in _world.CorpsesAt(p))
-                lines.Add(($"The corpse of a {corpse.Kind.Replace('_', ' ')}", Theme.Text));
+                lines.Add((_world.IsWithered(corpse) ? $"The withered remains of a {corpse.Kind.Replace('_', ' ')}" : $"The corpse of a {corpse.Kind.Replace('_', ' ')}", Theme.Text));
         }
 
         var (name, about) = TileText(map.Tiles[p]);
@@ -164,7 +164,9 @@ public sealed partial class GameScreen
     {
         if (_world.Camps.FirstOrDefault(c => c.IsThreshold(p)) is not { } camp)
             return;
-        if (camp.Provoked)
+        if (camp.Overrun)
+            lines.Add(("Nobody here takes tolls any more.", Theme.Danger));
+        else if (camp.Provoked)
             lines.Add(("They won't deal with you now.", Theme.Danger));
         else if (camp.HasPass(_world.Turn))
             lines.Add(($"Paid: {camp.PassTurnsLeft(_world.Turn)} turns left.", Theme.Good));
@@ -191,6 +193,7 @@ public sealed partial class GameScreen
         Tile.Waystone => ("Waystone", "The old marker where the road begins."),
         Tile.Inscription => ("Inscribed stone", "Old words, carved deep. Step on it to read them."),
         Tile.Rubble => ("Fallen rock", "The roof came down here."),
+        Tile.GateBroken => ("Broken gate", "Smashed open. It won't shut again."),
         _ => (tile.ToString(), ""),
     };
 

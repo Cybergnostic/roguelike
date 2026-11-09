@@ -33,10 +33,12 @@ public static class Theme
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
     /// <summary>A corpse: the "corpse" glyph in a dim version of the dead kind's colour.</summary>
-    public static Look ForCorpse(string kind)
+    public static Look ForCorpse(string kind, bool withered = false)
     {
         var c = ForKind(kind).Foreground;
-        return new Look(Looks.CorpseGlyph, new Color(c.R / 2, c.G / 2, c.B / 2));
+        return withered
+            ? new Look(Looks.CorpseGlyph, new Color(95, 90, 80))
+            : new Look(Looks.CorpseGlyph, new Color(c.R / 2, c.G / 2, c.B / 2));
     }
 
     public static Look ForTile(Tile tile) =>
