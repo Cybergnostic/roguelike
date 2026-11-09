@@ -207,6 +207,8 @@ Generate or select a coherent **history and geography**, then materialize places
 
 ## 13. UI, sound, and modern presentation
 
+See also [§19: Character glyphs, auras, and visual effects](#19-character-glyphs-auras-and-visual-effects) for a detailed proposal.
+
 Keep the readability of Brogue, the information design of Cogmind, and the atmosphere of Caves of Qud.
 
 - Enhanced ASCII as a default; classic ASCII remains usable; optional hybrid tiles can wait.
@@ -294,3 +296,83 @@ Existing seeded simulation and scenario testing is a strong asset. Extend it to 
 - **Status:** Explore / Later / Existing / Rejected
 - **First experiment:** Smallest reproducible scenario that could validate it.
 ```
+## 19. Character glyphs, auras, and visual effects
+
+**Status: [Explore] — design discussion, not an implementation commitment.** This elaborates on the UI direction in §13 and [UI_DESIGN_VISION.md](UI_DESIGN_VISION.md).
+
+### Overall aesthetic
+
+Aim for **Cogmind's dynamic feedback with Brogue's restraint**: a crisp Enhanced ASCII map with selective glow, animated highlights, meaningful aura effects, and brief particles. Do not replace clear ASCII with constant neon or heavy post-processing. **The glyph remains readable even when its effect is removed.**
+
+The player asked about effects **around the @ and enemies**, not just tinting the characters themselves: halos, surrounding-cell illumination, weight/boldness, outlines, pulses, and effects that make characters feel alive.
+
+### Character visual hierarchy
+
+| Subject | Default treatment | When to intensify |
+|---|---|---|
+| Player `@` | Bright, stable, strongly identifiable; subtle warm outline or soft shadow | Dangerous status, a major ability, selected/targeted, damage |
+| Ordinary goblin `g` or wildlife | Clean, readable colored glyph; minimal persistent effect | Attack windup, alarm, poison, burning, damage, pursuit cue |
+| Elite/commander `G` | Heavier glyph or distinctive outline; subdued rank/background marking | Orders, rallying, special move; brief stronger pulse |
+| Necromancer `N`, wraith, major supernatural actor | Distinct supernatural color; restrained soft halo that may extend beyond the cell | Casting, corpse raising, shielding, life-drain, major event |
+| Corpse, summoned unit, object | Normally quiet; no constant glow unless it has a mechanical reason | Raised corpse briefly flickers; active magical item pulses |
+
+**Important implementation finding:** `Theme.Bold(glyph)` already maps glyphs to heavier font copies, and `GameScreen.DrawMap()` currently calls it for **every actor**. Thus boldness is not yet a rank/importance signal. Consider normal glyphs for ordinary creatures and stronger visual weight reserved for the player, elite/commander, and major supernatural enemies; confirm legibility at actual 18x18 map-cell size before changing it.
+
+### Three categories of effects
+
+1. **Identity effects:** stable but restrained visual hierarchy (player outline, elite typographic weight, supernatural baseline aura). These help identify what the character *is*.
+2. **Status effects:** visible, temporary gameplay conditions (bracing, poison, burning, shielding, enchantment, fear). These indicate what currently affects them.
+3. **Action effects:** short, event-driven telegraphs and impacts (archer drawing an arrow, charging fighter, commander shouting orders, necromancer raising corpses, shield absorbing a hit). These explain what the character *does*.
+
+Avoid using the same visual treatment indiscriminately for rank, hostility, item rarity, player selection, and threat: they convey different information.
+
+### Specific candidates to prototype
+
+- **Braced / feet set:** faint ground ring, firm underline, or edge markers around the actor's cell; no continuous bright halo.
+- **Arrow protection / shield:** a cool outline or transient flash **when a missile is absorbed**, ideally distinct from a magical barrier.
+- **Magical shield:** thin blue-white aura; brief burst on an absorbed impact.
+- **Poison:** a few intermittent muted green motes; the text/status panel preserves clarity.
+- **Burning:** tiny embers and, only if fire emits actual light in game rules, legitimate illumination.
+- **Necromancy:** faint violet halo around the caster; pulse when spell is performed; eligible visible corpses flicker before rising.
+- **Wraith:** subtle trailing afterimage on movement (very short and optional).
+- **Elite leadership:** short rally pulse or shared response cue when a commander gives an observable order, without drawing hidden squad links.
+- **Aiming / charging:** momentary directional cue and windup, giving the player an opportunity to understand the threat *if the mechanics really grant that opportunity*.
+- **Damage / miss / stagger:** crisp one-beat hit feedback rather than long animation that blocks input.
+
+### Effects should sometimes extend beyond one cell
+
+At the current approximately **18×18 px map-cell** size, a soft halo need not be restricted to the actor cell. An independent transparent render layer can add restrained radial glow, particles, afterimages, directional indicators, or tint to adjacent cells while the glyph itself stays sharp.
+
+**Two visually different effects to preserve:**
+- **Decorative aura:** a small visible halo that does **not** imply additional in-game detection or illumination.
+- **Actual light source:** a simulation-backed radius and intensity that changes visibility, terrain lighting, stealth, and AI perception consistently.
+
+Do not let a purely decorative aura accidentally look like a mechanically significant light radius. Neither type should expose enemies outside actual player perception or explored knowledge.
+
+### Layered technical approach (no engine rewrite)
+
+Existing relevant code: [`Theme.cs`](../src/Roguelike.App/Theme.cs) (palette, `Bold`, `Lit`, rank backgrounds), [`GameScreen.cs`](../src/Roguelike.App/GameScreen.cs) (map/actor rendering), [`GameScreen.Popups.cs`](../src/Roguelike.App/GameScreen.Popups.cs) (existing floating overlays), [`data/looks.json`](../data/looks.json) (glyph/color definitions).
+
+- **Phase A - cheap:** normal versus bold glyph rules; brighter/dimmer foreground; rank/status background tints; clear selected and braced markers. Verify appearance in crowding/darkness.
+- **Phase B - cell-based:** bounded neighboring-cell aura, slow pulses, short hit/guard/command telegraphs. Add a cosmetic effect queue separate from Core's deterministic rules and RNG.
+- **Phase C - animated overlays:** 1–3 particles, brief trails, visible cast effects and shielding impacts. Avoid masking map glyphs or terrain affordances.
+- **Phase D - optional smooth rendering:** explore transparent MonoGame sprites or a separate overlay for feathered radial glows/additive effects. Shader/bloom support should be *verified by prototype*, not assumed. No mandatory move from SadConsole.
+
+**Effect data model suggestion:** visual effect descriptor = kind, source actor or known cell, semantic role/color, start time, duration, radius/intensity, and player-visibility constraints. The UI consumes structured world events where available; simulation remains fully deterministic and presentation animation never consumes simulation randomness.
+
+### Animation policy
+
+- **Persistent:** player prominence and very faint supernatural baseline only.
+- **Occasional:** low-frequency glow/pulse for significant magic, no constant flashing in standard combat.
+- **Immediate:** short, skippable feedback for hits, barriers, alerts, windups, spells, and orders.
+- **Accessibility:** reduced-motion option, no mandatory flashing, color-independent shape/text cues, readable classic profile.
+- **Priority:** only the most important aura/status is visually prominent on a character at once; other states are available through inspection and the HUD. Don't create rainbow stacks.
+- **No omniscience:** effects from unseen actors, unheard signals, or hidden orders do not appear in the normal player view.
+
+### First focused visual experiment
+
+Render one tiny encounter scene in four states: **player `@`, ordinary goblin `g`, elite commander `G`, necromancer `N`**. Compare the view during ordinary movement, in torchlit darkness, during a crowded squad battle, and when each actor performs its defining action. Test at current font/cell dimensions and in Classic mode.
+
+**Acceptance questions:** Can the player instantly find `@`? Can they distinguish ordinary from exceptional enemies *without* inspection? Are active status effects legible? Does a command, spell, or charge read as an action instead of random spectacle? Can all visual effects be disabled while preserving the necessary gameplay information?
+
+**Open aesthetic choice:** Keep a mostly Brogue-like quiet surface with occasional spectacle, or use more frequent Cogmind-like event feedback? Current recommendation: **dynamic on meaningful actions, restrained at rest**.
