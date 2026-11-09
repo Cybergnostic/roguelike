@@ -515,3 +515,90 @@ This single scenario tests **material properties + digging + weather + evidence 
 Should environmental manipulation be a **primary gameplay pillar** (players frequently dig, burn, flood, build and reshape places) or a **supporting layer** (occasional meaningful interactions that deepen exploration and squad tactics)? This decision affects world generation, equipment design, AI, performance, UI, and development scope.
 
 **Current recommendation:** begin as a supporting layer, prove a few surprising systemic encounters, then promote it to a central pillar only if testing shows that terrain manipulation is genuinely fun and distinct.
+
+---
+
+## 21. Further systemic additions - physical interaction, senses, magic, recurring characters
+
+> Discussion: 2026-11-09. **User feedback recorded**. Brainstorming, not a locked roadmap. The first ideas are particularly worth exploring. Do not treat any proposal below as implemented.
+
+### Priority and user response
+
+| Idea | Current disposition |
+|---|---|
+| Small-scale physical object interaction | **Strong interest.** Keep scope limited; do not build a full physics or construction simulator. |
+| Different creature senses | **Strong interest.** A particularly good fit for species differences, AI, stealth, weather, and terrain. |
+| Distinctive systemic magic | **Major future pillar.** Magic has not been designed yet; it should be a huge and distinctive part of the game, **not merely another ranged damage build**. Explore thoroughly later rather than specifying its system prematurely. |
+| Recurring enemies and characters | **Strong interest.** Angband-style memorable named uniques (user mentioned Grishnákh and Gollum as examples), potentially complemented by persistent emergent individuals. |
+| Social interaction and deception | **Keep as an open idea.** Player is unsure what form it should take; avoid presuming complex disguises/dialogue. |
+| Expedition preparation | **Keep as an open idea.** Interesting, but implementation and emphasis undecided. |
+| Environmental mysteries and mechanisms | **Keep as an open idea.** Explore when location/history/physical systems mature. |
+
+### Physical object interaction - small, tactical, systemic [Explore - strong interest]
+
+A small action vocabulary could cover pushing/pulling objects, dragging bodies, throwing portable items, moving obstacles, using a rope, or overturning a cart for cover. Focus on a few test objects and consistent rules rather than trying to simulate every object.
+
+Examples:
+- Push a crate in front of a gate, obstructing a pursuer.
+- Move a corpse out of the necromancer's reach; moving it costs time and may leave traces.
+- Tip a cart as temporary cover; enemies can reposition around it or move it if capable.
+- Move a heavy object with Strength and action-time costs; weight/material and terrain are relevant.
+
+The AI must understand blocked paths; world persistence must remember meaningful object changes. Avoid cumbersome commands and excessive inventory micro-management.
+
+### Creature-specific senses [Explore - strong interest]
+
+Perception should not be a single universal sight-radius stat. Build an extensible perception vocabulary and start with a few archetypes:
+
+- Humans and goblins: sight and hearing, impacted by light, smoke, cover and noise.
+- Wolves: smell and scent trails, influenced by wind, rain, time and proximity; not omniscient tracking.
+- Spiders: vibrations or disturbed webs; crossing a web quietly may matter more than light.
+- Bats: echolocation under meaningful constraints.
+- Special undead: possibly detect life or magic, with clear, learnable limits.
+
+**Gameplay contract:** The player needs clues to understand why they were detected; monster senses must respect uncertainty and stale information. Different species should pose different *problems*, not just have different numerical awareness. Do not implement every proposed sense at once; start with one meaningful nonvisual sense.
+
+### Magic as a major, unusual pillar [Explore later - strong interest, specifics undecided]
+
+User wants magic to be **fundamentally more than a ranged build**. Do not lock in spell schools, resource bars or a fixed spell system yet. Candidate design questions:
+
+- Magic that changes rules or situations: darkness, silence, illusions, light, ice, weather, matter, minds and ritual effects.
+- Magic that interacts with actual materials, corpses, terrain, sound, AI knowledge and faction behavior.
+- Rituals that need time, preparation, places, materials or risk, rather than functioning as instant combat attacks.
+- Enemies use magic intelligently and its effects should be legible and predictable enough for tactical choices.
+- The player could become a magician with a meaningfully different relationship to the world, rather than an archer with mana.
+
+These are **possibilities, not user-approved specifications**. Magic merits its own later design discussion.
+
+### Memorable named uniques and persistent individuals [Explore - strong interest]
+
+User explicitly referenced the Angband tradition of named recurring figures and uniques, e.g. Grishnákh and Gollum. Distinguish two complementary models:
+1. **Authored / generated world uniques:** memorable named creatures or characters, recognizable across runs, with distinct capabilities, habitats, drops and behavior; their circumstances may differ per world seed.
+2. **Emergent persistent individuals:** a commander survives an encounter, remembers what it actually witnessed, changes orders or equipment, and can reappear **later in the same run**.
+
+Do not imply that a procedurally surviving enemy literally remembers a previous permadeath run unless the game deliberately introduces cross-run continuity. A named unique can recur across new runs without carrying its previous-run memories. As always, no omniscient knowledge transfer.
+
+### Social interaction and deception [Keep open]
+
+Possible elements: faction recognition, trust, warnings, tolls, reputation, permissions, bluffing, forged credentials or disguise. But the user has **not decided** the extent or nature of this system. Start with established camp interactions; avoid assuming a deep dialogue tree or social-simulation overhaul.
+
+### Expedition preparation [Keep open]
+
+Possible trade-offs between carried tools, ropes, ammunition, healing, light and capacity; temporary camps or caches. A larger interconnected overworld makes this more relevant. Avoid hunger/thirst chores and constant maintenance just to justify supplies.
+
+### Environmental mysteries and mechanisms [Keep open]
+
+History-linked devices such as old pumps, water controls, supports, sealed passages and working machinery could reward observation and material interaction. Prefer multiple systemic outcomes over one scripted solution; connect discoveries to prior builders and factions. Avoid elaborate bespoke puzzle production before core interactions are stable.
+
+### Other related suggestions - not explicitly selected by user
+
+- A readable run chronicle/postmortem to expose encounters, discoveries, consequences and causes of death.
+- Optional late-game tactical convenience (automation or intention previews) is only brainstorming; preserve player agency and avoid omniscient forecasting.
+
+### Suggested first small prototypes - not a commitment
+
+1. A crate that either side can push to obstruct a doorway, with pathing and persistence.
+2. Wolves that track an aging scent trail that rainfall or wind can disrupt.
+3. A named goblin commander unique who may survive and recur within a run.
+
+**Working principle:** add more meaningful *verbs* and kinds of knowledge, not only more numbers. Connect new systems to existing AI, history, weather, physical terrain and player agency. User has selected areas of interest, **not requested implementation**.
