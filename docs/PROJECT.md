@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts)
+Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts; the valley)
 
 ---
 
@@ -93,6 +93,7 @@ data/                        game content (JSON with comments), copied next to e
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
   skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
+  surface.json               the hand-drawn valley: terrain rows + legend, start, zones, squads, loot
   looks.json                 front end only: glyph + colour per kind, item and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
@@ -101,6 +102,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Map/CellGrid.cs            array-backed bool grid; walkability lives in one so pathfinding reads an array
   Map/MapGenerator.cs        GoRogue rooms-and-mazes, tuned roomy (will be replaced by history-driven gen)
   Map/LairBuilder.cs         rebuilds a room as a lair ("tower": lair floor + pillars); keeps it connected
+  Map/PlaceBuilder.cs        turns a hand-drawn place from the content files into a GameMap
   Map/DistanceMap.cs         fast BFS Dijkstra map (IGridView<double?>)
   Map/SafetyMap.cs           Brogue flee map built from a DistanceMap
   Entities/Actor.cs          anything that takes turns; Kind, Faction, stats, Fearless, Brain
@@ -183,7 +185,9 @@ docs/PROJECT.md              this file
 12. **Locations:** all per-map state lives in `World.Location` and is kept for the whole game; add new
    per-map state there, not on `World`. While a map is built, `world.Rng` is that map's own stream
    (from world seed + location), so a seed gives the same maps however the game is played. Play
-   randomness is a separate stream.
+   randomness is a separate stream. The surface is `World.SurfaceDepth` (0); its cave leads to level 1.
+   Scaling and loot treat it as level 1 (`DangerDepth`). Walkable and see-through are separate grids
+   (brush is one, not the other). Change gates with `World.SetGate`, which also drops cached paths.
 
 ---
 
@@ -205,7 +209,7 @@ docs/PROJECT.md              this file
 ```sh
 dotnet build Roguelike.slnx
 dotnet test                                     # ~15 s
-dotnet run --project src/Roguelike.App          # play
+dotnet run --project src/Roguelike.App          # play, from the valley (--dungeon starts at level 1)
 dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
@@ -221,8 +225,8 @@ The report gives: death rate, survivors' lowest HP and close calls (<25% HP), sh
 inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
 ### In-game keys
-Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. After a game: `R` new
-seed, `S` retry this seed. Quit: `Esc`.
+Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Gates: walk into one to open it, `C`
+closes an adjacent one. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, `x` destinations, `?` last known
@@ -473,6 +477,9 @@ you, a quick way to see progression; spectating: time passes).
 **Known issues / tech debt**
 - Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
   are a perfect escape for now. Off-screen time and pursuit belong to later steps.
+- The camp's goblins still attack on sight (the player is hostile in factions.json until step 6d) and
+  only stand at their posts. AI paths treat a closed gate as a wall, so shutting the gate pens them in.
+- Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
   forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
 - Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
@@ -529,8 +536,9 @@ you, a quick way to see progression; spectating: time passes).
    - ~~b. Stored locations: per-level state moves out of `World` so maps can be left and revisited;
      each location generates from its own seed-derived stream; the seed can be retried after death~~
      (done 2026-11-09; locations are keyed by depth for now, surface maps will need a real id)
-   - c. A hand-built camp from a text map: road, palisade, working gate, cover, cave down. No
-     generator until the camp is fun. Doors and gates must clear cached paths and update sight.
+   - ~~c. A hand-built camp from a text map: road, palisade, working gate, cover, cave down. No
+     generator until the camp is fun. Doors and gates must clear cached paths and update sight~~
+     (done 2026-11-09: `data/surface.json`; the road passes out of the guards' sight)
    - d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
      to a rally point. Separate faction relation from access policy (the player starts neutral).
    - e. Warning and toll (needs money, which doesn't exist yet), plus examine mode.

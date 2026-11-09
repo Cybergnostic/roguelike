@@ -16,6 +16,18 @@ public enum Tile : byte
     StairsDown,
     /// <summary>The way back up to the level above.</summary>
     StairsUp,
+    Grass,
+    Road,
+    /// <summary>Thick undergrowth: you can push through it, but nobody can see through it.</summary>
+    Brush,
+    Tree,
+    /// <summary>A wall of sharpened logs around a camp.</summary>
+    Palisade,
+    GateOpen,
+    /// <summary>Blocks movement and sight; walking into it opens it.</summary>
+    GateClosed,
+    /// <summary>The surface's way down into the dungeon.</summary>
+    CaveMouth,
 }
 
 /// <summary>
@@ -32,7 +44,8 @@ public sealed class GameMap
     /// <summary>The terrain. Read-only so walkability stays in sync: change it with <see cref="SetTile"/>.</summary>
     public IGridView<Tile> Tiles => _tiles;
     private readonly ArrayView<Tile> _tiles;
-    private readonly CellGrid _open;
+    private readonly CellGrid _walkable;
+    private readonly CellGrid _transparent;
 
     /// <summary>Cells the player has ever seen. Pure game state, so it lives in the core.</summary>
     public ArrayView<bool> Explored { get; }
@@ -51,7 +64,10 @@ public sealed class GameMap
 
     public Zone? ZoneAt(Point p) => Zones.FirstOrDefault(z => z.Area.Contains(p));
 
-    public static bool IsOpen(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp;
+    public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp
+        or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth;
+
+    public static bool IsTransparent(Tile tile) => IsWalkable(tile) && tile != Tile.Brush;
 
     /// <summary>Where the stairs down are (every level has one).</summary>
     public Point? StairsDown { get; set; }
@@ -66,19 +82,24 @@ public sealed class GameMap
         _tiles = tiles;
         Rooms = rooms;
         Explored = new ArrayView<bool>(Width, Height);
-        // Every open tile is also see-through (and the reverse), so one grid serves both.
-        _open = new CellGrid(Width, Height);
+        _walkable = new CellGrid(Width, Height);
+        _transparent = new CellGrid(Width, Height);
         for (int i = 0; i < Width * Height; i++)
-            _open.Cells[i] = IsOpen(tiles[i]);
-        Walkable = _open;
-        Transparent = _open;
+        {
+            _walkable.Cells[i] = IsWalkable(tiles[i]);
+            _transparent.Cells[i] = IsTransparent(tiles[i]);
+        }
+        Walkable = _walkable;
+        Transparent = _transparent;
         PlayerFov = new RecursiveShadowcastingFOV(Transparent);
     }
 
     public void SetTile(Point p, Tile tile)
     {
         _tiles[p] = tile;
-        _open.Cells[p.Y * Width + p.X] = IsOpen(tile);
+        int i = p.Y * Width + p.X;
+        _walkable.Cells[i] = IsWalkable(tile);
+        _transparent.Cells[i] = IsTransparent(tile);
     }
 
     public bool InBounds(Point p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;

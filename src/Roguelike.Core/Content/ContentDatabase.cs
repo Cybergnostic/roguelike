@@ -109,6 +109,22 @@ public sealed record MusterDef(string Squad, int Every, int Max);
 /// <summary>Remains placed at level creation: Count corpses of a monster kind.</summary>
 public sealed record CorpseEntry(string Monster, int Count);
 
+public sealed record PlaceZone(string Name, string Faction, int[] Area);
+public sealed record PlaceMember(string Monster, int[] At);
+
+/// <summary>A squad placed by hand: it waits at Home and goes at most Leash steps from it.</summary>
+public sealed record PlaceGroup(string Name, string Faction, int Leash, int[] Home, IReadOnlyList<PlaceMember> Members);
+public sealed record PlaceLoot(string Table, int[] At);
+
+/// <summary>A hand-drawn map (surface.json): terrain as rows of characters, plus who and what is on it.</summary>
+public sealed record PlaceDef(string Name, IReadOnlyDictionary<string, Map.Tile> Legend, IReadOnlyList<string> Rows, int[] Start,
+    IReadOnlyList<PlaceZone> Zones, IReadOnlyList<PlaceGroup> Groups, IReadOnlyList<PlaceLoot> Loot)
+{
+    public int Width => Rows[0].Length;
+    public int Height => Rows.Count;
+    public Map.Tile TileAt(int x, int y) => Legend[Rows[y][x].ToString()];
+}
+
 /// <summary>
 /// All game content loaded from the data directory (factions.json, monsters.json, spawns.json),
 /// validated so broken references fail at startup with a clear message.
@@ -134,6 +150,9 @@ public sealed class ContentDatabase
     public XpRules Xp => Player.Xp ?? new XpRules();
     public CombatRules Combat { get; }
     public DungeonDef Dungeon { get; }
+
+    /// <summary>The hand-drawn surface map (surface.json).</summary>
+    public PlaceDef Surface { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
@@ -166,8 +185,9 @@ public sealed class ContentDatabase
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
-        DungeonDef dungeon, AffixRules affixes)
+        DungeonDef dungeon, AffixRules affixes, PlaceDef surface)
     {
+        Surface = surface;
         Affixes = affixes;
         Combat = combat;
         Dungeon = dungeon;
@@ -311,9 +331,65 @@ public sealed class ContentDatabase
                     throw Error("spawns.json", $"squad '{s.Name}' lays out corpses of unknown monster '{c.Monster}'");
         }
 
+        var surface = Read<PlaceDef>(directory, "surface.json");
+        ValidateSurface(surface, factions, monsters, itemFile);
+
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes);
+            attributes, raise, trees, combat, dungeon, affixes, surface);
+    }
+
+    private static void ValidateSurface(PlaceDef place, Dictionary<string, Faction> factions,
+        Dictionary<string, MonsterDef> monsters, ItemFile itemFile)
+    {
+        const string name = "surface.json";
+        if (place.Rows.Count == 0 || place.Rows[0].Length == 0 || place.Rows.Any(r => r.Length != place.Rows[0].Length))
+            throw Error(name, "rows must be non-empty and all the same length");
+        foreach (var c in place.Rows.SelectMany(r => r).Distinct())
+            if (!place.Legend.ContainsKey(c.ToString()))
+                throw Error(name, $"character '{c}' in rows isn't in the legend");
+
+        int caves = place.Rows.SelectMany(r => r).Count(c => place.Legend[c.ToString()] == Map.Tile.CaveMouth);
+        if (caves != 1)
+            throw Error(name, $"needs exactly one cave mouth, found {caves}");
+
+        void CheckCell(int[] at, string what)
+        {
+            if (at is not [var x, var y] || x < 0 || y < 0 || x >= place.Width || y >= place.Height)
+                throw Error(name, $"{what}: position must be [x, y] inside the map");
+            if (!Map.GameMap.IsWalkable(place.TileAt(x, y)))
+                throw Error(name, $"{what}: position [{x}, {y}] isn't walkable");
+        }
+
+        CheckCell(place.Start, "start");
+        foreach (var zone in place.Zones)
+        {
+            FactionOrThrow(factions, zone.Faction, name);
+            if (zone.Area is not [var x, var y, var w, var h] || x < 0 || y < 0 || w <= 0 || h <= 0
+                || x + w > place.Width || y + h > place.Height)
+                throw Error(name, $"zone '{zone.Name}': area must be [x, y, width, height] inside the map");
+        }
+        foreach (var group in place.Groups)
+        {
+            FactionOrThrow(factions, group.Faction, name);
+            if (group.Leash < 0 || group.Members.Count == 0)
+                throw Error(name, $"group '{group.Name}': needs members and a leash >= 0");
+            CheckCell(group.Home, $"group '{group.Name}' home");
+            foreach (var member in group.Members)
+            {
+                if (!monsters.TryGetValue(member.Monster, out var def))
+                    throw Error(name, $"group '{group.Name}' uses unknown monster '{member.Monster}'");
+                if (def.Faction != group.Faction)
+                    throw Error(name, $"group '{group.Name}' ({group.Faction}) includes '{def.Id}' of faction '{def.Faction}'");
+                CheckCell(member.At, $"group '{group.Name}' member '{member.Monster}'");
+            }
+        }
+        foreach (var loot in place.Loot)
+        {
+            if (!itemFile.LootTables.ContainsKey(loot.Table))
+                throw Error(name, $"loot uses unknown table '{loot.Table}'");
+            CheckCell(loot.At, $"loot '{loot.Table}'");
+        }
     }
 
     private static AffixRules LoadAffixes(AffixFile file, int levels)

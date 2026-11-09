@@ -1,0 +1,59 @@
+{
+  // The surface: one hand-drawn map, level 0. Its cave mouth leads to dungeon level 1.
+  // "legend" says what each character in "rows" is. Coordinates are [x, y], from 0 at the top left.
+  "name": "the valley",
+  "legend": {
+    ".": "grass", "=": "road", ";": "brush", "T": "tree", "#": "palisade",
+    ":": "lairfloor", "/": "gateopen", "+": "gateclosed", ">": "cavemouth"
+  },
+  "rows": [
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "T..............................................................................T",
+    "T...............TTTTT.........###########################............TTTTTTTTT.T",
+    "T...............TTTTT.........#:::::::::::::::########::#.TTTTTT.....TTTTTTTTT.T",
+    "T....................;;;;;;;;;#:::::::::::::::#::::::#::#.TTTTTT.....TTTTTTTTT.T",
+    "T.........TTTTT......;;;;;;;;;#::::::::::::::::::::::#::#.TTTTTT...............T",
+    "T.........TTTTT......;;;;;;;;;::::::::::::::::########::#..............TTT.....T",
+    "T.........TTTTT......;;;;;;;;;#:::::::::::::::::::::::::#.........======>T.....T",
+    "T.........TTTTT......;;;;;;;;;#:::::::::::::::::::::::::#.........=....TTT.....T",
+    "T.........TTTTT.........;;;...#:::::::::::::::::::::::::#.........=............T",
+    "T.......................;;;...#############/#############.........=............T",
+    "T.......................;;;................=......................=............T",
+    "T.......................;;;.........;;;;;..=................TTTTT.=...TTTTTTT..T",
+    "T....TTTTT..............;;;.........;;;;;..=..;;;;;.........TTTTT.=...TTTTTTT..T",
+    "T....TTTTT..............;;;.........;;;;;..=..;;;;;.........TTTTT.=...TTTTTTT..T",
+    "T....TTTTT..............;;;.........;;;;;..=..;;;;;.........TTTTT.=...TTTTTTT..T",
+    "T....TTTTT..............;;;.........;;;;;..=..;;;;;.........TTTTT.=...TTTTTTT..T",
+    "T..........................................=..;;;;;...............=...TTTTTTT..T",
+    "T..........................................=......................=...TTTTTTT..T",
+    "T..........................................=......................=............T",
+    "T==================================================================............T",
+    "T..............................................................................T",
+    "T.T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T.T",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+  ],
+  "start": [3, 20],
+  "zones": [
+    { "name": "the Red Tooth camp", "faction": "goblins", "area": [30, 2, 27, 9] }
+  ],
+  // Squads standing where they're placed. They wait at "home" and won't go farther than
+  // "leash" steps from it. Real orders (guard, patrol, challenge) come next.
+  "groups": [
+    { "name": "gate sentries", "faction": "goblins", "leash": 8, "home": [43, 8], "members": [
+      { "monster": "goblin_warrior", "at": [42, 9] },
+      { "monster": "goblin_warrior", "at": [44, 9] },
+      { "monster": "goblin_archer",  "at": [43, 8] }
+    ] },
+    { "name": "camp reserve", "faction": "goblins", "leash": 12, "home": [37, 6], "members": [
+      { "monster": "goblin_warrior", "at": [36, 5] },
+      { "monster": "goblin_warrior", "at": [38, 5] },
+      { "monster": "goblin_archer",  "at": [37, 7] },
+      { "monster": "goblin_shaman",  "at": [39, 6] }
+    ] }
+  ],
+  // Loot in the storehouse, rolled from a loot table in items.json.
+  "loot": [
+    { "table": "floor", "at": [50, 4] },
+    { "table": "floor", "at": [51, 5] }
+  ]
+}

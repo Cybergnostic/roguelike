@@ -30,6 +30,7 @@ public sealed record RaidLaunched(int SquadId, string FactionId, string ZoneName
 
 /// <summary>The player took the stairs and arrived on a new level.</summary>
 public sealed record LevelEntered(int Depth, bool GoingUp = false) : GameEvent;
+public sealed record GateMoved(int ActorId, SadRogue.Primitives.Point At, bool Open) : GameEvent;
 
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;
@@ -101,6 +102,7 @@ public enum FailureReason
     CannotEquip,
     NotDrinkable,
     NotOnStairs,
+    NoGateToClose,
 }
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>

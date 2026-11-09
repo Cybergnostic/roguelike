@@ -56,18 +56,21 @@ public sealed partial class GameScreen : ScreenObject
     /// <summary>Seed for the first game, from --seed; later games are random.</summary>
     public static ulong? StartSeed { get; set; }
 
+    /// <summary>Start at dungeon level 1 instead of the surface (--dungeon, and always when following a command file).</summary>
+    public static bool StartInDungeon { get; set; }
+
     private World NewWorld()
     {
         var seed = StartSeed ?? (ulong)Random.Shared.NextInt64();
         StartSeed = null;
-        var world = World.Create(seed, MapWidth, MapHeight);
+        var world = World.Create(seed, MapWidth, MapHeight, depth: StartInDungeon ? 1 : World.SurfaceDepth);
         _messages.Clear();
         _commands = null; // follow mode drives the new world from here on
         _following = null;
-        AddMessage($"You enter the goblin-infested halls. (seed {seed})", Theme.Text);
+        AddMessage(StartInDungeon ? $"You enter the goblin-infested halls. (seed {seed})" : $"You come down the old road into the valley. (seed {seed})", Theme.Text);
         if (FollowFile is not null)
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
-        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Quit: Esc.", Theme.Text);
+        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Close gate: C  Quit: Esc.", Theme.Text);
         AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
@@ -119,6 +122,8 @@ public sealed partial class GameScreen : ScreenObject
             action = new DescendAction(); // '>'
         else if (keyboard.IsKeyPressed(Keys.OemComma) && shift)
             action = new AscendAction(); // '<'
+        else if (keyboard.IsKeyPressed(Keys.C) && shift)
+            action = new CloseGateAction();
         else if (keyboard.IsKeyPressed(Keys.OemPeriod) || keyboard.IsKeyPressed(Keys.NumPad5)
             || keyboard.IsKeyPressed(Keys.Space))
             action = new WaitAction();
@@ -179,7 +184,8 @@ public sealed partial class GameScreen : ScreenObject
         if (playerMoved)
             DescribeItemsUnderfoot();
         if (playerMoved && _world.Map.StairsDown == _world.Player.Position)
-            AddMessage(_world.Depth >= _world.Content.Dungeon.Levels
+            AddMessage(_world.Depth == World.SurfaceDepth ? "A cave mouth opens here. (> to climb down)"
+                : _world.Depth >= _world.Content.Dungeon.Levels
                 ? "Stairs lead up and out of the dungeon. (> to leave and win)"
                 : "There are stairs down here. (> to descend)", Theme.Warning);
         if (playerMoved && _world.Map.StairsUp == _world.Player.Position)
@@ -354,7 +360,7 @@ public sealed partial class GameScreen : ScreenObject
             player.Hp * 3 <= player.MaxHp ? Theme.Danger : Theme.Good);
         var bow = player.Equipment?.Bow is null ? "no bow" : $"Bow {player.RangedAttack} r{player.Range}";
         _status.Print(14, 0, $"Atk {player.Attack}  Def {player.Defense}  {bow}", Theme.Text);
-        _status.Print(46, 0, $"D{_world.Depth} T{_world.Turn}", Theme.Text);
+        _status.Print(46, 0, $"{(_world.Depth == World.SurfaceDepth ? "Valley" : $"D{_world.Depth}")} T{_world.Turn}", Theme.Text);
         if (player.Character is { } c)
             _status.Print(58, 0, CanSpendXp() ? $"XP {c.Xp} (c)" : $"XP {c.Xp}", CanSpendXp() ? Theme.Warning : Theme.Text);
 

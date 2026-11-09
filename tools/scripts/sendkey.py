@@ -3,8 +3,16 @@
 # Find the id with: xwininfo -root -tree | grep "\"Roguelike\""
 import sys, time
 from Xlib import X, XK, display, protocol
+wid = int(sys.argv[1], 16)
+# X11 treats ids 0 and 1 as "the window under the mouse" and "the focused window": never send there.
+if wid < 0x1000:
+    sys.exit(f'refused: invalid window id {sys.argv[1]}')
 d = display.Display()
-win = d.create_resource_object('window', int(sys.argv[1], 16))
+win = d.create_resource_object('window', wid)
+name = win.get_full_property(d.intern_atom('_NET_WM_NAME'), 0)
+title = name.value.decode() if name else win.get_wm_name()
+if title != 'Roguelike':
+    sys.exit(f'refused: window title is {title!r}, not Roguelike')
 for name in sys.argv[2:]:
     code = d.keysym_to_keycode(XK.string_to_keysym(name))
     for typ, cls in ((X.KeyPress, protocol.event.KeyPress), (X.KeyRelease, protocol.event.KeyRelease)):

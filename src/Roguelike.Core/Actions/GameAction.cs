@@ -1,5 +1,6 @@
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
+using Roguelike.Core.Map;
 using SadRogue.Primitives;
 
 namespace Roguelike.Core.Actions;
@@ -49,12 +50,37 @@ public sealed record AscendAction : GameAction
     }
 }
 
-/// <summary>Step in a direction; bumping a hostile actor attacks it.</summary>
+/// <summary>Closes an open gate next to the actor. A gate with someone standing in it won't close.</summary>
+public sealed record CloseGateAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        foreach (var dir in World.EightWay)
+        {
+            var p = actor.Position + dir;
+            if (world.Map.InBounds(p) && world.Map.Tiles[p] == Tile.GateOpen && world.ActorAt(p) is null)
+            {
+                world.SetGate(p, open: false, actor);
+                return true;
+            }
+        }
+        world.Emit(new ActionFailed(actor.Id, FailureReason.NoGateToClose));
+        return false;
+    }
+}
+
+/// <summary>Step in a direction; opening a closed gate or bumping a hostile actor uses the step.</summary>
 public sealed record MoveAction(Direction Direction) : GameAction
 {
     public override bool Perform(World world, Actor actor)
     {
         var target = actor.Position + Direction;
+
+        if (world.Map.InBounds(target) && world.Map.Tiles[target] == Tile.GateClosed)
+        {
+            world.SetGate(target, open: true, actor);
+            return true;
+        }
 
         if (!world.Map.InBounds(target) || !world.Map.Walkable[target])
         {

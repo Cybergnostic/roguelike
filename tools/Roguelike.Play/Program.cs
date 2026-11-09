@@ -13,7 +13,7 @@ using SadRogue.Primitives.GridViews;
 // The game is deterministic, so every run replays the whole command file from the seed and
 // then prints what the player can see now. Append commands to the file and run again.
 //
-//   dotnet run --project tools/Roguelike.Play -- --seed 7 --commands moves.txt [--log 20] [--full]
+//   dotnet run --project tools/Roguelike.Play -- --seed 7 --commands moves.txt [--log 20] [--full] [--surface]
 //
 // Commands, one per line (# starts a comment):
 //   n s e w ne nw se sw [count]   step / bump-attack (count repeats, stops if a new enemy appears)
@@ -32,6 +32,7 @@ string? file = null;
 ulong seed = 1;
 int logLines = 20;
 bool full = false;
+bool surface = false;
 for (int i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -40,10 +41,11 @@ for (int i = 0; i < args.Length; i++)
         case "--commands": file = args[++i]; break;
         case "--log": logLines = int.Parse(args[++i]); break;
         case "--full": full = true; break;
+        case "--surface": surface = true; break;
     }
 }
 
-var world = World.Create(seed);
+var world = World.Create(seed, depth: surface ? World.SurfaceDepth : 1);
 var log = new List<string>();
 var names = new Dictionary<int, string>();
 var commands = new CommandPlayer(world);
@@ -110,6 +112,7 @@ string? Describe(GameEvent e) => e switch
     CorpseRaised r => Seen(r.CasterId) || Seen(r.RaisedId) ? $"{Name(r.CasterId)} raises a {r.CorpseKind} corpse as {Name(r.RaisedId)}" : "(chanting somewhere)",
     MinionCrumbled m when Seen(m.ActorId) => $"{Name(m.ActorId)} crumbles to dust",
     ZoneEntered z => $"you enter {z.ZoneName}",
+    GateMoved g => g.Open ? "*** a gate opens ***" : "*** a gate closes ***",
     LevelEntered l => l.GoingUp ? $"*** you climb back up to depth {l.Depth} ***" : $"*** you descend to depth {l.Depth} ***",
     GameWon => "*** YOU ESCAPE THE DUNGEON: YOU WIN ***",
     SquadMustered m => $"(drums: a band musters in {m.ZoneName})",
@@ -206,7 +209,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }

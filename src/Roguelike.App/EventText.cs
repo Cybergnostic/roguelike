@@ -36,6 +36,9 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         MinionCrumbled => null,
 
         ZoneEntered z => $"You enter {z.ZoneName}.",
+        LevelEntered { Depth: World.SurfaceDepth } => "You climb out of the cave into the open air.",
+        GateMoved g when g.ActorId == world.Player.Id => g.Open ? "You push the gate open." : "You pull the gate shut.",
+        GateMoved g => g.Open ? "You hear a gate creak open." : "You hear a gate slam shut.",
         LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",
         LevelEntered l when l.Depth >= world.Content.Dungeon.Levels => $"You descend to depth {l.Depth}, the bottom of the dungeon. The way out is somewhere here.",
         LevelEntered l => $"You descend the stairs to depth {l.Depth}.",
@@ -93,6 +96,7 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.CannotEquip => "You can't equip that.",
             FailureReason.NotDrinkable => "You can't drink that.",
             FailureReason.NotOnStairs => "There are no stairs here.",
+            FailureReason.NoGateToClose => "There's no open gate within reach.",
             _ => null,
         },
 

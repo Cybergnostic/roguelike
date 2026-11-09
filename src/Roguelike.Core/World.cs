@@ -22,6 +22,9 @@ public sealed class World
 {
     public const int FovRadius = 8;
 
+    /// <summary>The depth of the hand-drawn surface map; the dungeon starts at 1.</summary>
+    public const int SurfaceDepth = 0;
+
     public static readonly Direction[] EightWay = [.. AdjacencyRule.EightWay.DirectionsOfNeighbors()];
 
     public ulong Seed { get; }
@@ -143,7 +146,7 @@ public sealed class World
         _playRng = new MizuchiRandom(seed);
         (_width, _height) = (width, height);
         BeginLocation(depth);
-        Player = CreatePlayer(Map.Rooms[0].Center);
+        Player = CreatePlayer(depth == SurfaceDepth ? new Point(content.Surface.Start[0], content.Surface.Start[1]) : Map.Rooms[0].Center);
         FinishLocation();
     }
 
@@ -160,7 +163,7 @@ public sealed class World
     private void BeginLocation(int depth)
     {
         _generating = new MizuchiRandom(LocationSeed(Seed, depth));
-        _location = new Location(depth, GenerateMap());
+        _location = new Location(depth, depth == SurfaceDepth ? PlaceBuilder.Build(Content.Surface) : GenerateMap());
         _locations[depth] = _location;
     }
 
@@ -175,11 +178,49 @@ public sealed class World
     /// <summary>Squads, items and stairs for the map being built, then perception.</summary>
     private void FinishLocation()
     {
-        SpawnSquads();
-        SpawnFloorItems();
-        PlaceStairs();
+        if (Depth == SurfaceDepth)
+            PopulateSurface();
+        else
+        {
+            SpawnSquads();
+            SpawnFloorItems();
+            PlaceStairs();
+        }
         _generating = null;
         UpdatePerception();
+    }
+
+    /// <summary>The squads and loot drawn on the surface map.</summary>
+    private void PopulateSurface()
+    {
+        foreach (var group in Content.Surface.Groups)
+        {
+            var squad = new Squad(_nextSquadId++, Content.Factions[group.Faction]);
+            foreach (var member in group.Members)
+            {
+                var def = Content.Monsters[member.Monster];
+                var monster = Spawn(def, new Point(member.At[0], member.At[1]));
+                monster.Brain = new SquadMemberBrain(squad);
+                squad.Add(monster, def.Role);
+            }
+            var home = new Point(group.Home[0], group.Home[1]);
+            squad.Home = home;
+            squad.Leash = group.Leash;
+            squad.HomeDistance = new DistanceMap(Map.Walkable);
+            squad.HomeDistance.Update([home]);
+            _squads.Add(squad);
+        }
+        foreach (var spot in Content.Surface.Loot)
+            if (RollLoot(spot.Table) is { } item)
+                PlaceOnFloor(item, new Point(spot.At[0], spot.At[1]));
+    }
+
+    /// <summary>Opens or closes a gate. Paths planned around the old state no longer apply.</summary>
+    public void SetGate(Point at, bool open, Actor actor)
+    {
+        Map.SetTile(at, open ? Tile.GateOpen : Tile.GateClosed);
+        _paths.Clear();
+        Emit(new GateMoved(actor.Id, at, open));
     }
 
     /// <summary>
@@ -253,6 +294,9 @@ public sealed class World
 
     /// <summary>How deep this level is (1 = the first). Gates which items and +X values can appear.</summary>
     public int Depth => _location.Depth;
+
+    /// <summary>How dangerous and rewarding this place is: the surface counts as the first level.</summary>
+    private int DangerDepth => Math.Max(1, Depth);
 
     /// <summary>Runs one player action and, if it used a turn, everyone else's turn.</summary>
     public IReadOnlyList<GameEvent> Step(GameAction playerAction)
@@ -418,9 +462,9 @@ public sealed class World
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
-            GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, Depth));
+            GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth));
         LeaveCorpse(target);
-        int lootDepth = Depth + (Content.Monsters.TryGetValue(target.Kind, out var victimDef) ? victimDef.LootDepthBonus : 0);
+        int lootDepth = DangerDepth + (Content.Monsters.TryGetValue(target.Kind, out var victimDef) ? victimDef.LootDepthBonus : 0);
         if (target.LootTable is { } table && RollLoot(table, lootDepth) is { } loot)
         {
             PlaceOnFloor(loot, target.Position);
@@ -490,7 +534,7 @@ public sealed class World
         if (!def.IsEquipment || enchantment is not null)
             return new(_nextItemId++, def) { Enchantment = enchantment ?? 0, Count = count };
 
-        int d = depth ?? Depth;
+        int d = depth ?? DangerDepth;
         int plus = RollEnchantment(d);
         var rules = Content.Affixes;
         if (RollTier(d) is not { } tier)
@@ -549,7 +593,7 @@ public sealed class World
     /// </summary>
     public Item? RollLoot(string table, int? depth = null)
     {
-        int d = depth ?? Depth;
+        int d = depth ?? DangerDepth;
         var entries = Content.LootTables[table]
             .Where(e => e.Item is null || Content.Items[e.Item].MinDepth <= d)
             .ToList();
@@ -810,10 +854,10 @@ public sealed class World
     /// <summary>A monster from its stat block, grown for this depth (dungeon.json).</summary>
     private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
         AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at,
-            Content.Dungeon.HpFor(def.MaxHp, Depth), def.Attack + Content.Dungeon.AttackBonus(Depth),
-            def.Defense + Content.Dungeon.DefenseBonus(Depth))
+            Content.Dungeon.HpFor(def.MaxHp, DangerDepth), def.Attack + Content.Dungeon.AttackBonus(DangerDepth),
+            def.Defense + Content.Dungeon.DefenseBonus(DangerDepth))
         {
-            BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(Depth),
+            BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(DangerDepth),
             BaseEvasion = def.Evasion,
             BaseRange = def.Range,
             Fearless = def.Fearless,
