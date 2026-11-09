@@ -376,3 +376,142 @@ Render one tiny encounter scene in four states: **player `@`, ordinary goblin `g
 **Acceptance questions:** Can the player instantly find `@`? Can they distinguish ordinary from exceptional enemies *without* inspection? Are active status effects legible? Does a command, spell, or charge read as an action instead of random spectacle? Can all visual effects be disabled while preserving the necessary gameplay information?
 
 **Open aesthetic choice:** Keep a mostly Brogue-like quiet surface with occasional spectacle, or use more frequent Cogmind-like event feedback? Current recommendation: **dynamic on meaningful actions, restrained at rest**.
+
+## 20. Materials, weather, digging, and a reactive environment
+
+**Status: [Explore] - a potentially major design pillar, not an agreed implementation plan.** Inspired *very loosely* by Noita's systemic material interactions, but adapted to a **discrete-turn, grid-based, tactical classical roguelike**. Do not attempt to recreate Noita's per-pixel falling-sand simulation.
+
+### The opportunity
+
+A third complementary pillar may be **a reactive physical environment**, alongside intelligent inhabitants and persistent exploration. The environment should give the player choices beyond walking around walls and exchanging attacks. Terrain, materials, weather and time can change line of sight, movement, stealth, route planning, fort defense, enemy behavior, and the history a place leaves behind.
+
+**Central rule:** Materials behave consistently, in ways the player can learn and exploit; creatures must respond believably to those rules. Systemic depth is valuable only when its consequences are visible and understandable.
+
+### Material vocabulary and possible properties
+
+Propose representing each terrain cell with a **base material** and selected **environmental state/overlays**, rather than multiplying special tile enums. Candidate properties: hardness/diggability, opacity, permeability, flammability, structural support, movement time, noise, cover, slipperiness, and whether it records tracks. Not every material requires every property.
+
+| Material / condition | Possible behavior and tactical use |
+|---|---|
+| Loose soil | Diggable; excavation is noisy and leaves disturbed ground |
+| Hard stone / bedrock | Cannot easily be dug; anchors important map constraints |
+| Masonry / old brick | Breakable at high cost; weaker ruins may give alternate entrances |
+| Timber / wooden supports | Flammable and breakable; can brace tunnels or form gates/barricades |
+| Sand | Slower footing; prints may be visible; loose banks can collapse |
+| Snow | Accumulates, changes travel and sound, preserves and then obscures tracks |
+| Ice | Slippery or breakable, especially over water; footing risk |
+| Water / mud | Alters travel and sound; can impede armored characters or redirect access |
+| Grass / brush | Hides actors but may burn; the season/weather can change conditions |
+| Rubble | Can be cleared, stacked as cover, or used to block an entrance |
+| Fire / smoke | Active overlays: damage, illumination, occlusion, alarm, spreading to appropriate fuel |
+
+These are **design possibilities**, not claims about currently implemented rules. Start small, with deterministic material definitions and a limited number of state changes.
+
+### Diggable, breakable and buildable terrain
+
+Digging is potentially a strong form of **player-authored route creation**, especially in a game with horizontal wilderness and vertical dungeons.
+
+- Pickaxes or abilities can excavate **soft earth**, weak masonry, or damaged mine walls; solid bedrock stays resistant or unbreakable.
+- Digging consumes time, makes noise, risks tool wear or exhaustion, and exposes the player to pursuit.
+- The resulting passages persist through the run, becoming shortcuts, escapes, bypasses, or vulnerabilities.
+- Barricades, doors and rubble can change traffic and defensive positions, including during raids.
+- Structural support can matter *selectively*: loosened ground or damaged timber may cause an understandable, telegraphed collapse. Avoid unpredictable instant-death cave-ins.
+- AI must adapt: guards investigate repeated mining sounds, smart squads reroute or block holes, workers clear rubble, and selected burrowers dig their own passages.
+
+**Critical guardrail:** unrestricted digging can invalidate forts, quests, monster navigation and dungeon pacing. Keep meaningful hard boundaries, expensive excavation, support requirements, warnings, and authored exceptions grounded in material rules. A blocked route should feel like a physical constraint, not an unexplained invisible wall.
+
+**Engineering consequences:** Map mutation must invalidate cached paths, update walkability/transparency and FOV, preserve map changes on revisit, and revalidate generated layouts and accessible exits.
+
+### Day/night and real illumination
+
+The existing renderer has visual light and firelight, but a proposed next step is a **simulation-backed world light model** distinct from cosmetic glow (§19).
+
+- Sunlight intensity and angle vary by time; caves have little or no daylight.
+- Torches, braziers, burning objects and magic can create genuine local light sources.
+- Darkness, cover and illumination influence player visibility **and** monster perception consistently.
+- Routines respond to time: guard shifts, nocturnal animals, traders traveling by day, riskier night routes.
+- Fire, moonlight, fog and storm conditions can make one route favorable at a particular time.
+- The UI must make *what is actually illuminated* clear, without revealing hidden actors or enemy knowledge.
+
+Night should not be merely a blanket visibility penalty or color filter. It should offer distinct opportunities: stealth and hidden movement alongside navigation and detection risks.
+
+### Weather, climate, and surface conditions
+
+Environmental weather should matter mechanically without requiring continuous particle-level simulation.
+
+- **Rain:** dampens fires, muddies some terrain, may mask footsteps, reduces distant sight, creates wet surfaces.
+- **Snow:** builds up over time, records tracks, obscures old tracks during snowfall, slows travel in deep drifts.
+- **Fog:** reduces distant visibility for all parties, including archers and patrols.
+- **Wind:** can influence smoke movement, fire spread, scent/track interpretation where modeled.
+- **Sandstorms:** reduce sight, cover footprints, change route risk and create visibility windows in arid regions.
+- **Thunderstorms:** short lightning flashes can create dramatic but rule-consistent visibility events.
+
+**Footprint example:** A scout notices wolf tracks in snow and follows them to a den. Later, new snowfall gradually erases the trail. Conversely, an enemy sentry can discover the player's tracks and investigate - without instantly knowing the player's precise location.
+
+Weather and day/night should affect NPC routines, hostility decisions and pursuit, not merely alter the player's appearance.
+
+### A few high-value interactions rather than all possible physics
+
+- **Dry brush + fire + wind:** a watch post catches fire; goblins hear the commotion and dispatch defenders, creating a tactical opening.
+- **Torch + smoke:** illumination improves while smoke eventually obstructs a narrow corridor.
+- **Water + cold:** a route freezes and becomes passable but slippery; thawing changes it again.
+- **Soft ground + digging:** a cave connects behind a fort, offering an alternate approach at the cost of time and noise.
+- **Timber supports + damage:** a mine passage collapses; goblins lose access until workers clear or bypass the obstruction.
+- **Snow + patrols:** tracks reveal a route and may betray a hidden infiltrator; active snowfall changes the evidence over time.
+- **Mud + armor:** a heavily armored fighter's route choices differ from a lightly equipped scout's; terrain supplements build identity without dictating it.
+
+### The Noita-inspired distinction: simulate rules, not every particle
+
+Keep three separate layers:
+
+1. **Material definition:** stable, data-driven terrain properties (soil, stone, wood, etc.).
+2. **Environmental simulation:** discrete cell-level quantities/states (burning, wet, snow depth, smoke density, tracks, disturbed ground, support damage) updated on **game turns**.
+3. **Visual-only particles:** drifting snowflakes, dust, sparks, embers, smoke wisps, rain and magical effects; these need not be individually physical entities or alter world state.
+
+A fire spreading from one cell to another is a **simulation** event. Rendering twenty sparks above the fire is **presentation**. Neither the number nor the position of cosmetic sparks should influence deterministic outcomes.
+
+For offscreen locations, use sparse scheduled events or aggregate environmental updates rather than detailed simulation of every snowflake and smoky tile each turn. Store significant persistent changes (opened tunnel, burned fortification, flooded room, tracks when relevant).
+
+### Integration with existing systems
+
+| Existing system | Useful connection |
+|---|---|
+| Squad AI and orders | Use cover, avoid or exploit hazards, investigate sounds, guard new breaches, clear obstacles |
+| Perception and stealth | Light, shadows, fog, smoke, footprints, disturbed terrain and sound transmission |
+| Character builds and equipment | Movement time across snow/mud/sand; heavy armor, climbing/digging gear; no universal best build |
+| Factions and territory | Fires, collapsed gates, repairs, blocked roads and new passages change strategic objectives |
+| Procedural history | Past cave-ins, old masonry, timber supports, drainage and dig sites explain map geography |
+| Exploration and vertical topology | Excavation, frozen crossings, floods and opened shafts create interconnected routes |
+| Persistence | Terrain alterations and major environmental events remain when the player returns |
+| Enhanced ASCII visuals | Warm/cool daylight palette, shadows, rain/snow overlays, steam/smoke, debris and particles - always secondary to readability |
+
+### Recommended implementation sequence - only after testing fit
+
+1. **Terrain material metadata + one dig action** in a contained cave/fort scenario. Make a soft-earth wall diggable while bedrock remains solid; test path/FOV updates, time cost, noise, and persistence.
+2. **Simulation-backed lighting and day/night** for the valley and dungeon. Test guard detection, movement and atmosphere under day/torch/night conditions.
+3. **One weather loop (rain or snow) plus tracks**, including a human- and AI-readable investigation scenario.
+4. **Bounded fire and smoke**, with strict spread limits, clear telegraphs and predictable AI responses.
+5. **Later experiments:** sand, ice, water flow, flooding, structural collapse, burrowers, barricades, seasonal/biome differences. Add only if they create more meaningful decisions than maintenance cost.
+
+### Quality, performance and fairness constraints
+
+- Turn-based environment rules are deterministic from seed and input. Cosmetic animation and particle randomness stay independent.
+- Environmental effects must have bounded CPU/update costs and avoid processing the whole inactive overworld each turn.
+- Use event-driven or dirty-region updates where possible; avoid expensive flood fill, dynamic FOV and path recalculations unless terrain actually changes.
+- Hazards should be **discoverable and telegraphed**. Permadeath combined with arbitrary collapse or invisible fire spread would feel unfair.
+- Keep exits and required objectives accessible by at least one viable route; enforce world-generation validation.
+- Give players readable cues about unstable ground, combustible supports, smoke, visibility and local weather.
+- Weather particles must not obscure important glyphs; supply reduced-motion and reduced-effects options.
+- Do not make crafting a prerequisite for using the environment. Simple tools and obvious affordances are better for the first slice.
+
+### Focused validation scenario
+
+**Snowy mine approach:** follow goblin tracks to a disused tunnel, dig through a weak wall (making noise), and emerge near the fort. A goblin guard can discover the disturbance or tracks; defenders respond using their normal knowledge and orders. A damaged timber support can optionally close one route with clear prior warning.
+
+This single scenario tests **material properties + digging + weather + evidence + NPC investigation + map persistence** without a universal physics simulator.
+
+### Big open decision
+
+Should environmental manipulation be a **primary gameplay pillar** (players frequently dig, burn, flood, build and reshape places) or a **supporting layer** (occasional meaningful interactions that deepen exploration and squad tactics)? This decision affects world generation, equipment design, AI, performance, UI, and development scope.
+
+**Current recommendation:** begin as a supporting layer, prove a few surprising systemic encounters, then promote it to a central pillar only if testing shows that terrain manipulation is genuinely fun and distinct.
