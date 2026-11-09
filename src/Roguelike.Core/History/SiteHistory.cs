@@ -19,6 +19,8 @@ public enum FallKind
     War,
     /// <summary>A cave-in: fallen rock, and what the miners left behind.</summary>
     Collapse,
+    /// <summary>A sickness: the dead got up again, slow and hard to put down.</summary>
+    Plague,
 }
 
 /// <summary>One chapter of the site's past. Depth: the level whose inscribed stone tells it.</summary>
@@ -33,6 +35,8 @@ public sealed record SiteHistory(
     string Founder,
     string Clan,
     string Necromancer,
+    string Tribe,
+    TribeDef Holders,
     int MineDepth,
     FallKind Fall,
     int FallDepth,
@@ -54,11 +58,15 @@ public sealed record SiteHistory(
         var fall = rules.Falls.First(f => (fallRoll -= f.Weight) < 0).Kind;
         int fallDepth = rng.NextInt(2, mineDepth + 1);
 
+        var tribe = Pick(names.TribeFirst) + " " + Pick(names.TribeLast);
+        int tribeRoll = rng.NextInt(rules.Tribes.Sum(t => t.Weights.GetValueOrDefault(fall)));
+        var holders = rules.Tribes.First(t => (tribeRoll -= t.Weights.GetValueOrDefault(fall)) < 0);
+
         int itemRoll = rng.NextInt(rules.Heirloom.Items.Sum(i => i.Weight));
         var item = rules.Heirloom.Items.First(i => (itemRoll -= i.Weight) < 0).Item;
         IReadOnlyList<string> words = [Pick(names.HeirloomFirst), Pick(names.HeirloomLast)];
 
-        return new SiteHistory(founder, clan, necromancer, mineDepth, fall, fallDepth, item, words,
+        return new SiteHistory(founder, clan, necromancer, tribe, holders, mineDepth, fall, fallDepth, item, words,
         [
             new Era(EraKind.GoblinsCame, World.SurfaceDepth),
             new Era(EraKind.Founding, 1),

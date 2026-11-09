@@ -12,6 +12,14 @@
   "safeStartDistance": 15,
   "squads": [
     {
+      // Only the history places these (a plague level): minDepth 99 keeps them out of the normal draw.
+      "name": "the sickened",
+      "faction": "undead",
+      "weight": 1,
+      "minDepth": 99,
+      "members": [ { "monster": "goblin_zombie", "min": 2, "max": 3 } ]
+    },
+    {
       // The first level's goblins: a scouting party, smaller than the bands that come later.
       "name": "goblin scouts",
       "faction": "goblins",

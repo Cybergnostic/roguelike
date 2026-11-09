@@ -56,9 +56,11 @@ public sealed partial class GameScreen
             EraKind.Founding => $"{h.Founder} of the {h.Clan} clan dug a mine under this valley, {h.MineDepth} levels deep.",
             EraKind.Fall when h.Fall == FallKind.War =>
                 $"Goblins came up the shafts and met the {h.Clan} clan on level {h.FallDepth}. {h.Founder} fell there with the {item} called {heirloom}, and the dead were never buried.",
+            EraKind.Fall when h.Fall == FallKind.Plague =>
+                $"A sickness came up from level {h.FallDepth}. {h.Founder} sealed the sick below and stayed with them, with the {item} called {heirloom}. Those who died got up again.",
             EraKind.Fall =>
                 $"The roof came down on level {h.FallDepth}. {h.Founder} was lost under it with the {item} called {heirloom}, and the {h.Clan} clan left what they could not carry.",
-            EraKind.GoblinsCame => "When the dwarves were gone, the Red Tooth goblins took the valley road and fenced their camp across it.",
+            EraKind.GoblinsCame => h.Holders.Story.Replace("{tribe}", h.Tribe),
             EraKind.NecromancerCame => $"{h.Necromancer} came for the unburied dead, and has not left.",
             _ => "",
         };

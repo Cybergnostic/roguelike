@@ -6,7 +6,28 @@
   // How the mine fell (on a level from 2 down to the bottom of the mine). "kind": war | collapse.
   "falls": [
     { "kind": "war",      "weight": 1 },
-    { "kind": "collapse", "weight": 1 }
+    { "kind": "collapse", "weight": 1 },
+    { "kind": "plague",   "weight": 1 }
+  ],
+  // Who holds the camp on the road now. "weights": how likely each is, given how the mine fell.
+  // "price"/"turns" replace the toll in surface.json. "remove"/"add" change the groups there.
+  // "story" is what the stone says; "{tribe}" is the tribe's name.
+  "tribes": [
+    { "id": "tollkeepers", "weights": { "war": 1, "collapse": 2, "plague": 1 },
+      "story": "When the dwarves were gone, the {tribe} goblins took the valley road, and they live off what they charge to pass." },
+    { "id": "warband", "weights": { "war": 3, "collapse": 1, "plague": 1 }, "price": 40, "turns": 80,
+      "add": [
+        { "group": "gate sentries", "monster": "goblin_warrior", "at": [43, 7] },
+        { "group": "camp reserve",  "monster": "goblin_warrior", "at": [38, 5] },
+        { "group": "front patrol",  "monster": "goblin_archer",  "at": [41, 11] }
+      ],
+      "story": "The {tribe} goblins came up the valley for war and never left. They hold the road in strength, and passage is dear." },
+    { "id": "remnant", "weights": { "war": 0, "collapse": 2, "plague": 3 }, "price": 10, "turns": 250,
+      "remove": [
+        { "group": "camp reserve", "monster": "goblin_shaman" },
+        { "group": "front patrol", "monster": "goblin_archer" }
+      ],
+      "story": "Only a remnant of the {tribe} goblins still holds the road. There are few of them now, and they take what they can get." }
   ],
   // Old timber props stand in this many rooms of every mine level: cover, and a sign of who dug here.
   "workingsRooms": 2,
@@ -15,6 +36,12 @@
     "corpses": [ { "monster": "skeleton_warrior", "count": 8 }, { "monster": "goblin_warrior", "count": 4 } ],
     "squad": "skeleton patrol",
     "squads": 2
+  },
+  // Plague: the sick got up again. Slow, and hard to put down.
+  "plague": {
+    "corpses": [ { "monster": "goblin_zombie", "count": 6 } ],
+    "squad": "the sickened",
+    "squads": 3
   },
   // Collapse: fallen rock in this many rooms, and what the miners left behind.
   "collapse": { "rooms": 4, "items": 3 },
@@ -32,6 +59,8 @@
   // XP for reading an inscribed stone.
   "loreXp": 20,
   "names": {
+    "tribeFirst":   ["Black", "Broken", "Cracked", "Red", "Rot", "Split", "Yellow"],
+    "tribeLast":    ["Ear", "Eye", "Hand", "Knife", "Nail", "Tongue", "Tooth"],
     "founderFirst": ["Bor", "Dur", "Gar", "Hel", "Kor", "Mar", "Rag", "Tor", "Ulf", "Vor"],
     "founderLast":  ["dan", "gun", "mek", "orn", "rak", "sten", "ulf", "var"],
     "clanFirst":    ["Ash", "Deep", "Grey", "Iron", "Long", "Red", "Stone", "Tin"],

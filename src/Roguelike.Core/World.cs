@@ -186,7 +186,7 @@ public sealed class World
     private void BeginLocation(int depth)
     {
         _generating = new MizuchiRandom(LocationSeed(Seed, depth));
-        _location = new Location(depth, depth == SurfaceDepth ? PlaceBuilder.Build(Content.Surface) : GenerateMap());
+        _location = new Location(depth, depth == SurfaceDepth ? PlaceBuilder.Build(Content.Surface, History.Tribe) : GenerateMap());
         _locations[depth] = _location;
     }
 
@@ -243,23 +243,32 @@ public sealed class World
         if (QuietFloorCell(rooms) is { } resting)
             PlaceOnFloor(CreateHeirloom(), resting);
 
-        if (History.Fall == FallKind.War)
+        switch (History.Fall)
         {
-            var field = Content.History.Battlefield;
-            foreach (var entry in field.Corpses)
-                for (int i = 0; i < entry.Count; i++)
-                    if (RandomFreeFloor(rooms[i % rooms.Count]) is { } p && !CorpsesAt(p).Any())
-                        _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
-            var template = Content.SquadTemplates.First(t => t.Name == field.Squad);
-            for (int i = 0; i < field.Squads; i++)
-                FillSquad(template, rooms[i % rooms.Count]);
+            case FallKind.War:
+                LayOutTheDead(Content.History.Battlefield, rooms);
+                break;
+            case FallKind.Plague:
+                LayOutTheDead(Content.History.Plague, rooms);
+                break;
+            case FallKind.Collapse:
+                for (int i = 0; i < Content.History.Collapse.Items; i++)
+                    if (RollLoot("floor") is { } item && QuietFloorCell(rooms) is { } p)
+                        PlaceOnFloor(item, p);
+                break;
         }
-        else
-        {
-            for (int i = 0; i < Content.History.Collapse.Items; i++)
-                if (RollLoot("floor") is { } item && QuietFloorCell(rooms) is { } p)
-                    PlaceOnFloor(item, p);
-        }
+    }
+
+    /// <summary>The bodies where they fell, and the ones that got up.</summary>
+    private void LayOutTheDead(BattlefieldDef field, List<Rectangle> rooms)
+    {
+        foreach (var entry in field.Corpses)
+            for (int i = 0; i < entry.Count; i++)
+                if (RandomFreeFloor(rooms[i % rooms.Count]) is { } p && !CorpsesAt(p).Any())
+                    _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
+        var template = Content.SquadTemplates.First(t => t.Name == field.Squad);
+        for (int i = 0; i < field.Squads; i++)
+            FillSquad(template, rooms[i % rooms.Count]);
     }
 
     /// <summary>A plain floor cell with nothing on it, in the first of these rooms that has one.</summary>
@@ -294,7 +303,7 @@ public sealed class World
         foreach (var group in Content.Surface.Groups)
         {
             var squad = new Squad(_nextSquadId++, Content.Factions[group.Faction]);
-            foreach (var member in group.Members)
+            foreach (var member in Garrison(group))
             {
                 var def = Content.Monsters[member.Monster];
                 var monster = Spawn(def, new Point(member.At[0], member.At[1]));
@@ -332,14 +341,31 @@ public sealed class World
         _location.PendingIncursions.AddRange(Content.Surface.Incursions ?? []);
     }
 
+    /// <summary>The map's zone for a name as written in surface.json (before "{tribe}" is filled in).</summary>
+    private Zone SurfaceZone(string name) =>
+        Map.Zones[Content.Surface.Zones.ToList().FindIndex(z => z.Name == name)];
+
+    /// <summary>The camp in a zone, on the terms of the tribe that holds it now.</summary>
     private Camp BuildCamp(string zoneName)
     {
+        var holders = History.Holders;
         var toll = Content.Surface.Zones.First(z => z.Name == zoneName).Toll is { } t
-            ? new TollTerms(new Point(t.Gate[0], t.Gate[1]), t.Price, t.Turns, t.Range, t.WarnBefore)
+            ? new TollTerms(new Point(t.Gate[0], t.Gate[1]), holders.Price ?? t.Price, holders.Turns ?? t.Turns, t.Range, t.WarnBefore)
             : null;
-        var camp = new Camp(Map.Zones.First(z => z.Name == zoneName), toll);
+        var camp = new Camp(SurfaceZone(zoneName), toll);
         _location.Camps.Add(camp);
         return camp;
+    }
+
+    /// <summary>A group's members under the tribe that holds the camp now.</summary>
+    private IEnumerable<PlaceMember> Garrison(PlaceGroup group)
+    {
+        var removed = (History.Holders.Remove ?? []).Where(r => r.Group == group.Name).Select(r => r.Monster).ToList();
+        foreach (var member in group.Members)
+            if (!removed.Remove(member.Monster))
+                yield return member;
+        foreach (var added in (History.Holders.Add ?? []).Where(a => a.Group == group.Name))
+            yield return new PlaceMember(added.Monster, added.At!);
     }
 
     /// <summary>Opens or closes a gate. Routes don't change: actors plan through closed gates and open them.</summary>
@@ -635,7 +661,7 @@ public sealed class World
         foreach (var incursion in pending.Where(i => Turn >= i.Turn).ToList())
         {
             pending.Remove(incursion);
-            var target = Map.Zones.First(z => z.Name == incursion.Target);
+            var target = SurfaceZone(incursion.Target);
             var squad = new Squad(_nextSquadId++, Content.Factions[incursion.Faction]);
             _squads.Add(squad);
             foreach (var member in incursion.Members)

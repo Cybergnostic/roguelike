@@ -34,9 +34,10 @@
   ],
   "start": [3, 20],
   "zones": [
+    // "{tribe}" in a name is the goblin tribe the history rolled. The tribe can also change the price and the garrison (history.json).
     // "toll": guards call out the terms to anyone within "range" of the gate. "price" buys "turns" of
     // safe passage; "warnBefore" turns before the end they remind you. Standing in the gate is the last warning.
-    { "name": "the Red Tooth camp", "faction": "goblins", "area": [30, 2, 27, 9],
+    { "name": "the {tribe} camp", "faction": "goblins", "area": [30, 2, 27, 9],
       "toll": { "gate": [43, 10], "price": 20, "turns": 150, "range": 4, "warnBefore": 20 } }
   ],
   // Squads placed by hand, based at "home" and going no farther than "leash" steps from it.
@@ -45,33 +46,33 @@
   // "rally": where they fall back to when they break. "gate": the gate they shut once attacked.
   "groups": [
     { "name": "gate sentries", "faction": "goblins", "leash": 8, "home": [43, 8],
-      "order": "guard", "territory": "the Red Tooth camp", "rally": [43, 6], "gate": [43, 10], "members": [
+      "order": "guard", "territory": "the {tribe} camp", "rally": [43, 6], "gate": [43, 10], "members": [
       { "monster": "goblin_warrior", "at": [42, 9] },
       { "monster": "goblin_warrior", "at": [44, 9] },
       { "monster": "goblin_archer",  "at": [43, 8] }
     ] },
     { "name": "camp reserve", "faction": "goblins", "leash": 12, "home": [37, 6],
-      "order": "guard", "territory": "the Red Tooth camp", "rally": [40, 6], "members": [
+      "order": "guard", "territory": "the {tribe} camp", "rally": [40, 6], "members": [
       { "monster": "goblin_warrior", "at": [36, 5] },
       { "monster": "goblin_archer",  "at": [37, 7] },
       { "monster": "goblin_shaman",  "at": [39, 6] }
     ] },
     // The patrol walks the front and up the back fence, past the gap there: watch it, then time your move.
     { "name": "front patrol", "faction": "goblins", "leash": 24, "home": [43, 11],
-      "order": "patrol", "route": [[34, 11], [57, 11], [57, 3]], "territory": "the Red Tooth camp", "rally": [43, 6], "members": [
+      "order": "patrol", "route": [[34, 11], [57, 11], [57, 3]], "territory": "the {tribe} camp", "rally": [43, 6], "members": [
       { "monster": "goblin_warrior", "at": [42, 11] },
       { "monster": "goblin_archer",  "at": [44, 11] }
     ] },
     { "name": "storehouse keeper", "faction": "goblins", "leash": 6, "home": [48, 5],
-      "order": "guard", "territory": "the Red Tooth camp", "rally": [40, 6], "members": [
+      "order": "guard", "territory": "the {tribe} camp", "rally": [40, 6], "members": [
       { "monster": "goblin_warrior", "at": [48, 5] }
     ] }
   ],
   // Loot in the storehouse, rolled from a loot table in items.json.
   // "owner": the camp it belongs to. Being seen taking it brings the whole camp down on you.
   "loot": [
-    { "table": "floor", "at": [50, 4], "owner": "the Red Tooth camp" },
-    { "table": "floor", "at": [51, 5], "owner": "the Red Tooth camp" }
+    { "table": "floor", "at": [50, 4], "owner": "the {tribe} camp" },
+    { "table": "floor", "at": [51, 5], "owner": "the {tribe} camp" }
   ],
   // The valley's errand: fetch "item" from "at" and carry it to "returnTo", for "xp" and "gold".
   // The goblins don't care about it, so taking it isn't theft: the camp is simply in the way.
@@ -79,7 +80,7 @@
   // On "turn" a squad appears at its members' spots and marches on the zone "target".
   // If the player is away from this map then, it happens when they come back.
   "incursions": [
-    { "turn": 300, "faction": "undead", "target": "the Red Tooth camp", "members": [
+    { "turn": 300, "faction": "undead", "target": "the {tribe} camp", "members": [
       { "monster": "skeleton_warrior", "at": [71, 7] },
       { "monster": "skeleton_warrior", "at": [70, 6] },
       { "monster": "skeleton_warrior", "at": [70, 8] },

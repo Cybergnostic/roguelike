@@ -14,7 +14,7 @@ public class SurfaceTests
     private static readonly Point Cave = new(72, 7);
     private static readonly Point InsideCamp = new(43, 6);
 
-    private static World Valley(ulong seed = 1) => World.Create(seed, depth: World.SurfaceDepth);
+    private static World Valley(ulong seed = 1) => HistoryTests.ValleyHeldBy("tollkeepers", seed);
 
     /// <summary>Walking distances from a cell, treating some cells as if they were blocked.</summary>
     private static DistanceMap WalkFrom(World world, Point from, Func<Point, bool>? blocked = null)

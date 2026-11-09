@@ -93,8 +93,8 @@ data/                        game content (JSON with comments), copied next to e
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
   skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
-  surface.json               the hand-drawn valley: terrain rows + legend, start, zones and tolls, squads, loot, errand, incursions
-  history.json               how the site's past is rolled: mine depth, kinds of fall, heirloom, name word lists
+  surface.json               the hand-drawn valley: terrain rows + legend, start, zones ("{tribe}" = rolled name) and tolls, squads, loot, errand, incursions
+  history.json               how the site's past is rolled: mine depth, kinds of fall, tribes (toll, garrison), heirloom, name lists
   looks.json                 front end only: glyph + colour per kind, item and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
@@ -355,10 +355,10 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: the history generator** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **55.2%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
+- **Current: the history generator with tribes and plague** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **55.1%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
     not measured apart from the rest). Left as it is: the user will balance later.
-  - Death rate by depth: 9.5, 8.0, 3.4, 2.0, 2.3, 2.1, 4.2, 5.1, 6.7, 9.5%.
+  - Death rate by depth: 9.5, 7.9, 3.1, 1.6, 1.9, 2.9, 4.7, 4.2, 6.9, 9.5%.
   - The bot only plays the dungeon; these numbers say nothing about the camp.
 - **Coins in the loot tables** (2026-11-09), same setup: won 35.4%, died 61%. Coins replace "nothing" rolls and the
   bot ignores them, so this is noise.
@@ -574,8 +574,10 @@ you, a quick way to see progression; spectating: time passes).
      mine depth, how and where it fell (war: the dead and skeleton patrols; collapse: fallen rock and left gear),
      timber props on mine levels, the founder's unique heirloom, inscribed stones read by stepping on them, `m` chronicle~~
      (done 2026-11-09)
-   - b. Later: the camp and factions vary with the history (now only the dungeon does), more kinds of fall,
-     per-level identity below the mine, factions that want the heirloom.
+   - ~~b. The valley follows the history: which tribe holds the camp (its name, toll and garrison, weighted by how the
+     mine fell), and plague as a third kind of fall~~ (done 2026-11-09)
+   - c. Later: more kinds of fall and tribe, per-level identity below the mine, factions that want the heirloom,
+     the incursion depending on the history (it's the same every run).
 8. **Crafting**: material tags + recipes + stations as places
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
 fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.

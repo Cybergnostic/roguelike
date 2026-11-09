@@ -17,7 +17,7 @@ public class CampTests
 
     private static World Valley(ulong seed = 1)
     {
-        var world = World.Create(seed, depth: World.SurfaceDepth);
+        var world = HistoryTests.ValleyHeldBy("tollkeepers", seed);
         world.Player.Hp = 10_000; // these tests are about behaviour, not survival
         return world;
     }
@@ -786,14 +786,14 @@ public class CampTests
 
     [Theory]
     [InlineData("\"order\": \"patrol\"", "\"order\": \"dance\"", "dance")]
-    [InlineData("\"territory\": \"the Red Tooth camp\", \"rally\": [40, 6]", "\"territory\": \"nowhere\", \"rally\": [40, 6]", "nowhere")]
+    [InlineData("\"territory\": \"the {tribe} camp\", \"rally\": [40, 6]", "\"territory\": \"nowhere\", \"rally\": [40, 6]", "nowhere")]
     [InlineData("\"gate\": [43, 10]", "\"gate\": [43, 12]", "gate")]
     [InlineData("\"rally\": [40, 6]", "\"rally\": [0, 0]", "rally")]
     [InlineData("\"toll\": { \"gate\": [43, 10]", "\"toll\": { \"gate\": [44, 10]", "toll gate")]
     [InlineData("\"price\": 20", "\"price\": 0", "toll price")]
     [InlineData("\"item\": \"reliquary\"", "\"item\": \"dagger\"", "relic")]
-    [InlineData("\"owner\": \"the Red Tooth camp\" },\n    { \"table\": \"floor\", \"at\": [51", "\"owner\": \"nobody\" },\n    { \"table\": \"floor\", \"at\": [51", "owner")]
-    [InlineData("\"target\": \"the Red Tooth camp\"", "\"target\": \"nowhere\"", "nowhere")]
+    [InlineData("\"owner\": \"the {tribe} camp\" },\n    { \"table\": \"floor\", \"at\": [51", "\"owner\": \"nobody\" },\n    { \"table\": \"floor\", \"at\": [51", "owner")]
+    [InlineData("\"target\": \"the {tribe} camp\"", "\"target\": \"nowhere\"", "nowhere")]
     public void ABrokenCampIsAContentError(string find, string replace, string expected)
     {
         var dir = Path.Combine(Path.GetTempPath(), "rl-content-" + Guid.NewGuid());

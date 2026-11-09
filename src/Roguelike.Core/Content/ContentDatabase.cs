@@ -132,15 +132,22 @@ public sealed record PlaceObjective(string Item, int[] At, int[] ReturnTo, int X
 public sealed record PlaceIncursion(int Turn, string Faction, string Target, IReadOnlyList<PlaceMember> Members);
 
 /// <summary>How the site's past is rolled (history.json); see <see cref="History.SiteHistory"/>.</summary>
-public sealed record HistoryDef(int[] MineDepth, IReadOnlyList<FallOption> Falls, int WorkingsRooms, BattlefieldDef Battlefield,
-    CollapseDef Collapse, HeirloomDef Heirloom, int LoreXp, HistoryNames Names);
+public sealed record HistoryDef(int[] MineDepth, IReadOnlyList<FallOption> Falls, IReadOnlyList<TribeDef> Tribes, int WorkingsRooms,
+    BattlefieldDef Battlefield, BattlefieldDef Plague, CollapseDef Collapse, HeirloomDef Heirloom, int LoreXp, HistoryNames Names);
+
+/// <summary>A kind of tribe that can hold the camp. Weights: by how the mine fell. Price, Turns: replace the surface's toll terms.</summary>
+public sealed record TribeDef(string Id, IReadOnlyDictionary<History.FallKind, int> Weights, string Story, int? Price = null, int? Turns = null,
+    IReadOnlyList<GarrisonChange>? Add = null, IReadOnlyList<GarrisonChange>? Remove = null);
+
+/// <summary>One goblin added to (at At) or taken from a group in surface.json.</summary>
+public sealed record GarrisonChange(string Group, string Monster, int[]? At = null);
 
 public sealed record FallOption(History.FallKind Kind, int Weight);
 public sealed record BattlefieldDef(IReadOnlyList<CorpseEntry> Corpses, string Squad, int Squads);
 public sealed record CollapseDef(int Rooms, int Items);
 public sealed record HeirloomChoice(string Item, int Weight);
 public sealed record HeirloomDef(IReadOnlyList<HeirloomChoice> Items, int Enchantment, int[] Affixes, bool Special);
-public sealed record HistoryNames(IReadOnlyList<string> FounderFirst, IReadOnlyList<string> FounderLast,
+public sealed record HistoryNames(IReadOnlyList<string> TribeFirst, IReadOnlyList<string> TribeLast, IReadOnlyList<string> FounderFirst, IReadOnlyList<string> FounderLast,
     IReadOnlyList<string> ClanFirst, IReadOnlyList<string> ClanLast,
     IReadOnlyList<string> NecromancerFirst, IReadOnlyList<string> NecromancerLast,
     IReadOnlyList<string> HeirloomFirst, IReadOnlyList<string> HeirloomLast);
@@ -369,15 +376,54 @@ public sealed class ContentDatabase
         ValidateSurface(surface, factions, monsters, itemFile);
 
         var history = Read<HistoryDef>(directory, "history.json");
-        ValidateHistory(history, dungeon, spawnFile, monsters, items);
+        ValidateHistory(history, dungeon, spawnFile, monsters, items, surface);
 
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
             attributes, raise, trees, combat, dungeon, affixes, surface, history);
     }
 
+    private static void ValidateTribes(HistoryDef history, Dictionary<string, MonsterDef> monsters, PlaceDef surface)
+    {
+        const string name = "history.json";
+        if (history.Tribes.Count == 0)
+            throw Error(name, "tribes needs at least one entry");
+        foreach (var fall in history.Falls)
+            if (history.Tribes.Sum(t => t.Weights.GetValueOrDefault(fall.Kind)) <= 0)
+                throw Error(name, $"no tribe can follow a fall of kind '{fall.Kind}'");
+        var toll = surface.Zones.Select(z => z.Toll).FirstOrDefault(t => t is not null);
+        foreach (var tribe in history.Tribes)
+        {
+            if (tribe.Weights.Values.Any(w => w < 0))
+                throw Error(name, $"tribe '{tribe.Id}': weights can't be negative");
+            if (tribe.Price <= 0 || tribe.Turns <= 0 || (toll is not null && tribe.Turns <= toll.WarnBefore))
+                throw Error(name, $"tribe '{tribe.Id}': price and turns must be positive, and turns more than the toll's warnBefore");
+            foreach (var change in (tribe.Add ?? []).Concat(tribe.Remove ?? []))
+            {
+                var group = surface.Groups.FirstOrDefault(g => g.Name == change.Group)
+                    ?? throw Error(name, $"tribe '{tribe.Id}': unknown group '{change.Group}'");
+                if (!monsters.TryGetValue(change.Monster, out var def) || def.Faction != group.Faction)
+                    throw Error(name, $"tribe '{tribe.Id}': '{change.Monster}' can't serve in '{change.Group}'");
+            }
+            foreach (var add in tribe.Add ?? [])
+                if (add.At is not [var x, var y] || x < 0 || y < 0 || x >= surface.Width || y >= surface.Height
+                    || !Map.GameMap.IsWalkable(surface.TileAt(x, y))
+                    || surface.Groups.SelectMany(g => g.Members).Any(m => m.At[0] == x && m.At[1] == y))
+                    throw Error(name, $"tribe '{tribe.Id}': an added '{add.Monster}' needs a free walkable position");
+            foreach (var group in surface.Groups)
+            {
+                var kept = group.Members.Select(m => m.Monster).ToList();
+                foreach (var remove in (tribe.Remove ?? []).Where(r => r.Group == group.Name))
+                    if (!kept.Remove(remove.Monster))
+                        throw Error(name, $"tribe '{tribe.Id}': '{group.Name}' has no '{remove.Monster}' to remove");
+                if (kept.Count == 0 && (tribe.Add ?? []).All(a => a.Group != group.Name))
+                    throw Error(name, $"tribe '{tribe.Id}': '{group.Name}' would be left empty");
+            }
+        }
+    }
+
     private static void ValidateHistory(HistoryDef history, DungeonDef dungeon, SpawnFile spawnFile,
-        Dictionary<string, MonsterDef> monsters, Dictionary<string, ItemDef> items)
+        Dictionary<string, MonsterDef> monsters, Dictionary<string, ItemDef> items, PlaceDef surface)
     {
         const string name = "history.json";
         // The necromancer's stone goes one level below the mine, so the mine must end above the bottom.
@@ -385,13 +431,19 @@ public sealed class ContentDatabase
             throw Error(name, $"mineDepth must be [min, max] with 2 <= min <= max and max below the last level ({dungeon.Levels})");
         if (history.Falls.Count == 0 || history.Falls.Any(f => f.Weight <= 0))
             throw Error(name, "falls needs at least one entry, all with positive weights");
-        if (history.WorkingsRooms < 0 || history.LoreXp < 0 || history.Collapse.Rooms < 0 || history.Collapse.Items < 0 || history.Battlefield.Squads < 0)
+        if (history.WorkingsRooms < 0 || history.LoreXp < 0 || history.Collapse.Rooms < 0 || history.Collapse.Items < 0)
             throw Error(name, "counts and xp can't be negative");
-        if (spawnFile.Squads.All(s => s.Name != history.Battlefield.Squad))
-            throw Error(name, $"battlefield squad '{history.Battlefield.Squad}' isn't a squad in spawns.json");
-        foreach (var corpse in history.Battlefield.Corpses)
-            if (!monsters.ContainsKey(corpse.Monster))
-                throw Error(name, $"battlefield corpses use unknown monster '{corpse.Monster}'");
+        foreach (var field in new[] { history.Battlefield, history.Plague })
+        {
+            if (field.Squads < 0)
+                throw Error(name, "counts and xp can't be negative");
+            if (spawnFile.Squads.All(s => s.Name != field.Squad))
+                throw Error(name, $"squad '{field.Squad}' isn't a squad in spawns.json");
+            foreach (var corpse in field.Corpses)
+                if (!monsters.ContainsKey(corpse.Monster))
+                    throw Error(name, $"corpses use unknown monster '{corpse.Monster}'");
+        }
+        ValidateTribes(history, monsters, surface);
         if (history.Heirloom.Items.Count == 0 || history.Heirloom.Items.Any(i => i.Weight <= 0))
             throw Error(name, "heirloom needs items, all with positive weights");
         foreach (var choice in history.Heirloom.Items)
@@ -400,7 +452,7 @@ public sealed class ContentDatabase
         if (history.Heirloom.Affixes is not [var low, var high] || low < 0 || high < low)
             throw Error(name, "heirloom affixes must be [min, max] with 0 <= min <= max");
         var n = history.Names;
-        if (new[] { n.FounderFirst, n.FounderLast, n.ClanFirst, n.ClanLast, n.NecromancerFirst, n.NecromancerLast, n.HeirloomFirst, n.HeirloomLast }.Any(l => l.Count == 0))
+        if (new[] { n.TribeFirst, n.TribeLast, n.FounderFirst, n.FounderLast, n.ClanFirst, n.ClanLast, n.NecromancerFirst, n.NecromancerLast, n.HeirloomFirst, n.HeirloomLast }.Any(l => l.Count == 0))
             throw Error(name, "every name list needs at least one entry");
     }
 
