@@ -138,12 +138,15 @@ public class BuildTests
         world.Player.Hp = 100_000;
 
         var events = new List<GameEvent>();
-        for (int t = 0; t < 6; t++)
+        for (int t = 0; t < 40; t++)
+        {
             events.AddRange(world.Step(new WaitAction()));
+            world.Player.Hp = 100_000;
+        }
 
         Assert.Contains(events, e => e is SpecialUsed { Special: "counter" });
-        var perTurn = events.OfType<SpecialUsed>().Count(s => s.Special == "counter");
-        Assert.True(perTurn <= 6, $"{perTurn} counters in 6 turns");
+        var counters = events.OfType<SpecialUsed>().Count(s => s.Special == "counter");
+        Assert.True(counters < 40, $"{counters} counters in 40 turns: it should be a chance, once a turn at most");
     }
 
     [Fact]
@@ -197,5 +200,167 @@ public class BuildTests
     {
         var world = Empty();
         Assert.Contains(world.Content.Monsters["peddler"].Npc!.Goods!, w => w.Item == "plate_armor");
+    }
+}
+
+public class HeavyBlowTests
+{
+    private static World Empty(ulong seed = 1)
+    {
+        var world = World.Create(seed);
+        foreach (var other in world.Actors.Where(a => a != world.Player))
+            other.Hp = 0;
+        world.Step(new WaitAction());
+        world.Player.Hp = 100_000;
+        return world;
+    }
+
+    private static void Wear(World world, string id)
+    {
+        var item = world.Player.Inventory!.Add(world.CreateItem(world.Content.Items[id], enchantment: 0));
+        world.Player.Equipment!.Equip(item);
+    }
+
+    private static Point Beside(World w) => World.EightWay.Select(d => w.Player.Position + d).First(w.IsFree);
+
+    [Fact]
+    public void ALongSwordStaggersAndADaggerDoesNot()
+    {
+        var world = Empty();
+        Assert.Equal(0, world.Player.StaggerChance); // short sword
+        Wear(world, "long_sword");
+        Assert.True(world.Player.StaggerChance >= 20);
+        Wear(world, "dagger");
+        Assert.Equal(0, world.Player.StaggerChance);
+    }
+
+    [Fact]
+    public void AStaggeredMonsterLosesItsNextAction()
+    {
+        var world = Empty();
+        Wear(world, "long_sword");
+        var goblin = world.SpawnMonster("goblin_warrior", Beside(world));
+        goblin.Hp = 1_000_000;
+        var staggered = false;
+        for (int i = 0; i < 80 && !staggered; i++)
+        {
+            int energy = goblin.Energy;
+            var events = world.Step(new AttackAction(goblin.Id));
+            staggered = events.OfType<ActorStaggered>().Any(s => s.ActorId == goblin.Id);
+            if (staggered)
+                Assert.True(goblin.Energy < energy + goblin.Speed, "it should have lost its action");
+            world.Player.Hp = 100_000;
+        }
+        Assert.True(staggered, "80 blows and no stagger");
+    }
+
+    [Fact]
+    public void BossesCantBeStaggered()
+    {
+        var world = World.Create(1, depth: 7);
+        var boss = world.Actors.Single(a => a.Rank == Rank.Boss);
+        Wear(world, "long_sword");
+        world.Player.Hp = 100_000;
+        boss.Hp = 1_000_000;
+        var events = new List<GameEvent>();
+        for (int i = 0; i < 120; i++)
+            events.AddRange(world.Step(new AttackAction(boss.Id)));
+        Assert.DoesNotContain(events, e => e is ActorStaggered s && s.ActorId == boss.Id);
+    }
+
+    [Fact]
+    public void ABearCanStaggerYou()
+    {
+        var world = Empty();
+        var bear = world.SpawnMonster("bear", Beside(world));
+        Assert.True(bear.StaggerChance > 0);
+        var events = new List<GameEvent>();
+        for (int i = 0; i < 150 && !events.Any(e => e is ActorStaggered); i++)
+        {
+            events.AddRange(world.Step(new WaitAction()));
+            world.Player.Hp = 100_000;
+        }
+        Assert.Contains(events, e => e is ActorStaggered s && s.ActorId == world.Player.Id);
+    }
+
+    private static (World World, Actor Target) ChargeSetup(int distance)
+    {
+        var world = Empty();
+        var at = world.Map.Tiles.Positions().First(p => world.IsFree(p) && World.Distance(p, world.Player.Position) == distance && world.HasClearShot(world.Player.Position, p));
+        var target = world.SpawnMonster("goblin_archer", at);
+        target.Hp = 100_000;
+        return (world, target);
+    }
+
+    [Fact]
+    public void YouNeedHeavyArmourToCharge()
+    {
+        var (world, target) = ChargeSetup(4);
+        Assert.Contains(world.Step(new ChargeAction(target.Id)), e => e is ActionFailed { Reason: FailureReason.TooLightToCharge });
+    }
+
+    [Fact]
+    public void AChargeClosesTheGapAndHits()
+    {
+        var (world, target) = ChargeSetup(4);
+        Wear(world, "plate_armor");
+        world.Player.Hp = 100_000;
+
+        var events = world.Step(new ChargeAction(target.Id));
+
+        Assert.Contains(events, e => e is ChargedAt);
+        Assert.True(world.IsAdjacent(world.Player.Position, target.Position) || World.Distance(world.Player.Position, target.Position) <= 2);
+        Assert.Contains(events, e => e is ActorAttacked a && a.AttackerId == world.Player.Id && !a.Ranged);
+        Assert.True(world.ChargeCooldownLeft > 0);
+    }
+
+    [Fact]
+    public void AChargeHasACooldownAndARange()
+    {
+        var (world, target) = ChargeSetup(4);
+        Wear(world, "plate_armor");
+        world.Step(new ChargeAction(target.Id));
+        Assert.Contains(world.Step(new ChargeAction(target.Id)), e => e is ActionFailed { Reason: FailureReason.ChargeNotReady });
+
+        var (far, distant) = ChargeSetup(7);
+        Wear(far, "plate_armor");
+        Assert.Contains(far.Step(new ChargeAction(distant.Id)), e => e is ActionFailed { Reason: FailureReason.OutOfRange });
+    }
+
+    [Fact]
+    public void TheGuardsWaitForAnAnswerAtTheGate()
+    {
+        var world = HistoryTests.ValleyHeldBy("tollkeepers");
+        world.Player.Hp = 100_000;
+        world.Player.Position = new Point(43, 13);
+        Assert.Null(world.CampInTalk());
+        world.Step(new WaitAction());
+        Assert.NotNull(world.CampInTalk());
+
+        var events = world.Step(new ThreatenAction());
+
+        Assert.Contains(events, e => e is CampThreatened);
+        Assert.Contains(events, e => e is CampAlarmed);
+        Assert.Null(world.CampInTalk());
+    }
+
+    [Fact]
+    public void ANoAnswerIsNeededOnceYouHavePaid()
+    {
+        var world = HistoryTests.ValleyHeldBy("tollkeepers");
+        world.Player.Hp = 100_000;
+        world.Player.Position = new Point(43, 13);
+        world.Step(new WaitAction());
+        world.Step(new PayTollAction());
+        Assert.Null(world.CampInTalk());
+    }
+
+    [Fact]
+    public void WalkingOnlyUsesGroundYouKnow()
+    {
+        var world = World.Create(1);
+        var unknown = world.Map.Tiles.Positions().First(p => world.IsFree(p) && !world.Map.Explored[p]);
+        Assert.Null(world.StepAroundOthers(world.Player, unknown, knownOnly: true));
+        Assert.NotNull(world.StepAroundOthers(world.Player, unknown));
     }
 }

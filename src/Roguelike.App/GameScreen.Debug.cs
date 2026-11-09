@@ -94,6 +94,8 @@ public sealed partial class GameScreen
     public override void Update(TimeSpan delta)
     {
         base.Update(delta);
+        UpdatePopups(delta);
+        UpdateWalk(delta);
         if (IsFollowing)
         {
             UpdateFollow(delta);

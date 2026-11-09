@@ -65,9 +65,11 @@ public sealed partial class GameScreen
         }
     }
 
-    private void DrawExamine()
+    /// <summary>The Inspect panel: the examine cursor if it's out, else what's under the mouse, else what was last clicked.</summary>
+    private void DrawInspect()
     {
-        var cursor = _examine!.Cursor;
+        if ((_examine?.Cursor ?? _hover ?? _pinned) is not { } cursor || _inspectRow >= MapHeight)
+            return;
         if (OnScreen(cursor, out var at))
             _map.SetBackground(at.X, at.Y, Theme.Warning.GetDarker());
 
@@ -81,6 +83,8 @@ public sealed partial class GameScreen
                 if (y < MapHeight)
                     _sidebar.Print(2, y++, line, color, Theme.SidebarBackground);
 
+        if (_examine is null)
+            return;
         _status.Clear();
         _status.Print(1, 0, "Examine: move the cursor  Tab: next thing  x/Esc: done  (takes no time)", Theme.Warning);
     }

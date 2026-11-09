@@ -25,6 +25,7 @@ public static class Theme
     public static readonly Color PanelBackground = Hex("#101316");
     public static readonly Color SidebarBackground = PanelBackground;
     public static readonly Color LogBackground = Hex("#0c0f12");
+    public static readonly Color PopupBackground = Hex("#171c21");
     public static readonly Color Line = Hex("#262c32");
     public static readonly Color Bright = Hex("#f1ece1");
     public static readonly Color Text = Hex("#d9d4c7");
@@ -76,6 +77,7 @@ public static class Theme
     // Declared before Looks: LoadLooks fills it, and static fields initialise in order.
     private static readonly Dictionary<string, string> RangedVerbs = [];
     private static readonly Dictionary<string, string> FactionSounds = [];
+    private static readonly Dictionary<(string, string), List<string>> Grunts = [];
     private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items, int CorpseGlyph) Looks =
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
@@ -92,6 +94,10 @@ public static class Theme
         Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
 
     public static Look ForKind(string kind) => Looks.Kinds.GetValueOrDefault(kind, Unknown);
+
+    /// <summary>A grunt for a popup, chosen by the number given; null if this faction has none of this kind.</summary>
+    public static string? Grunt(string faction, string kind, int pick) =>
+        Grunts.TryGetValue((faction, kind), out var lines) && lines.Count > 0 ? lines[Math.Abs(pick) % lines.Count] : null;
 
     /// <summary>What a faction sounds like in a fight (looks.json).</summary>
     public static string FactionSound(string faction) => FactionSounds.GetValueOrDefault(faction, "someone fighting");
@@ -162,6 +168,10 @@ public static class Theme
         using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
         var root = doc.RootElement;
         int corpseGlyph = root.TryGetProperty("corpse", out var corpse) ? ReadGlyph(corpse.GetProperty("glyph")) : '%';
+        if (root.TryGetProperty("grunts", out var grunts))
+            foreach (var faction in grunts.EnumerateObject())
+                foreach (var kind in faction.Value.EnumerateObject())
+                    Grunts[(faction.Name, kind.Name)] = kind.Value.EnumerateArray().Select(e => e.GetString()!).ToList();
         if (root.TryGetProperty("factionSounds", out var sounds))
             foreach (var entry in sounds.EnumerateObject())
                 FactionSounds[entry.Name] = entry.Value.GetString()!;

@@ -78,6 +78,18 @@ public sealed class Actor
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
 
+    public int BaseStagger { get; init; }
+
+    /// <summary>Percent chance a melee hit knocks the target off its stride. Needs a weapon (or body) built for it.</summary>
+    public int StaggerChance
+    {
+        get
+        {
+            int weapon = Equipment is { } gear ? gear.Weapon?.Def.Stagger ?? 0 : BaseStagger;
+            return weapon > 0 ? weapon + Bonus(Stat.Stagger) : 0;
+        }
+    }
+
     /// <summary>It didn't step last turn, so it has its feet set.</summary>
     public bool StoodStill { get; set; }
 

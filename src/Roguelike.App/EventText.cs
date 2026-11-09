@@ -121,6 +121,11 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         SkillLearned l => $"You learn {world.Content.Skills[l.SkillId].Name} (rank {l.NewRank}/{world.Content.Skills[l.SkillId].Ranks}).",
         SpecialUsed { Special: "cleave" } u => $"Your blow carries on into {Name(u.TargetId)}!",
         SpecialUsed { Special: "lifesteal" } u when u.ActorId == world.Player.Id => "Your weapon drinks; you feel stronger.",
+        ActorStaggered s when s.ActorId == world.Player.Id => "The blow staggers you!",
+        ActorStaggered s when isVisible(s.ActorId) => $"{Cap(Name(s.ActorId))} staggers under the blow!",
+        ActorStaggered => null,
+        ChargedAt c => $"You charge {Name(c.TargetId)}!",
+        CampThreatened c => "You put a hand on your sword and tell them to move.",
         SpecialUsed { Special: "counter" } u => $"Feet set, you turn the blow and hit back at {Name(u.TargetId)}!",
         SpecialUsed { Special: "thorns" } u when u.ActorId == world.Player.Id => $"Thorns bite {Name(u.TargetId)}!",
         SpecialUsed => null,
@@ -145,11 +150,36 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.TollRefused => "They're not taking your money now.",
             FailureReason.TollAlreadyPaid => "You've already paid.",
             FailureReason.NoOneToPay => "There's nobody watching the gate to pay.",
-            FailureReason.NotEnoughGold => "You can't afford the toll.",
+            FailureReason.NotEnoughGold => "You can't afford that.",
+            FailureReason.TooLightToCharge => "Charging needs the weight of heavy armour behind it.",
+            FailureReason.ChargeNotReady => "You haven't got your breath back for another charge.",
             _ => null,
         },
 
         _ => null,
+    };
+
+    /// <summary>What goes in a speech popup for this event: who says it, and what. Null if nobody says anything.</summary>
+    public (int Speaker, string Text)? Speech(GameEvent e) => e switch
+    {
+        SquadTaunted t when isVisible(t.SpeakerId) => (t.SpeakerId, Said(t.SpeakerId, f => f.Taunts, t.Line)),
+        SquadPleaded p when isVisible(p.SpeakerId) => (p.SpeakerId, Said(p.SpeakerId, f => p.Offer switch { Roguelike.Core.AI.Squads.Ransom.Secret => f.Offers, Roguelike.Core.AI.Squads.Ransom.Gold => f.Ransoms, _ => f.Pleas }, p.Line)),
+        Talked { Line: { } line } t => (t.NpcId, Expand(line)),
+        GateChallenged c when isVisible(c.GuardId) => (c.GuardId, $"Halt! {c.Price} gold to come in."),
+        TrespassWarned w when isVisible(w.GuardId) => (w.GuardId, "Not one step further!"),
+        SquadHeardPlayer h when h.MemberIds.FirstOrDefault(isVisible) is var m && m != 0 && isVisible(m) => (m, "Huh? Who's there?"),
+        SquadCowed c when c.MemberIds.FirstOrDefault(isVisible) is var m && m != 0 && isVisible(m) => (m, "Run! Run!"),
+        _ => null,
+    };
+
+    /// <summary>A few words for a noise popup.</summary>
+    public static string SoundWords(SoundHeard s) => s.Kind switch
+    {
+        SoundKind.Fight => s.FactionA is { } a ? Theme.FactionSound(a) : "clash of weapons",
+        SoundKind.Death => "a scream",
+        SoundKind.Chanting => "chanting",
+        SoundKind.Footsteps => "footsteps",
+        _ => "a gate moving",
     };
 
     private string Said(int speaker, Func<Roguelike.Core.Entities.Faction, IReadOnlyList<string>> lines, int line) =>

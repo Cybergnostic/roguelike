@@ -52,6 +52,7 @@ public sealed partial class GameScreen : ScreenObject
     private readonly Console _status;
     private readonly Console _log;
     private readonly Console _keys;
+    private readonly Console _float;
     private readonly List<(string Text, Color Color)> _messages = [];
 
     private World _world;
@@ -81,6 +82,15 @@ public sealed partial class GameScreen : ScreenObject
         _log = Panel(UiWidth, LogRows, 0, logTop, Theme.LogBackground);
         _keys = Panel(SidebarWidth, LogRows, mapPixels, logTop, Theme.LogBackground);
         _ui = Panel(UiWidth, MapHeight, 0, mapTop, Color.Transparent);
+        _ui.UseMouse = false;
+        _float = Panel(UiWidth, MapHeight, 0, mapTop, Color.Transparent);
+        _float.UseMouse = false;
+        _map.FocusOnMouseClick = false;
+        _sidebar.FocusOnMouseClick = false;
+        _map.MouseMove += OnMapMouseMove;
+        _map.MouseExit += OnMapMouseExit;
+        _map.MouseButtonClicked += OnMapClicked;
+        _sidebar.MouseButtonClicked += OnSidebarClicked;
         _world = NewWorld();
         ApplyStartOptions();
         Draw();
@@ -112,6 +122,12 @@ public sealed partial class GameScreen : ScreenObject
 
     public override bool ProcessKeyboard(Keyboard keyboard)
     {
+        if (_walk is not null && keyboard.KeysPressed.Count > 0)
+        {
+            _walk = null; // any key stops a walk ordered with the mouse
+            return true;
+        }
+
         if (InModalUi)
         {
             if (ModalInput(keyboard) is { } chosen && !_world.IsOver)
@@ -147,6 +163,13 @@ public sealed partial class GameScreen : ScreenObject
 
         if (IsFollowing)
             return true; // the command file is playing; only debug keys and Esc work
+
+        if (GateChoice(keyboard) is { } answer)
+        {
+            PlayTurn(answer);
+            Draw();
+            return true;
+        }
 
         GameAction? action = null;
         foreach (var (key, dir) in MoveKeys)
@@ -226,6 +249,7 @@ public sealed partial class GameScreen : ScreenObject
             _shop = seller;
         if (events.OfType<MercyAsked>().FirstOrDefault() is { } plea && _world.GetActor(plea.ActorId) is { } beggar)
             _beggar = beggar;
+        AddPopups(events, text, before, IsVisible);
         if (playerMoved)
             DescribeItemsUnderfoot();
         if (playerMoved && _world.Map.StairsDown == _world.Player.Position)

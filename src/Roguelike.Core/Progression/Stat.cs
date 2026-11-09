@@ -32,4 +32,6 @@ public enum Stat
     Stealth,
     /// <summary>Percent faster at everything: moving, attacking, drinking.</summary>
     Speed,
+    /// <summary>Added to the chance of staggering with a weapon that can stagger.</summary>
+    Stagger,
 }

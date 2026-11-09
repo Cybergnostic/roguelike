@@ -131,6 +131,37 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
     }
 }
 
+/// <summary>Rushes at someone in heavy armour and strikes them, closing the distance a slow fighter can't otherwise.</summary>
+public sealed record ChargeAction(int TargetId) : GameAction
+{
+    public override int NoiseMade(World world, Actor actor) => world.Content.Dungeon.FightNoise;
+
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.GetActor(TargetId) is not { IsDead: false } target)
+            return false;
+        if (world.ChargeProblem(actor, target) is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        world.Charge(actor, target);
+        return true;
+    }
+}
+
+/// <summary>Tells the guards at the gate what you think of their toll. They don't take it well.</summary>
+public sealed record ThreatenAction : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor != world.Player || world.CampInTalk() is not { } camp)
+            return false;
+        world.Threaten(camp);
+        return true;
+    }
+}
+
 /// <summary>Lets someone begging for mercy live, in return for what they know.</summary>
 public sealed record SpareAction(int ActorId) : GameAction
 {

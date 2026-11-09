@@ -44,7 +44,9 @@ public sealed record ItemDef(
     int MoveTime = 100,
     int ArrowGuard = 0,
     int Brace = 0,
-    int Menace = 0)
+    int Menace = 0,
+    int Counter = 0,
+    int Stagger = 0)
 {
     public bool IsEquipment => Category is ItemCategory.Weapon or ItemCategory.Bow or ItemCategory.Armor;
     public bool IsStackable => Category == ItemCategory.Potion;

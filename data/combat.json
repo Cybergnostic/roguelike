@@ -16,6 +16,11 @@
   // ransom: what surrendering monsters offer for their lives, by the highest rank in the squad.
   // "offerChance": how often they offer anything. "secretShare": of those offers, how many are a secret
   // (only if the level still has something to find; otherwise it's gold). "gold": [min, max].
+  // The charge: in armour that slows your step, rush up to chargeRange cells to strike, chargeCooldown turns apart,
+  // hitting chargeBonus harder than usual.
+  "chargeRange": 5,
+  "chargeCooldown": 12,
+  "chargeBonus": 2,
   "pleaChance": 0.35,
   "ransom": {
     "normal": { "offerChance": 0.25, "secretShare": 0.15, "gold": [2, 8] },

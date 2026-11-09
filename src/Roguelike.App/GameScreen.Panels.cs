@@ -13,6 +13,73 @@ public sealed partial class GameScreen
 {
     private int _inspectRow;
 
+    /// <summary>Which sidebar row is which answer to the guards, for clicking.</summary>
+    private readonly Dictionary<int, int> _gateRows = [];
+
+    /// <summary>The camp whose challenge the player walked away from; the guards don't ask again until they've left.</summary>
+    private Camp? _gateBrushedOff;
+
+    private Camp? GateWaiting
+    {
+        get
+        {
+            var camp = _world.CampInTalk();
+            if (camp is null)
+                _gateBrushedOff = null;
+            return camp == _gateBrushedOff ? null : camp;
+        }
+    }
+
+    private int DrawGateTalk(int y, Camp camp)
+    {
+        var bg = Theme.SidebarBackground;
+        var toll = camp.Toll!;
+        PrintBold(_sidebar, 2, y++, "THE GUARDS BAR THE WAY", Theme.Warning, bg);
+        foreach (var line in Wrap($"\"Road is free. Gate costs {toll.Price} gold, good for {toll.Turns} turns. Turn back or pay.\"", SidebarWidth - 4))
+            _sidebar.Print(2, y++, line, Theme.Bright, bg);
+        y++;
+        void Choice(int number, string label, string note, bool open)
+        {
+            _gateRows[y] = number;
+            _sidebar.Print(2, y, $"{number}", Theme.Warning, bg);
+            _sidebar.Print(4, y++, label, open ? Theme.Bright : Theme.Intent, bg);
+            _sidebar.Print(4, y++, note, Theme.Intent, bg);
+            _gateRows[y - 1] = number;
+        }
+        Choice(1, "Pay the toll", $"{toll.Price} of your {_world.Player.Gold} gold", _world.Player.Gold >= toll.Price);
+        Choice(2, "Threaten them", "raises the alarm", true);
+        Choice(3, "Step back", "nothing lost", true);
+        return y;
+    }
+
+    /// <summary>An answer to the guards from the number keys, if they're waiting for one.</summary>
+    private Roguelike.Core.Actions.GameAction? GateChoice(SadConsole.Input.Keyboard keyboard)
+    {
+        if (GateWaiting is null)
+            return null;
+        int choice = keyboard.IsKeyPressed(SadConsole.Input.Keys.D1) ? 1
+            : keyboard.IsKeyPressed(SadConsole.Input.Keys.D2) ? 2
+            : keyboard.IsKeyPressed(SadConsole.Input.Keys.D3) ? 3 : 0;
+        return choice == 0 ? null : GateAction(choice);
+    }
+
+    private Roguelike.Core.Actions.GameAction? GateAction(int choice)
+    {
+        if (GateWaiting is not { } camp)
+            return null;
+        switch (choice)
+        {
+            case 1:
+                return new Roguelike.Core.Actions.PayTollAction();
+            case 2:
+                return new Roguelike.Core.Actions.ThreatenAction();
+            default:
+                _gateBrushedOff = camp;
+                var away = Direction.GetDirection(camp.Toll!.Gate, _world.Player.Position);
+                return _world.IsFree(_world.Player.Position + away) ? new Roguelike.Core.Actions.MoveAction(away) : null;
+        }
+    }
+
     private static void PrintBold(Console target, int x, int y, string text, Color color, Color background)
     {
         for (int i = 0; i < text.Length && x + i < target.Width; i++)
@@ -94,9 +161,15 @@ public sealed partial class GameScreen
                 y = Fact(y, "Your time", $"{camp.PassTurnsLeft(_world.Turn)} turns", Theme.Teal);
             y = DrawRule(y);
         }
+        _gateRows.Clear();
+        if (GateWaiting is { } waiting)
+        {
+            y = DrawGateTalk(y, waiting);
+            y = DrawRule(y + 1);
+        }
         _inspectRow = y;
         PrintBold(_sidebar, 2, y++, "INSPECT", Theme.Intent, bg);
-        _sidebar.Print(2, y, "Press x to look around.", Theme.Intent, bg);
+        _sidebar.Print(2, y, "Click the map, or press x.", Theme.Intent, bg);
     }
 
     private int DrawRule(int y)
@@ -202,6 +275,7 @@ public sealed partial class GameScreen
         ("g", "Pick up"), ("e", "Equip"),
         ("q", "Drink"), ("<>", "Stairs"),
         ("z", "Sneak"), ("C", "Close gate"),
+        ("v", "Charge"), ("1-3", "Answer"),
     ];
 
     private void DrawKeys()
@@ -217,6 +291,6 @@ public sealed partial class GameScreen
             _keys.Print(x, y, key, Theme.Warning, Theme.LogBackground);
             _keys.Print(x + key.Length + 1, y, what, Theme.TextDim, Theme.LogBackground);
         }
-        _keys.Print(2, _keys.Height - 1, "Esc: quit   F4: classic look", Theme.Intent, Theme.LogBackground);
+        _keys.Print(2, _keys.Height - 1, "L-click: inspect  R-click: walk", Theme.Intent, Theme.LogBackground);
     }
 }

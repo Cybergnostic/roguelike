@@ -73,6 +73,15 @@ public enum SoundKind { Fight, Death, Chanting, Gate, Footsteps }
 /// </summary>
 public sealed record SoundHeard(SoundKind Kind, Direction? From, bool Near, string? FactionA, string? FactionB) : GameEvent;
 
+/// <summary>A heavy blow cost this actor its next action.</summary>
+public sealed record ActorStaggered(int ActorId, int ById) : GameEvent;
+
+/// <summary>The player charged at someone.</summary>
+public sealed record ChargedAt(int ActorId, int TargetId) : GameEvent;
+
+/// <summary>The player threatened a camp's guards instead of paying.</summary>
+public sealed record CampThreatened(string ZoneName) : GameEvent;
+
 /// <summary>A squad heard the player and has gone to look.</summary>
 public sealed record SquadHeardPlayer(int SquadId, IReadOnlyList<int> MemberIds) : GameEvent;
 
@@ -200,6 +209,8 @@ public enum FailureReason
     TollAlreadyPaid,
     NoOneToPay,
     NotEnoughGold,
+    TooLightToCharge,
+    ChargeNotReady,
 }
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>

@@ -922,6 +922,17 @@ public sealed class World
     public Camp? TollCampNearby() =>
         _location.Camps.FirstOrDefault(c => c.Toll is { } t && Distance(Player.Position, t.Gate) <= t.Range);
 
+    /// <summary>The camp whose guards are waiting for an answer from the player right now, if any.</summary>
+    public Camp? CampInTalk() =>
+        TollCampNearby() is { Challenged: true, Provoked: false, Overrun: false } camp
+        && !camp.HasPass(Turn) && camp.Tolerates(Player.Position, Turn) && GuardWatching(camp) is not null ? camp : null;
+
+    public void Threaten(Camp camp)
+    {
+        Emit(new CampThreatened(camp.Zone.Name));
+        Alarm(camp);
+    }
+
     /// <summary>Why the player can't pay a toll right now, or null if they can.</summary>
     public FailureReason? TollProblem()
     {
@@ -999,6 +1010,9 @@ public sealed class World
         if (ranged)
             return;
 
+        if (!target.IsDead && target.Rank != Rank.Boss && attacker.StaggerChance > 0 && Rng.NextInt(100) < attacker.StaggerChance)
+            Stagger(target, attacker);
+
         // Lifesteal: a melee hit heals the striker by a quarter of the damage (at least 1).
         if (dealt > 0 && !attacker.IsDead && attacker.Hp < attacker.MaxHp && attacker.HasSpecial("lifesteal"))
         {
@@ -1012,7 +1026,8 @@ public sealed class World
             Damage(target, attacker, Rng.NextInt(1, 4), ranged: false);
         }
         // Feet set in heavy gear: the first one to come at you each turn gets hit back.
-        if (target == Player && !attacker.IsDead && !target.IsDead && target.BraceBonus > 0 && _counteredOnTurn != Turn)
+        if (target == Player && !attacker.IsDead && !target.IsDead && target.BraceBonus > 0 && _counteredOnTurn != Turn
+            && Rng.NextInt(100) < (target.Equipment?.Armor?.Def.Counter ?? 0))
         {
             _counteredOnTurn = Turn;
             Emit(new SpecialUsed(target.Id, "counter", attacker.Id));
@@ -1021,6 +1036,52 @@ public sealed class World
     }
 
     private int _counteredOnTurn = -1;
+    private int _chargeReadyOn;
+
+    private const int StaggeredPlayerLoses = 60;
+
+    private void Stagger(Actor target, Actor by)
+    {
+        if (target == Player)
+            _timeOwed += StaggeredPlayerLoses;
+        else
+            target.Energy -= 100;
+        Emit(new ActorStaggered(target.Id, by.Id));
+    }
+
+    /// <summary>Why the actor can't charge at this target now, or null if it can.</summary>
+    public FailureReason? ChargeProblem(Actor actor, Actor target)
+    {
+        var rules = Content.Combat;
+        if (actor.MoveTime <= 100)
+            return FailureReason.TooLightToCharge;
+        if (Turn < _chargeReadyOn)
+            return FailureReason.ChargeNotReady;
+        if (Distance(actor.Position, target.Position) > rules.ChargeRange)
+            return FailureReason.OutOfRange;
+        return ChargeLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
+    }
+
+    private Point? ChargeLanding(Actor actor, Actor target) =>
+        IsAdjacent(actor.Position, target.Position) ? actor.Position
+        : EightWay.Select(d => target.Position + d)
+            .Where(p => IsFree(p) && HasClearShot(actor.Position, p))
+            .OrderBy(p => Distance(p, actor.Position)).Cast<Point?>().FirstOrDefault();
+
+    /// <summary>Carries out a charge; check <see cref="ChargeProblem"/> first.</summary>
+    public void Charge(Actor actor, Actor target)
+    {
+        var from = actor.Position;
+        actor.Position = ChargeLanding(actor, target)!.Value;
+        if (actor.Position != from)
+            Emit(new ActorMoved(actor.Id, from, actor.Position));
+        Emit(new ChargedAt(actor.Id, target.Id));
+        _chargeReadyOn = Turn + Content.Combat.ChargeCooldown;
+        ResolveAttack(actor, target, ranged: false, power: actor.Attack + Content.Combat.ChargeBonus);
+    }
+
+    /// <summary>Turns until the player can charge again; 0 when ready.</summary>
+    public int ChargeCooldownLeft => Math.Max(0, _chargeReadyOn - Turn);
 
     /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
     public void Damage(Actor attacker, Actor target, int damage, bool ranged)
@@ -1429,12 +1490,12 @@ public sealed class World
     /// The next step of a route that goes around everyone in the way. Costs a whole-map search,
     /// so it's for scripted player travel and for actors whose direct way is blocked, not routine AI steps.
     /// </summary>
-    public Direction? StepAroundOthers(Actor self, Point goal)
+    public Direction? StepAroundOthers(Actor self, Point goal, bool knownOnly = false)
     {
         var open = new ArrayView<bool>(Map.Width, Map.Height);
         var occupied = _actors.Where(a => !a.IsDead).Select(a => a.Position).ToHashSet();
         foreach (var p in open.Positions())
-            open[p] = Map.Passable[p] && (p == self.Position || p == goal || !occupied.Contains(p));
+            open[p] = Map.Passable[p] && (!knownOnly || Map.Explored[p]) && (p == self.Position || p == goal || !occupied.Contains(p));
         var map = new DistanceMap(open);
         map.Update([goal]);
         return StepDownhill(self, map);
@@ -1497,6 +1558,7 @@ public sealed class World
             LootTable = def.Loot,
             Speed = def.Speed,
             BaseAttackTime = def.AttackTime,
+            BaseStagger = def.Stagger,
             Rank = elite is not null ? Rank.Elite : def.Rank,
             Title = elite?.Title,
             XpMultiplier = elite?.Xp ?? 1,

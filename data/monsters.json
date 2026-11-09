@@ -11,6 +11,7 @@
   // "abilities": skills by id (abilities.json). "endsRun": killing this one wins the game.
   // "npc": people you can talk to. "lines" are what they say, in turn ("{tribe}", "{necromancer}"
   // and "{founder}" are filled in from the site's history). "goods" are what they sell.
+  // "stagger": percent chance a melee hit costs the target its next action.
   // "raise" (necromancers): reach in cells (needs line of sight), turns between raisings,
   // and how many servants it can control at once. Its servants crumble when it dies.
   "monsters": [
@@ -21,14 +22,14 @@
 
     // Wild animals. They hunt the player and leave everyone else alone.
     { "id": "wolf",         "faction": "beasts", "role": "warrior", "maxHp": 8,  "attack": 4, "defense": 0, "xp": 8,  "speed": 140 },
-    { "id": "boar",         "faction": "beasts", "role": "warrior", "maxHp": 16, "attack": 5, "defense": 1, "xp": 10, "abilities": ["charge"] },
+    { "id": "boar", "stagger": 15,         "faction": "beasts", "role": "warrior", "maxHp": 16, "attack": 5, "defense": 1, "xp": 10, "abilities": ["charge"] },
     { "id": "giant_spider", "faction": "beasts", "role": "warrior", "maxHp": 10, "attack": 5, "defense": 0, "xp": 12, "evasion": 2, "speed": 120 },
-    { "id": "bear",         "faction": "beasts", "role": "warrior", "rank": "elite", "maxHp": 34, "attack": 9, "defense": 1, "xp": 40, "abilities": ["charge"] },
+    { "id": "bear", "stagger": 25,         "faction": "beasts", "role": "warrior", "rank": "elite", "maxHp": 34, "attack": 9, "defense": 1, "xp": 40, "abilities": ["charge"] },
 
     // Bandits, who work the road from their den.
     { "id": "bandit",        "faction": "bandits", "role": "warrior", "maxHp": 11, "attack": 5, "defense": 1, "xp": 12, "loot": "bandit" },
     { "id": "bandit_archer", "faction": "bandits", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 0, "xp": 12, "range": 6, "loot": "bandit" },
-    { "id": "bandit_chief",  "faction": "bandits", "role": "warrior", "rank": "elite", "maxHp": 24, "attack": 7, "defense": 2, "accuracy": 1, "xp": 40, "lootDepthBonus": 1, "loot": "bandit", "abilities": ["warcry", "charge"] },
+    { "id": "bandit_chief", "stagger": 15,  "faction": "bandits", "role": "warrior", "rank": "elite", "maxHp": 24, "attack": 7, "defense": 2, "accuracy": 1, "xp": 40, "lootDepthBonus": 1, "loot": "bandit", "abilities": ["warcry", "charge"] },
 
     // People. "civilian" stands where it's put and talks when you walk into it.
     { "id": "peddler", "faction": "folk", "role": "civilian", "maxHp": 20, "attack": 1, "defense": 0, "npc": {
@@ -58,12 +59,12 @@
     { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "xp": 12, "lootDepthBonus": 1, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
     { "id": "goblin_zombie",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "accuracy": -1, "evasion": -3, "speed": 50, "fearless": true },
 
-    { "id": "bone_knight", "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge"] },
+    { "id": "bone_knight", "stagger": 20, "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge"] },
     { "id": "wraith", "faction": "undead", "role": "archer", "rank": "elite", "maxHp": 14, "attack": 5, "defense": 0, "xp": 35, "range": 6, "evasion": 3, "speed": 120, "fearless": true, "abilities": ["soul_drain"] },
 
     // Goblins' big ones.
-    { "id": "goblin_brute", "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 7, "defense": 2, "xp": 30, "lootDepthBonus": 1, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["charge"] },
-    { "id": "goblin_warlord", "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 26, "attack": 7, "defense": 3, "accuracy": 1, "xp": 50, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry", "charge"] },
+    { "id": "goblin_brute", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 7, "defense": 2, "xp": 30, "lootDepthBonus": 1, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["charge"] },
+    { "id": "goblin_warlord", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 26, "attack": 7, "defense": 3, "accuracy": 1, "xp": 50, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry", "charge"] },
 
     // An acolyte: stays in its shrine, raises the dead, casts bolts from behind its guards.
     { "id": "acolyte", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "xp": 80, "lootDepthBonus": 2, "range": 6,

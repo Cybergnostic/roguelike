@@ -15,7 +15,7 @@ public sealed record MonsterDef(
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
     int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
     int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0, Rank Rank = Rank.Normal,
-    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null, int AttackTime = 100);
+    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null, int AttackTime = 100, int Stagger = 0);
 
 /// <summary>Someone the player can talk to. Lines: said in turn. Goods: for sale.</summary>
 public sealed record NpcDef(IReadOnlyList<string>? Lines = null, IReadOnlyList<WareDef>? Goods = null);
@@ -40,7 +40,7 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
     int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1,
-    double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
+    int ChargeRange = 5, int ChargeCooldown = 12, int ChargeBonus = 2, double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);

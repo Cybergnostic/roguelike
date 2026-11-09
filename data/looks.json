@@ -39,6 +39,14 @@
     "folk": "villagers shouting",
     "player": "someone fighting"
   },
+  // Grunts in popups, by faction: "attack", "hurt" and "die" (front end only).
+  "grunts": {
+    "goblins": { "attack": ["Hrak!", "Nyah!", "Stab!"], "hurt": ["Yeep!", "Ow-ow!", "Grk!"], "die": ["Gaaah...", "Nnngk!"] },
+    "undead":  { "attack": ["*clack*", "*rattle*"], "hurt": ["*crack*", "*splinter*"], "die": ["*bones fall*", "*dust*"] },
+    "beasts":  { "attack": ["Grrr!", "*snap*", "Snrl!"], "hurt": ["Yip!", "*whine*"], "die": ["*whimper*"] },
+    "bandits": { "attack": ["Hah!", "Have at you!"], "hurt": ["Argh!", "Damn you!"], "die": ["Tell my..."] },
+    "folk":    { "attack": ["For the hamlet!", "Back!"], "hurt": ["Ow!", "Help!"], "die": ["No..."] }
+  },
   // Items by id; categories are the fallback for ids not listed.
   "items": {
     "weapon":         { "glyph": ")", "color": "#C8C8D2" },

@@ -6,7 +6,7 @@
   // (each point of accuracy/evasion is 5% hit chance, see combat.json).
   "attributes": [
     { "id": "str", "name": "Strength",     "description": "Melee damage.",
-      "perModifier": { "meleeAttack": 1 } },
+      "perModifier": { "meleeAttack": 1, "stagger": 5 } },
     { "id": "dex", "name": "Dexterity",    "description": "Hit more often, dodge more often, shoot a little harder, move quietly.",
       "perModifier": { "accuracy": 1, "evasion": 1, "rangedAttack": 0.5, "stealth": 1 } },
     { "id": "con", "name": "Constitution", "description": "Hit points.",

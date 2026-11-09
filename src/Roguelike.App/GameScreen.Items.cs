@@ -20,8 +20,9 @@ public sealed partial class GameScreen
     private sealed record ItemMenu(string Title, List<Item> Items, Func<Item, GameAction> OnPick);
 
     /// <summary>Choosing a target for the bow.</summary>
-    private sealed class Targeting(List<Actor> targets)
+    private sealed class Targeting(List<Actor> targets, bool charging = false)
     {
+        public bool Charging { get; } = charging;
         public List<Actor> Targets { get; } = targets;
         public int Index { get; set; }
         public Actor Current => Targets[Index];
@@ -56,6 +57,8 @@ public sealed partial class GameScreen
             OpenMenu("Drop which item?", inventory.Items, item => new DropAction(item.Id));
         else if (keyboard.IsKeyPressed(Keys.F))
             StartTargeting();
+        else if (keyboard.IsKeyPressed(Keys.V))
+            StartCharging();
         else if (keyboard.IsKeyPressed(Keys.Z))
             return new ToggleSneakAction();
         else if (keyboard.IsKeyPressed(Keys.M))
@@ -96,6 +99,30 @@ public sealed partial class GameScreen
             return;
         }
         _targeting = new Targeting(targets);
+    }
+
+    private void StartCharging()
+    {
+        var player = _world.Player;
+        if (player.MoveTime <= 100)
+        {
+            AddMessage("Charging needs the weight of heavy armour behind it.", Theme.Intent);
+            return;
+        }
+        if (_world.ChargeCooldownLeft > 0)
+        {
+            AddMessage($"You need {_world.ChargeCooldownLeft} more turns to get your breath back.", Theme.Intent);
+            return;
+        }
+        var targets = _world.Actors
+            .Where(a => _world.CouldFight(player, a) && _world.PlayerCanSee(a) && World.Distance(a.Position, player.Position) <= _world.Content.Combat.ChargeRange)
+            .OrderBy(a => World.Distance(a.Position, player.Position)).ToList();
+        if (targets.Count == 0)
+        {
+            AddMessage("Nothing close enough to charge.", Theme.Intent);
+            return;
+        }
+        _targeting = new Targeting(targets, charging: true);
     }
 
     /// <summary>Input while a menu or targeting is open. Returns the chosen action, if any.</summary>
@@ -154,10 +181,10 @@ public sealed partial class GameScreen
         {
             if (keyboard.IsKeyPressed(Keys.Tab))
                 t.Index = (t.Index + 1) % t.Targets.Count;
-            else if (keyboard.IsKeyPressed(Keys.F) || keyboard.IsKeyPressed(Keys.Enter))
+            else if (keyboard.IsKeyPressed(t.Charging ? Keys.V : Keys.F) || keyboard.IsKeyPressed(Keys.Enter))
             {
                 _targeting = null;
-                return new FireAction(t.Current.Id);
+                return t.Charging ? new ChargeAction(t.Current.Id) : new FireAction(t.Current.Id);
             }
         }
         return null;
@@ -184,8 +211,7 @@ public sealed partial class GameScreen
             DrawMenu(menu);
         if (_sheetOpen)
             DrawSheet();
-        if (_examine is not null)
-            DrawExamine();
+        DrawInspect();
         if (_askingToll)
             DrawTollPrompt();
         if (_chronicleOpen)
@@ -200,7 +226,7 @@ public sealed partial class GameScreen
     {
         var player = _world.Player;
         var target = t.Current;
-        bool inRange = World.Distance(player.Position, target.Position) <= player.Range;
+        bool inRange = World.Distance(player.Position, target.Position) <= (t.Charging ? _world.Content.Combat.ChargeRange : player.Range);
         bool clear = _world.HasClearShot(player.Position, target.Position);
         var color = inRange && clear ? Theme.Warning : Theme.Danger;
 
@@ -214,9 +240,11 @@ public sealed partial class GameScreen
         if (OnScreen(target.Position, out var aim))
             _map.SetBackground(aim.X, aim.Y, color.GetDarker());
 
-        var note = !inRange ? "out of range" : !clear ? "blocked" : $"{player.RangedAttack} atk";
+        var note = !inRange ? "out of range" : !clear ? "blocked" : t.Charging ? $"{player.Attack + _world.Content.Combat.ChargeBonus} atk" : $"{player.RangedAttack} atk";
         _status.Clear();
-        _status.Print(1, 0, $"Fire at {target.Name} ({note}). Tab: next target  f/Enter: fire  Esc: cancel", Theme.Warning);
+        _status.Print(1, 0, t.Charging
+            ? $"Charge {target.Name} ({note}). Tab: next target  v/Enter: charge  Esc: cancel"
+            : $"Fire at {target.Name} ({note}). Tab: next target  f/Enter: fire  Esc: cancel", Theme.Warning);
     }
 
     private void DrawMenu(ItemMenu menu)
