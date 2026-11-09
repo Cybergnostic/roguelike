@@ -28,6 +28,8 @@ public enum Tile : byte
     GateClosed,
     /// <summary>The surface's way down into the dungeon.</summary>
     CaveMouth,
+    /// <summary>The old marker where the road begins; what the valley's errand is brought back to.</summary>
+    Waystone,
 }
 
 /// <summary>
@@ -69,7 +71,7 @@ public sealed class GameMap
     public Zone? ZoneAt(Point p) => Zones.FirstOrDefault(z => z.Area.Contains(p));
 
     public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp
-        or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth;
+        or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth or Tile.Waystone;
 
     public static bool IsTransparent(Tile tile) => IsWalkable(tile) && tile != Tile.Brush;
 

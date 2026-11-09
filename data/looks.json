@@ -20,6 +20,7 @@
     "armor":          { "glyph": "[", "color": "#A0A0AA" },
     "potion":         { "glyph": "!", "color": "#E65A78" },
     "coins":          { "glyph": "$", "color": "#F0D250" },
+    "relic":          { "glyph": "*", "color": "#E8B060" },
     "long_sword":     { "glyph": ")", "color": "#E6E6F0" },
     "chain_mail":     { "glyph": "[", "color": "#C8C8D2" }
   },
@@ -39,6 +40,7 @@
     "palisade":   { "glyph": "#", "color": "#9A6A3A" },
     "gateopen":   { "glyph": "/", "color": "#C89A5A" },
     "gateclosed": { "glyph": "+", "color": "#C89A5A" },
-    "cavemouth":  { "glyph": ">", "color": "#B0A090" }
+    "cavemouth":  { "glyph": ">", "color": "#B0A090" },
+    "waystone":   { "glyph": 239, "color": "#C8C8D2" }
   }
 }

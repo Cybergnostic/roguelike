@@ -126,7 +126,7 @@ public class CampTests
         }
 
         Assert.True(stopsReached.Count >= 4, $"only {stopsReached.Count} legs walked");
-        Assert.Equal(2, route.Count);
+        Assert.Equal(3, route.Count);
     }
 
     [Fact]
@@ -566,6 +566,199 @@ public class CampTests
         Assert.Equal(Play(), Play());
     }
 
+    // ---- The errand, theft, and a third party ----
+
+    private static readonly Point Relic = new(55, 3);
+    private static readonly Point Waystone = new(1, 20);
+    private static readonly Point StoreLoot = new(50, 4);
+
+    private static Squad Keeper(World w) => w.Squads[3];
+
+    /// <summary>Walks the player to a cell one real step at a time, collecting what happens.</summary>
+    private static List<GameEvent> WalkTo(World world, Point goal, int maxTurns = 200)
+    {
+        var events = new List<GameEvent>();
+        for (int t = 0; t < maxTurns && world.Player.Position != goal; t++)
+        {
+            var step = world.StepAroundOthers(world.Player, goal);
+            Assert.True(step is not null, $"no step from {world.Player.Position} to {goal}");
+            events.AddRange(world.Step(new MoveAction(step!.Value)));
+        }
+        Assert.Equal(goal, world.Player.Position);
+        return events;
+    }
+
+    [Fact]
+    public void TheErrandCanBeFinishedByPayingWithoutAFight()
+    {
+        var world = Valley();
+        int startGold = world.Player.Gold;
+        world.Player.Position = JustOutsideGate;
+        var events = world.Step(new PayTollAction()).ToList();
+
+        events.AddRange(WalkTo(world, Relic));
+        events.AddRange(world.Step(new PickUpAction()));
+        Assert.NotNull(world.Player.Inventory!.Find(world.Objective!.Item.Id));
+        events.AddRange(WalkTo(world, Waystone));
+
+        Assert.Contains(events, e => e is ObjectiveCompleted);
+        Assert.True(world.Objective!.Completed);
+        Assert.Null(world.Player.Inventory!.Find(world.Objective.Item.Id));
+        Assert.Equal(startGold - 20 + 30, world.Player.Gold);
+        Assert.DoesNotContain(events, e => e is ActorDied);
+        Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
+        Assert.DoesNotContain(events, e => e is CampAlarmed);
+    }
+
+    [Fact]
+    public void TheErrandCanBeFinishedBySneakingInWhileThePatrolIsAway()
+    {
+        var world = Valley();
+        var behindTheCamp = new Point(57, 1);
+        world.Player.Position = behindTheCamp;
+        var patrol = FrontPatrol(world);
+        var events = new List<GameEvent>();
+
+        // Watch from cover until the patrol has walked off to the far end of the front.
+        for (int t = 0; t < 120 && !(patrol.RouteStop == 0 && patrol.Leader!.Position.X < 45); t++)
+            events.AddRange(world.Step(new WaitAction()));
+        Assert.True(patrol.Leader!.Position.X < 45, "the patrol never left");
+
+        events.AddRange(WalkTo(world, Relic));
+        events.AddRange(world.Step(new PickUpAction()));
+        events.AddRange(WalkTo(world, behindTheCamp));
+        Assert.Contains(events, e => e is ItemPickedUp p && p.Item == world.Objective!.Item);
+        events.AddRange(WalkTo(world, Waystone, maxTurns: 300));
+
+        Assert.Contains(events, e => e is ObjectiveCompleted);
+        Assert.DoesNotContain(events, e => e is SquadSpotted);
+        Assert.DoesNotContain(events, e => e is ActorDied);
+        Assert.Equal(30 + 30, world.Player.Gold); // nothing paid
+    }
+
+    [Fact]
+    public void ThePatrolCatchesSomeoneAtTheBackFence()
+    {
+        var world = Valley();
+        var patrol = FrontPatrol(world);
+        var inTheGap = new Point(56, 4);
+        world.Player.Position = inTheGap;
+
+        var events = new List<GameEvent>();
+        for (int t = 0; t < 80 && !events.Any(e => e is SquadSpotted); t++)
+            events.AddRange(world.Step(new WaitAction()));
+
+        Assert.Contains(events, e => e is SquadSpotted s && s.SquadId == patrol.Id);
+    }
+
+    [Fact]
+    public void TheWaystoneDoesNothingWithoutTheRelic()
+    {
+        var world = Valley();
+        world.Player.Position = Waystone + Direction.Right;
+
+        var events = world.Step(new MoveAction(Direction.Left));
+
+        Assert.DoesNotContain(events, e => e is ObjectiveCompleted);
+        Assert.False(world.Objective!.Completed);
+    }
+
+    [Fact]
+    public void TakingTheRelicIsNotTheft()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        world.Player.Position = Relic;
+
+        var events = world.Step(new PickUpAction());
+
+        Assert.DoesNotContain(events, e => e is TheftCommitted);
+        Assert.False(CampOf(world).Provoked);
+    }
+
+    [Fact]
+    public void BeingSeenStealingTurnsTheCampAgainstYouEvenIfYouPaid()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        world.Player.Position = StoreLoot;
+        Assert.True(Keeper(world).Members.Any(m => world.CanSee(m, world.Player)));
+
+        var events = world.Step(new PickUpAction());
+
+        Assert.Contains(events, e => e is TheftCommitted { WitnessId: not null });
+        Assert.Contains(events, e => e is CampAlarmed);
+        Assert.True(CampOf(world).Provoked);
+        Assert.Contains(events, e => e is SquadSpotted s && s.SquadId == Keeper(world).Id);
+    }
+
+    [Fact]
+    public void StealingUnseenRaisesNoAlarm()
+    {
+        var world = Valley();
+        PayAtGate(world);
+        foreach (var member in Keeper(world).Members)
+            member.Hp = 0;
+        world.Step(new WaitAction());
+        world.Player.Position = StoreLoot;
+
+        var events = world.Step(new PickUpAction());
+
+        Assert.Contains(events, e => e is TheftCommitted { WitnessId: null });
+        Assert.False(CampOf(world).Provoked);
+    }
+
+    [Fact]
+    public void TheUndeadAttackTheCampWithoutThePlayer()
+    {
+        var world = Valley();
+        world.Player.Position = FarAway;
+        int goblins = world.Actors.Count(a => a.Faction.Id == "goblins");
+
+        var events = Run(world, 299);
+        Assert.DoesNotContain(events, e => e is IncursionBegan);
+
+        events = Run(world, 150);
+
+        Assert.Single(events.OfType<IncursionBegan>());
+        Assert.Contains(events, e => e is ActorDied);
+        Assert.True(world.Actors.Count(a => a.Faction.Id == "goblins" && !a.IsDead) < goblins
+                    || world.Squads.All(s => s.Faction.Id != "undead"), "the fight changed nothing");
+        Assert.False(CampOf(world).Provoked);
+        Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
+    }
+
+    [Fact]
+    public void AnIncursionWaitsUntilThePlayerIsBack()
+    {
+        var world = Valley();
+        world.Player.Position = world.Map.StairsDown!.Value;
+        world.Step(new DescendAction());
+        world.Player.Hp = 100_000;
+        world.ObserverMode = true;
+        Run(world, 320);
+        world.ObserverMode = false;
+        world.Player.Position = world.Map.StairsUp!.Value;
+        world.Step(new AscendAction());
+
+        Assert.Single(world.Step(new WaitAction()).OfType<IncursionBegan>());
+    }
+
+    [Fact]
+    public void AnUnopposedIncursionReachesTheCampAndEnds()
+    {
+        var world = Valley();
+        foreach (var member in world.Squads.SelectMany(s => s.Members))
+            member.Hp = 0;
+        world.Player.Position = FarAway;
+
+        Run(world, 420); // nobody opposes them, so they arrive and have nowhere further to go
+
+        var undead = Assert.Single(world.Squads);
+        Assert.Equal(SquadState.Idle, undead.State);
+        Assert.False(undead.IsRaiding);
+    }
+
     [Fact]
     public void DungeonGoblinsAreStillHostile()
     {
@@ -598,6 +791,9 @@ public class CampTests
     [InlineData("\"rally\": [40, 6]", "\"rally\": [0, 0]", "rally")]
     [InlineData("\"toll\": { \"gate\": [43, 10]", "\"toll\": { \"gate\": [44, 10]", "toll gate")]
     [InlineData("\"price\": 20", "\"price\": 0", "toll price")]
+    [InlineData("\"item\": \"reliquary\"", "\"item\": \"dagger\"", "relic")]
+    [InlineData("\"owner\": \"the Red Tooth camp\" },\n    { \"table\": \"floor\", \"at\": [51", "\"owner\": \"nobody\" },\n    { \"table\": \"floor\", \"at\": [51", "owner")]
+    [InlineData("\"target\": \"the Red Tooth camp\"", "\"target\": \"nowhere\"", "nowhere")]
     public void ABrokenCampIsAContentError(string find, string replace, string expected)
     {
         var dir = Path.Combine(Path.GetTempPath(), "rl-content-" + Guid.NewGuid());

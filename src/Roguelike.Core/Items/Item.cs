@@ -8,6 +8,8 @@ public enum ItemCategory
     Potion,
     /// <summary>Money: picked up into the purse (<see cref="Entities.Actor.Gold"/>), never carried in the pack.</summary>
     Coins,
+    /// <summary>Something carried for its own sake: an errand's object. It can't be used or worn.</summary>
+    Relic,
 }
 
 /// <summary>

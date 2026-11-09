@@ -22,6 +22,7 @@ public sealed record PickUpAction : GameAction
             if (item.Def.Category == ItemCategory.Coins)
             {
                 // Money goes in the purse, not the pack.
+                world.NoteTheft(actor, item);
                 world.TakeFromFloor(item);
                 actor.Gold += item.Count;
                 world.Emit(new ItemPickedUp(actor.Id, item));
@@ -33,6 +34,7 @@ public sealed record PickUpAction : GameAction
                 world.Emit(new ActionFailed(actor.Id, FailureReason.InventoryFull));
                 break;
             }
+            world.NoteTheft(actor, item);
             world.TakeFromFloor(item);
             inventory.Add(item);
             world.Emit(new ItemPickedUp(actor.Id, item));

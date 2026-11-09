@@ -39,8 +39,8 @@ public class SurfaceTests
         Assert.Equal(Tile.GateOpen, world.Map.Tiles[Gate]);
         Assert.Equal(Cave, world.Map.StairsDown);
         Assert.Equal(Tile.CaveMouth, world.Map.Tiles[Cave]);
-        Assert.Equal(8, world.Actors.Count(a => a != world.Player));
-        Assert.Equal(3, world.Squads.Count);
+        Assert.Equal(9, world.Actors.Count(a => a != world.Player));
+        Assert.Equal(4, world.Squads.Count);
     }
 
     [Fact]
@@ -58,8 +58,12 @@ public class SurfaceTests
         world.SetGate(Gate, open: false, world.Player);
         Assert.NotNull(WalkFrom(world, world.Player.Position)[InsideCamp]);
 
+        // Those are the only other ways in: the breach in the west wall and the gap in the back fence.
         var breach = new Point(30, 6);
-        Assert.Null(WalkFrom(world, world.Player.Position, p => p == breach)[InsideCamp]);
+        var backGap = new Point(56, 4);
+        Assert.NotNull(WalkFrom(world, world.Player.Position, p => p == breach)[InsideCamp]);
+        Assert.NotNull(WalkFrom(world, world.Player.Position, p => p == backGap)[InsideCamp]);
+        Assert.Null(WalkFrom(world, world.Player.Position, p => p == breach || p == backGap)[InsideCamp]);
     }
 
     [Fact]

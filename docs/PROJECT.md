@@ -486,7 +486,10 @@ you, a quick way to see progression; spectating: time passes).
 - Time stands still on levels the player has left, and monsters don't follow on the stairs, so stairs
   are a perfect escape for now. Off-screen time and pursuit belong to later steps.
 - Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
-- A paying visitor can take the storehouse loot for free: theft isn't modelled, and gold buys nothing but the toll.
+- A theft nobody saw is never discovered: guards don't notice missing goods. Gold buys nothing but the toll.
+- The camp only reacts to the undead attack by fighting: it doesn't shut its gate or sound a horn for it.
+- `World.StepToward` gives up when its next step is blocked and no neighbour is strictly closer (goblins can jam
+  like this). Scripted player commands use `StepAroundOthers` instead.
 - Someone seen coming over the breach gets no warning, by design: warnings are for the gate.
 - Camp squads don't answer arrows from beyond their leash, so a long bow can pick them off from outside.
 - Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
@@ -553,7 +556,12 @@ you, a quick way to see progression; spectating: time passes).
      (done 2026-11-09: `Camp`, orders in `data/surface.json`; goblins open and shut the gate)
    - ~~e. Warning and toll, plus examine mode~~ (done 2026-11-09: terms called out within 4 tiles of the
      gate, the gate tile is the last warning, 20 gold buys 150 turns; `x` examines, `t` pays)
-   - f. Human playtests against the §12 list.
+   - ~~f. Something to do there: the errand (relic behind the camp, back to the waystone), theft from the
+     storehouse, a gap in the back fence timed against the patrol, undead coming out of the cave on turn 300~~
+     (done 2026-11-09; the errand's story is a placeholder)
+   - g. Still on the §12 list: debug overlay for orders and pursuit boundary (F2).
+   - h. Human playtests against the §12 list, and balancing. **The user will do these later (2026-11-09):
+     don't stop development to wait for them.**
 7. **History generator**: eras → map features → factions → artifacts
 8. **Crafting**: material tags + recipes + stations as places
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,

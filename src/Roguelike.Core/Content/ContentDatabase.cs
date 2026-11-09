@@ -122,11 +122,19 @@ public sealed record PlaceMember(string Monster, int[] At);
 /// </summary>
 public sealed record PlaceGroup(string Name, string Faction, int Leash, int[] Home, IReadOnlyList<PlaceMember> Members,
     string Order = "guard", IReadOnlyList<int[]>? Route = null, string? Territory = null, int[]? Rally = null, int[]? Gate = null);
-public sealed record PlaceLoot(string Table, int[] At);
+/// <summary>Loot placed by hand. Owner: the camp it belongs to; being seen taking it is theft.</summary>
+public sealed record PlaceLoot(string Table, int[] At, string? Owner = null);
+
+/// <summary>The valley's errand: fetch Item from At and bring it to ReturnTo, for Xp and Gold.</summary>
+public sealed record PlaceObjective(string Item, int[] At, int[] ReturnTo, int Xp, int Gold);
+
+/// <summary>On turn Turn, a squad of Faction appears on the map and marches on the zone Target.</summary>
+public sealed record PlaceIncursion(int Turn, string Faction, string Target, IReadOnlyList<PlaceMember> Members);
 
 /// <summary>A hand-drawn map (surface.json): terrain as rows of characters, plus who and what is on it.</summary>
 public sealed record PlaceDef(string Name, IReadOnlyDictionary<string, Map.Tile> Legend, IReadOnlyList<string> Rows, int[] Start,
-    IReadOnlyList<PlaceZone> Zones, IReadOnlyList<PlaceGroup> Groups, IReadOnlyList<PlaceLoot> Loot)
+    IReadOnlyList<PlaceZone> Zones, IReadOnlyList<PlaceGroup> Groups, IReadOnlyList<PlaceLoot> Loot,
+    PlaceObjective? Objective = null, IReadOnlyList<PlaceIncursion>? Incursions = null)
 {
     public int Width => Rows[0].Length;
     public int Height => Rows.Count;
@@ -420,6 +428,31 @@ public sealed class ContentDatabase
             if (!itemFile.LootTables.ContainsKey(loot.Table))
                 throw Error(name, $"loot uses unknown table '{loot.Table}'");
             CheckCell(loot.At, $"loot '{loot.Table}'");
+            if (loot.Owner is { } owner && place.Groups.All(g => g.Territory != owner))
+                throw Error(name, $"loot owner '{owner}' isn't a camp any group defends");
+        }
+        if (place.Objective is { } objective)
+        {
+            if (!itemFile.Items.Any(i => i.Id == objective.Item && i.Category == ItemCategory.Relic))
+                throw Error(name, $"objective item '{objective.Item}' must be an item of category relic");
+            CheckCell(objective.At, "objective");
+            CheckCell(objective.ReturnTo, "objective returnTo");
+            if (objective.Xp < 0 || objective.Gold < 0)
+                throw Error(name, "objective xp and gold can't be negative");
+        }
+        foreach (var incursion in place.Incursions ?? [])
+        {
+            FactionOrThrow(factions, incursion.Faction, name);
+            if (incursion.Turn <= 0 || incursion.Members.Count == 0)
+                throw Error(name, $"incursion by '{incursion.Faction}': needs a turn > 0 and members");
+            if (place.Zones.All(z => z.Name != incursion.Target))
+                throw Error(name, $"incursion by '{incursion.Faction}': unknown target '{incursion.Target}'");
+            foreach (var member in incursion.Members)
+            {
+                if (!monsters.TryGetValue(member.Monster, out var def) || def.Faction != incursion.Faction)
+                    throw Error(name, $"incursion by '{incursion.Faction}': '{member.Monster}' isn't one of theirs");
+                CheckCell(member.At, $"incursion member '{member.Monster}'");
+            }
         }
     }
 

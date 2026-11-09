@@ -4,14 +4,14 @@
   "name": "the valley",
   "legend": {
     ".": "grass", "=": "road", ";": "brush", "T": "tree", "#": "palisade",
-    ":": "lairfloor", "/": "gateopen", "+": "gateclosed", ">": "cavemouth"
+    ":": "lairfloor", "/": "gateopen", "+": "gateclosed", ">": "cavemouth", "W": "waystone"
   },
   "rows": [
     "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
     "T..............................................................................T",
     "T...............TTTTT.........###########################............TTTTTTTTT.T",
     "T...............TTTTT.........#:::::::::::::::########::#.TTTTTT.....TTTTTTTTT.T",
-    "T....................;;;;;;;;;#:::::::::::::::#::::::#::#.TTTTTT.....TTTTTTTTT.T",
+    "T....................;;;;;;;;;#:::::::::::::::#::::::#:::.TTTTTT.....TTTTTTTTT.T",
     "T.........TTTTT......;;;;;;;;;#::::::::::::::::::::::#::#.TTTTTT...............T",
     "T.........TTTTT......;;;;;;;;;::::::::::::::::########::#..............TTT.....T",
     "T.........TTTTT......;;;;;;;;;#:::::::::::::::::::::::::#.........======>T.....T",
@@ -27,7 +27,7 @@
     "T..........................................=..;;;;;...............=...TTTTTTT..T",
     "T..........................................=......................=...TTTTTTT..T",
     "T..........................................=......................=............T",
-    "T==================================================================............T",
+    "TW=================================================================............T",
     "T..............................................................................T",
     "T.T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T..T.T",
     "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
@@ -56,15 +56,34 @@
       { "monster": "goblin_archer",  "at": [37, 7] },
       { "monster": "goblin_shaman",  "at": [39, 6] }
     ] },
-    { "name": "front patrol", "faction": "goblins", "leash": 16, "home": [43, 11],
-      "order": "patrol", "route": [[34, 11], [53, 11]], "territory": "the Red Tooth camp", "rally": [43, 6], "members": [
+    // The patrol walks the front and up the back fence, past the gap there: watch it, then time your move.
+    { "name": "front patrol", "faction": "goblins", "leash": 24, "home": [43, 11],
+      "order": "patrol", "route": [[34, 11], [57, 11], [57, 3]], "territory": "the Red Tooth camp", "rally": [43, 6], "members": [
       { "monster": "goblin_warrior", "at": [42, 11] },
       { "monster": "goblin_archer",  "at": [44, 11] }
+    ] },
+    { "name": "storehouse keeper", "faction": "goblins", "leash": 6, "home": [48, 5],
+      "order": "guard", "territory": "the Red Tooth camp", "rally": [40, 6], "members": [
+      { "monster": "goblin_warrior", "at": [48, 5] }
     ] }
   ],
   // Loot in the storehouse, rolled from a loot table in items.json.
+  // "owner": the camp it belongs to. Being seen taking it brings the whole camp down on you.
   "loot": [
-    { "table": "floor", "at": [50, 4] },
-    { "table": "floor", "at": [51, 5] }
+    { "table": "floor", "at": [50, 4], "owner": "the Red Tooth camp" },
+    { "table": "floor", "at": [51, 5], "owner": "the Red Tooth camp" }
+  ],
+  // The valley's errand: fetch "item" from "at" and carry it to "returnTo", for "xp" and "gold".
+  // The goblins don't care about it, so taking it isn't theft: the camp is simply in the way.
+  "objective": { "item": "reliquary", "at": [55, 3], "returnTo": [1, 20], "xp": 100, "gold": 30 },
+  // On "turn" a squad appears at its members' spots and marches on the zone "target".
+  // If the player is away from this map then, it happens when they come back.
+  "incursions": [
+    { "turn": 300, "faction": "undead", "target": "the Red Tooth camp", "members": [
+      { "monster": "skeleton_warrior", "at": [71, 7] },
+      { "monster": "skeleton_warrior", "at": [70, 6] },
+      { "monster": "skeleton_warrior", "at": [70, 8] },
+      { "monster": "skeleton_archer",  "at": [69, 7] }
+    ] }
   ]
 }

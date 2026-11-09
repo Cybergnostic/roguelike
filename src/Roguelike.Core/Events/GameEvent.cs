@@ -56,6 +56,15 @@ public sealed record PassRunningOut(string ZoneName, int TurnsLeft) : GameEvent;
 /// <summary>The paid time is over. Inside: the player is a trespasser from now on.</summary>
 public sealed record PassExpired(string ZoneName, bool Inside) : GameEvent;
 
+/// <summary>The player took something belonging to a camp. WitnessId: the guard who saw it, if any.</summary>
+public sealed record TheftCommitted(string ZoneName, int? WitnessId) : GameEvent;
+
+/// <summary>A squad arrived from elsewhere and is marching on a place.</summary>
+public sealed record IncursionBegan(int SquadId, string FactionId, string ZoneName) : GameEvent;
+
+/// <summary>The player brought the errand's object back. It's handed over for a reward.</summary>
+public sealed record ObjectiveCompleted(Item Item, int Gold, int Xp) : GameEvent;
+
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;
 
@@ -100,6 +109,8 @@ public enum XpSource
     Sighting,
     /// <summary>First visit to a named place; Subject is its name.</summary>
     Zone,
+    /// <summary>An errand finished; Subject is the item's id.</summary>
+    Objective,
 }
 
 /// <summary>Subject: the monster kind (kills, sightings) or the zone name.</summary>

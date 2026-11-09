@@ -52,7 +52,7 @@ public sealed class CommandPlayer(World world)
             case "go":
             {
                 var goal = new Point(Arg(1, 0), Arg(2, 0));
-                return Repeat(200, () => world.StepToward(p, goal) is { } d ? new MoveAction(d) : null, interruptible: true);
+                return Repeat(200, () => world.StepAroundOthers(p, goal) is { } d ? new MoveAction(d) : null, interruptible: true);
             }
             case "fight": return Fight(Arg(1, -1), Arg(2, 12));
             case "attack": return [new AttackAction(Arg(1, -1))];
@@ -64,7 +64,7 @@ public sealed class CommandPlayer(World world)
             case "pay": return [new PayTollAction()];
             case "stairs":
                 if (world.Map.StairsDown is { } stairs && world.Map.Explored[stairs])
-                    return Repeat(300, () => world.StepToward(p, stairs) is { } d ? new MoveAction(d) : null, interruptible: true);
+                    return Repeat(300, () => world.StepAroundOthers(p, stairs) is { } d ? new MoveAction(d) : null, interruptible: true);
                 StopReason = "you haven't found the stairs";
                 return [];
             case "drink":

@@ -77,6 +77,7 @@ public sealed class World
         public List<Corpse> Corpses { get; } = [];
         public List<Lair> Lairs { get; } = [];
         public List<Camp> Camps { get; } = [];
+        public List<PlaceIncursion> PendingIncursions { get; } = [];
         public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
         public Dictionary<int, CachedPath> Paths { get; } = [];
         public DistanceMap TowardPlayer { get; } = new(map.Walkable);
@@ -96,8 +97,18 @@ public sealed class World
     private Dictionary<int, CachedPath> _paths => _location.Paths;
     private AStar _aStar => _location.AStar;
 
-    /// <summary>An item lying on the map.</summary>
-    public sealed record FloorItem(Item Item, Point Position);
+    /// <summary>An item lying on the map. Owner: the camp it belongs to, if any.</summary>
+    public sealed record FloorItem(Item Item, Point Position, Camp? Owner = null);
+
+    /// <summary>The run's errand, if it began in the valley.</summary>
+    public sealed class Errand(PlaceObjective def, Item item)
+    {
+        public PlaceObjective Def { get; } = def;
+        public Item Item { get; } = item;
+        public bool Completed { get; internal set; }
+    }
+
+    public Errand? Objective { get; private set; }
 
     public IReadOnlyList<FloorItem> FloorItems => _floorItems;
 
@@ -229,7 +240,14 @@ public sealed class World
         }
         foreach (var spot in Content.Surface.Loot)
             if (RollLoot(spot.Table) is { } item)
-                PlaceOnFloor(item, new Point(spot.At[0], spot.At[1]));
+                PlaceOnFloor(item, new Point(spot.At[0], spot.At[1]), spot.Owner is { } owner ? camps[owner] : null);
+        if (Content.Surface.Objective is { } objective)
+        {
+            var relic = CreateItem(Content.Items[objective.Item]);
+            Objective = new Errand(objective, relic);
+            PlaceOnFloor(relic, new Point(objective.At[0], objective.At[1]));
+        }
+        _location.PendingIncursions.AddRange(Content.Surface.Incursions ?? []);
     }
 
     private Camp BuildCamp(string zoneName)
@@ -350,6 +368,8 @@ public sealed class World
 
         UpdatePerception();
         UpdateCamps();
+        CheckObjective();
+        LaunchIncursions();
         RunNonPlayerTurns();
 
         _actors.RemoveAll(a =>
@@ -480,6 +500,59 @@ public sealed class World
         }
     }
 
+    private void Alarm(Camp camp)
+    {
+        camp.Provoked = true;
+        Emit(new CampAlarmed(camp.Zone.Name));
+    }
+
+    /// <summary>Call before taking an item off the floor: being seen taking a camp's goods turns the camp against the thief.</summary>
+    public void NoteTheft(Actor thief, Item item)
+    {
+        if (thief != Player || _floorItems.Find(f => f.Item == item)?.Owner is not { } camp)
+            return;
+        var witness = GuardWatching(camp);
+        Emit(new TheftCommitted(camp.Zone.Name, witness?.Id));
+        if (witness is not null && !camp.Provoked)
+            Alarm(camp);
+    }
+
+    /// <summary>Hands the errand's object over when the player carries it to the place it belongs.</summary>
+    private void CheckObjective()
+    {
+        if (Objective is not { Completed: false } errand || Depth != SurfaceDepth
+            || Player.Position != new Point(errand.Def.ReturnTo[0], errand.Def.ReturnTo[1])
+            || Player.Inventory?.Find(errand.Item.Id) is null)
+            return;
+        errand.Completed = true;
+        Player.Inventory.Remove(errand.Item);
+        Player.Gold += errand.Def.Gold;
+        Emit(new ObjectiveCompleted(errand.Item, errand.Def.Gold, errand.Def.Xp));
+        GrantXp(XpSource.Objective, errand.Item.Def.Id, errand.Def.Xp);
+    }
+
+    /// <summary>Squads scheduled to arrive on this map, whose time has come.</summary>
+    private void LaunchIncursions()
+    {
+        var pending = _location.PendingIncursions;
+        foreach (var incursion in pending.Where(i => Turn >= i.Turn).ToList())
+        {
+            pending.Remove(incursion);
+            var target = Map.Zones.First(z => z.Name == incursion.Target);
+            var squad = new Squad(_nextSquadId++, Content.Factions[incursion.Faction]);
+            _squads.Add(squad);
+            foreach (var member in incursion.Members)
+            {
+                var wanted = new Point(member.At[0], member.At[1]);
+                var at = IsFree(wanted) ? wanted : Map.Tiles.Positions().Where(IsFree).MinBy(p => Distance(p, wanted));
+                SpawnMonster(member.Monster, at, squad);
+            }
+            squad.RaidTarget = squad.Destination = target.Heart;
+            squad.RaidZone = target.Name;
+            Emit(new IncursionBegan(squad.Id, incursion.Faction, target.Name));
+        }
+    }
+
     /// <summary>A living defender of the camp who can see the player, or null.</summary>
     private Actor? GuardWatching(Camp camp) =>
         _squads.Where(s => s.Camp == camp).SelectMany(s => s.Members).FirstOrDefault(m => !m.IsDead && CanSee(m, Player));
@@ -544,10 +617,7 @@ public sealed class World
         {
             targetSquad.LearnOfAttacker(attacker, Turn);
             if (attacker == Player && targetSquad.Camp is { Provoked: false } camp)
-            {
-                camp.Provoked = true;
-                Emit(new CampAlarmed(camp.Zone.Name));
-            }
+                Alarm(camp);
         }
         if (Rng.NextInt(100) >= HitChance(attacker, target, ranged))
         {
@@ -644,7 +714,7 @@ public sealed class World
 
     public IEnumerable<Item> ItemsAt(Point p) => _floorItems.Where(f => f.Position == p).Select(f => f.Item);
 
-    public void PlaceOnFloor(Item item, Point p) => _floorItems.Add(new FloorItem(item, p));
+    public void PlaceOnFloor(Item item, Point p, Camp? owner = null) => _floorItems.Add(new FloorItem(item, p, owner));
 
     public bool TakeFromFloor(Item item) => _floorItems.RemoveAll(f => f.Item == item) > 0;
 
@@ -958,6 +1028,20 @@ public sealed class World
         }
         _paths[self.Id] = new CachedPath(goal, path);
         return path.GetStep(0);
+    }
+
+    /// <summary>
+    /// The next step of a route that goes around everyone in the way. Costs a whole-map search,
+    /// so it's for one actor's deliberate travel (scripted player commands), not for the AI.
+    /// </summary>
+    public Direction? StepAroundOthers(Actor self, Point goal)
+    {
+        var open = new ArrayView<bool>(Map.Width, Map.Height);
+        foreach (var p in open.Positions())
+            open[p] = Map.Passable[p] && (p == self.Position || p == goal || ActorAt(p) is null);
+        var map = new DistanceMap(open);
+        map.Update([goal]);
+        return StepDownhill(self, map);
     }
 
     public Direction? StepToward(Actor self, Point goal)

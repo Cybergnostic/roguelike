@@ -188,6 +188,7 @@ public sealed partial class GameScreen
         Tile.GateOpen => ("Open gate", "One step inside is trespassing."),
         Tile.GateClosed => ("Closed gate", "Walk into it to open it. It blocks sight."),
         Tile.CaveMouth => ("Cave mouth", "The way down into the dark."),
+        Tile.Waystone => ("Waystone", "The old marker where the road begins."),
         _ => (tile.ToString(), ""),
     };
 

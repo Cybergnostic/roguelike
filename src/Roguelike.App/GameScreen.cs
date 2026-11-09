@@ -70,6 +70,8 @@ public sealed partial class GameScreen : ScreenObject
         AddMessage(StartInDungeon ? $"You enter the goblin-infested halls. (seed {seed})" : $"You come down the old road into the valley. (seed {seed})", Theme.Text);
         if (FollowFile is not null)
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
+        if (world.Objective is { } errand)
+            AddMessage($"Errand: bring the {errand.Item.Def.Name} from the back of the goblin camp to the waystone (far west).", Theme.Warning);
         AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Close gate: C  Quit: Esc.", Theme.Text);
         AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character  x examine  t toll", Theme.Text);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
@@ -173,7 +175,9 @@ public sealed partial class GameScreen : ScreenObject
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
-                LevelEntered or GameWon or TollPaid => Theme.Good,
+                TheftCommitted { WitnessId: not null } => Theme.Danger,
+                IncursionBegan => Theme.Warning,
+                LevelEntered or GameWon or TollPaid or ObjectiveCompleted => Theme.Good,
                 MinionCrumbled or AttributeRaised or SkillLearned or SpecialUsed => Theme.Good,
                 XpGained => Theme.Intent,
                 _ => Theme.Text,
