@@ -312,6 +312,7 @@ public sealed class World
     /// </summary>
     public void ResolveAttack(Actor attacker, Actor target, bool ranged)
     {
+        SquadOf(target)?.LearnOfAttacker(attacker, Turn);
         if (Rng.NextInt(100) >= HitChance(attacker, target, ranged))
         {
             Emit(new ActorAttacked(attacker.Id, target.Id, 0, ranged, Missed: true));
@@ -580,7 +581,10 @@ public sealed class World
         return best;
     }
 
-    /// <summary>Dijkstra map toward every actor hostile to <paramref name="faction"/>.</summary>
+    /// <summary>
+    /// Dijkstra map toward every actor hostile to <paramref name="faction"/>, seen or not.
+    /// Omniscient, so for debug views only; AI uses <see cref="Squad.TowardKnownThreats"/>.
+    /// </summary>
     public DistanceMap TowardEnemiesOf(Faction faction)
     {
         var maps = MapsFor(faction);
@@ -594,7 +598,7 @@ public sealed class World
         return maps.Toward;
     }
 
-    /// <summary>Flee map away from every actor hostile to <paramref name="faction"/>.</summary>
+    /// <summary>Flee map away from every actor hostile to <paramref name="faction"/>, seen or not. Debug views only.</summary>
     public SafetyMap AwayFromEnemiesOf(Faction faction)
     {
         var maps = MapsFor(faction);

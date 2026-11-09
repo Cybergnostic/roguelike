@@ -4,7 +4,7 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-08 (sim speed-up, difficulty pass, rarity tiers and affixes)
+Last updated: 2026-11-09 (world decisions; camp slice is now the next milestone)
 
 ---
 
@@ -67,6 +67,10 @@ loot (rarity tiers, +X gear).
 | **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
 | **Tune with the tactical bot over many seeds** | Balance target (2026-11-08): the tactical bot wins about 20–30% and deaths rise with depth. A human plays differently; the bot measures the curve, not absolute difficulty | Tuning by feel from single games |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
+| **The player starts as a neutral traveler** (user, 2026-11-09) | Warnings, tolls and peaceful passage only make sense if factions don't start out at war with the player | Known enemy; status varying by origin |
+| **Permadeath; the world resets on death, and persists fully within a run** (user, 2026-11-09; "for now") | Classic roguelike stakes; no campaign continuity to design yet | Persistent world across runs |
+| **A seed fixes the layout, whatever the player does** (user, 2026-11-09) | Players can retry the same world. Each location generates from its own stream derived from world seed + location id, separate from gameplay randomness | One shared stream, which makes later maps depend on how earlier ones were played |
+| **The surface is a few connected maps** (user, 2026-11-09; to be rethought later) | Reuses the stored-location work; cheap to prototype | One large tactical map; a region map with local maps |
 
 ---
 
@@ -151,11 +155,13 @@ docs/PROJECT.md              this file
    nobody's enemy). `world.CanSee(observer, target)`: monster sight, Euclidean radius ~8.5 plus
    Bresenham line of sight. `world.PlayerCanSee(actor)`: the player's FOV (UI, bots only).
    AI never asks "where is the player"; it asks `NearestVisibleHostile` / `AdjacentHostile`.
-6. **Dijkstra maps:** per faction, `TowardEnemiesOf(faction)` (DistanceMap) and
-   `AwayFromEnemiesOf(faction)` (SafetyMap), rebuilt lazily once per turn at the start of the
-   monsters' phase (stale within a turn, which is acceptable). `TowardPlayer` is kept for the debug
-   heatmap and tests. `StepDownhill` prefers less crowded cells, which makes groups surround
-   instead of queue.
+6. **Dijkstra maps and knowledge:** AI moves on `Squad.TowardKnownThreats` / `AwayFromKnownThreats`:
+   enemies some member in earshot of the leader (`Squad.ShoutRange`) sees now, otherwise the last
+   known position; rebuilt lazily after the squad thinks (stale within a turn, which is acceptable).
+   Being attacked reveals the attacker's position. **AI must never path on true positions of unseen
+   actors.** `TowardEnemiesOf(faction)` / `AwayFromEnemiesOf(faction)` are omniscient and kept for the
+   F3 debug heatmaps only, like `TowardPlayer`. `StepDownhill` prefers less crowded cells, which
+   makes groups surround instead of queue.
 7. **Attacks go through `world.ResolveAttack`**: hit roll (75% + 5% × (accuracy − evasion), clamped
    5–95; −4 accuracy for shooting an adjacent target), then damage 1..attack minus a random 0..defence,
    at least 1 (combat.json). Misses emit `ActorAttacked { Missed: true }`. `world.Damage` applies HP
@@ -334,6 +340,13 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
+- **After honest enemy knowledge** (2026-11-09), tactical bot, 200 games (seeds 1000–1199), 20000-turn cap,
+  against the code just before it on the same seeds:
+  - Won **47%** (was 29%), died 51% (was 67%). Above the 20–30% target; deliberately not retuned yet, as
+    orders, search and camps will move it again and the bot's retreat-and-rest play gains the most.
+  - Death rate by depth: 8.0, 7.1, 5.8, 5.0, 2.0, 7.4, 5.8, 5.4, 10.8, 11.3% (was 10.0, 8.3, 7.3, 6.7, 7.3,
+    5.6, 10.2, 17.0, 17.0, 19.4).
+  - Close calls among survivors 37 of 99 (was 12 of 67). Squads idle 67%, engaged 20% (was 60%, 27%).
 - **With rarity tiers and affixes** (2026-11-08, commit 24c231b), tactical bot, 1000 games (seeds 1000–1999):
   - Won **34.7%**, died 62%, timed out 4%: items add about 14 points over the item-less baseline
     below. A bit above the 20–30% target (the 200-game sample said 29%); retune when the content
@@ -453,6 +466,8 @@ you, a quick way to see progression; spectating: time passes).
 - Ended with 5 unused healing potions.
 
 **Known issues / tech debt**
+- A seed only reproduces level 1. `World.Descend` generates from the same `Rng` as combat, so deeper
+  levels depend on how the earlier ones were played. Contradicts the seed decision in §2; fix in step 6b.
 - Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
   forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
 - Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
@@ -471,8 +486,9 @@ you, a quick way to see progression; spectating: time passes).
 - Undead don't raid or forage. Possible next step: the necromancer sends servants to drag corpses
   back to the tower.
 - The warren has no architecture of its own yet (it's a plain room with a name).
-- Engaged squads follow `TowardEnemiesOf`, which leads to the nearest enemy even if unseen
-  (omniscient chase). Fine while engaged; revisit with stealth.
+- Squads that lose someone go to the last known position and stand there until they give up (about
+  30 turns); searching nearby belongs to step 6d. The squad's state is still shared, so a member out
+  of earshot follows the squad's state even though it couldn't have heard (rare: followers stay close).
 - Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
 - `ActorAt` is a linear scan; switch to a spatial index (GoRogue `SpatialMap`) when actor counts grow.
 - Terrain changes must go through `GameMap.SetTile` (walkability cache). Cached A* paths assume walls
@@ -498,13 +514,25 @@ you, a quick way to see progression; spectating: time passes).
    - ~~Part 1: attributes, XP, skills, character sheet~~ (done 2026-11-08)
    - ~~Part 2: rarity tiers and affixes, item names, loot generation by tier~~ (done 2026-11-08;
      preceded by a sim speed-up and a difficulty pass)
-   - Part 3: random uniques, identify-by-use, scrolls of enchanting (+X)
+   - Part 3 (parked until the camp slice works): random uniques, identify-by-use, scrolls of enchanting (+X)
    - Later (ToME direction, user): classes that grant skill trees, active skills with cooldowns,
      a use for Charisma/Intelligence/Wisdom beyond the passives
-6. **History generator**: eras → map features → factions → artifacts
-7. **Crafting**: material tags + recipes + stations as places
-Later: multiple levels/sites, a campaign chaining sites, stealth, LLM-driven interrogation (optional),
-tiles/visual upgrade toward Cogmind/Qud.
+6. **Camp vertical slice (next)**: one surface map, one goblin camp, one underground map, with
+   several ways through (see [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12 for acceptance criteria)
+   - ~~a. Honest enemy knowledge: squads act only on sight, shouts and last-known position; no pathing
+     to true positions of unseen enemies; a test pins it~~ (done 2026-11-09)
+   - b. Stored locations: per-level state moves out of `World` so maps can be left and revisited;
+     each location generates from its own seed-derived stream; the seed can be retried after death.
+   - c. A hand-built camp from a text map: road, palisade, working gate, cover, cave down. No
+     generator until the camp is fun. Doors and gates must clear cached paths and update sight.
+   - d. Place-based squad orders: guard, patrol, investigate, pursue with a reason to stop, withdraw
+     to a rally point. Separate faction relation from access policy (the player starts neutral).
+   - e. Warning and toll (needs money, which doesn't exist yet), plus examine mode.
+   - f. Human playtests against the §12 list.
+7. **History generator**: eras → map features → factions → artifacts
+8. **Crafting**: material tags + recipes + stations as places
+Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
+fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.
 
 Re-run the sim and compare with the current baseline (§6) after every content or AI change.
 

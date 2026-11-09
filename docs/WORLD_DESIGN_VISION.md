@@ -513,10 +513,10 @@ Human playtests should answer: **Did the player notice the choice? Did they unde
 
 These need explicit choices and prototypes, not assumptions:
 
-1. **Surface map scale:** one large tactical map, several connected maps, or a region map with local maps? How many turns should travel take?
+1. **Surface map scale:** *Decided for now (2026-11-09): a few connected maps; to be rethought later.* Still open: how many turns should travel take?
 2. **Vertical topology:** how many revisitable layers and alternate entrances are needed for the first meaningful dungeon?
-3. **Permadeath and persistence:** does the world reset on death (probably yes for a run), while persisting fully during the run? Any campaign continuity?
-4. **Player starting status:** neutral traveler, known enemy, or variable by origin/reputation? This determines whether tolls and warnings make sense.
+3. **Permadeath and persistence:** *Decided for now (2026-11-09): permadeath; the world resets on death and persists fully during a run; no campaign continuity. A seed reproduces the same layout for anyone who wants to retry it.*
+4. **Player starting status:** *Decided (2026-11-09): neutral traveler.*
 5. **Negotiation model:** fixed choices and prices first; which stats (e.g. Charisma) influence terms without making outcomes opaque?
 6. **Stealth readability:** what can the player reliably infer about enemy sight, suspicion, noise and search?
 7. **Place ownership:** can the player capture a camp, merely clear it, or change who occupies it? What is the minimum fun consequence?

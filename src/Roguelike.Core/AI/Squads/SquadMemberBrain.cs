@@ -11,7 +11,6 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 {
     private const int ShamanHealCooldown = 5;
     private const int ShamanHealRange = 6;
-    private const int ShoutRange = 6;
 
     private int _nextHealTurn;
     private int _nextRaiseTurn;
@@ -77,7 +76,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (world.AdjacentHostile(self) is { } adjacent)
             return new AttackAction(adjacent.Id);
 
-        var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
+        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
         if (step is null)
             return new WaitAction();
 
@@ -95,7 +94,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     {
         if (world.AdjacentHostile(self) is { } adjacent)
         {
-            var away = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
+            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
             return away is { } a ? new MoveAction(a) : new AttackAction(adjacent.Id);
         }
 
@@ -117,7 +116,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
 
         // Close in, but never into melee reach: a shooter that can't shoot waits instead.
-        var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
+        var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
         if (step is not { } s || NextToHostile(world, self, self.Position + s))
             return new WaitAction();
         return new MoveAction(s);
@@ -148,7 +147,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         int distance = enemy is null ? int.MaxValue : World.Distance(self.Position, enemy.Position);
         if (distance <= 3)
         {
-            var away = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
+            var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
             if (away is { } a)
                 return new MoveAction(a);
             if (world.AdjacentHostile(self) is { } adjacent)
@@ -156,7 +155,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
         else if (distance > 5)
         {
-            var step = world.StepDownhill(self, world.TowardEnemiesOf(self.Faction));
+            var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Walkable));
             if (step is { } s)
                 return new MoveAction(s);
         }
@@ -200,7 +199,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         }
 
         // Shouting distance is enough: the other squad doesn't have to stand still to be reached.
-        if (World.Distance(self.Position, targetLeader.Position) <= ShoutRange
+        if (World.Distance(self.Position, targetLeader.Position) <= Squad.ShoutRange
             && world.HasLineOfSight(self.Position, targetLeader.Position))
             return new CallForHelpAction(Squad.Id, target.Id);
 
@@ -212,7 +211,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private GameAction Flee(World world, Actor self)
     {
-        var step = world.StepDownhill(self, world.AwayFromEnemiesOf(self.Faction));
+        var step = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Walkable));
         if (step is { } s)
             return new MoveAction(s);
         // Cornered: fight back.

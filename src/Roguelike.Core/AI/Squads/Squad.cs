@@ -1,5 +1,6 @@
 using Roguelike.Core.Entities;
 using SadRogue.Primitives;
+using SadRogue.Primitives.GridViews;
 
 namespace Roguelike.Core.AI.Squads;
 
@@ -47,6 +48,70 @@ public sealed class Squad
     public int? TargetId { get; set; }
     public Point? LastKnownTarget { get; set; }
     public int LastSeenTurn { get; set; } = -1;
+
+    /// <summary>How far a shout carries. A sighting farther than this from the leader stays with whoever made it.</summary>
+    public const int ShoutRange = 6;
+
+    private Map.DistanceMap? _towardThreats;
+    private Map.SafetyMap? _awayFromThreats;
+    private bool _towardStale = true, _awayStale = true;
+    private readonly List<Point> _seenThreats = [];
+
+    /// <summary>Starts this turn's reports of enemies in sight; the movement maps follow them.</summary>
+    internal void ClearSightings()
+    {
+        _seenThreats.Clear();
+        _towardStale = _awayStale = true;
+    }
+
+    internal void ReportSighting(Point position)
+    {
+        if (!_seenThreats.Contains(position))
+            _seenThreats.Add(position);
+    }
+
+    /// <summary>
+    /// Distance to what the squad knows of its enemies: those in sight now, otherwise where one
+    /// was last known to be. Never where an unseen enemy really is.
+    /// </summary>
+    public Map.DistanceMap TowardKnownThreats(IGridView<bool> walkable)
+    {
+        _towardThreats ??= new Map.DistanceMap(walkable);
+        if (_towardStale)
+        {
+            _towardThreats.Update(_seenThreats.Count > 0 || LastKnownTarget is not { } known ? _seenThreats : [known]);
+            _towardStale = false;
+        }
+        return _towardThreats;
+    }
+
+    /// <summary>Flee map away from what the squad knows of its enemies; see <see cref="TowardKnownThreats"/>.</summary>
+    public Map.SafetyMap AwayFromKnownThreats(IGridView<bool> walkable)
+    {
+        _awayFromThreats ??= new Map.SafetyMap(walkable);
+        if (_awayStale)
+        {
+            _awayFromThreats.Update(TowardKnownThreats(walkable));
+            _awayStale = false;
+        }
+        return _awayFromThreats;
+    }
+
+    /// <summary>
+    /// A member was attacked, so the squad knows where from, even if the attacker is too far off
+    /// to see (a blow or arrow gives away its source). A calm squad goes to look.
+    /// </summary>
+    internal void LearnOfAttacker(Actor attacker, int turn)
+    {
+        TargetId = attacker.Id;
+        LastKnownTarget = attacker.Position;
+        LastSeenTurn = turn;
+        if (State is SquadState.Idle or SquadState.Alert)
+        {
+            State = SquadState.Alert;
+            Destination = attacker.Position;
+        }
+    }
 
     /// <summary>A lair squad's home: it waits there when idle instead of patrolling.</summary>
     public Point? Home { get; set; }

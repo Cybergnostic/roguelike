@@ -19,16 +19,19 @@ public static class SquadDirector
         if (squad.IsWipedOut)
             return;
 
-        // Pool perception: the first member who sees an enemy tells the others.
+        // Pool perception: whoever sees an enemy shouts, and the squad hears it if the leader
+        // is in earshot. A lone straggler's sighting stays with the straggler.
         Entities.Actor? spotter = null, target = null;
+        var leaderAt = squad.Leader!.Position;
+        squad.ClearSightings();
         foreach (var member in squad.Members)
         {
-            target = world.NearestVisibleHostile(member);
-            if (target is not null)
-            {
-                spotter = member;
-                break;
-            }
+            if (World.Distance(member.Position, leaderAt) > Squad.ShoutRange
+                || world.NearestVisibleHostile(member) is not { } seen)
+                continue;
+            squad.ReportSighting(seen.Position);
+            if (spotter is null)
+                (spotter, target) = (member, seen);
         }
         if (target is not null)
         {
