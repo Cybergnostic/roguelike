@@ -12,6 +12,9 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     private const int ShamanHealCooldown = 5;
     private const int ShamanHealRange = 6;
 
+    /// <summary>A caster who has someone to stand behind backs off from anyone this close.</summary>
+    private const int CasterKeepsBack = 3;
+
     private int _nextHealTurn;
     private int _nextRaiseTurn;
 
@@ -59,7 +62,8 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             SquadState.Flee => Flee(world, self),
             SquadState.Engage => role switch
             {
-                SquadRole.Archer or SquadRole.Necromancer => Archer(world, self),
+                SquadRole.Archer => Archer(world, self),
+                SquadRole.Necromancer => Caster(world, self),
                 SquadRole.Shaman => Shaman(world, self),
                 _ => Warrior(world, self),
             },
@@ -88,6 +92,34 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             return new WaitAction();
 
         return new MoveAction(step.Value);
+    }
+
+    /// <summary>Shoots like an archer, but stays behind whoever fights for him instead of leading them.</summary>
+    private GameAction Caster(World world, Actor self)
+    {
+        var target = world.NearestVisibleHostile(self);
+        if (target is not null && World.Distance(self.Position, target.Position) <= CasterKeepsBack)
+        {
+            int now = World.Distance(self.Position, target.Position);
+            var away = Squad.AwayFromKnownThreats(world.Map.Passable);
+            var backOff = World.EightWay
+                .Where(d => world.IsFree(self.Position + d) && Squad.WithinLeash(self.Position + d)
+                            && World.Distance(self.Position + d, target.Position) > now)
+                .Select(d => (Direction?)d)
+                .MinBy(d => away[self.Position + d!.Value] ?? double.MaxValue);
+            if (backOff is { } step)
+                return new MoveAction(step);
+        }
+
+        if (target is null || World.Distance(self.Position, target.Position) > self.Range)
+        {
+            var toward = Squad.TowardKnownThreats(world.Map.Passable);
+            var guards = Squad.Members.Where(m => m != self && toward[m.Position] is not null).ToList();
+            if (guards.Count > 0 && world.StepDownhill(self, toward) is { } closer
+                && toward[self.Position + closer] < guards.Min(m => toward[m.Position]))
+                return new WaitAction();
+        }
+        return Archer(world, self);
     }
 
     private GameAction Archer(World world, Actor self)
@@ -217,9 +249,19 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (Squad.Rally is not null)
             return world.AdjacentHostile(self) is { } foe ? new AttackAction(foe.Id) : new WaitAction();
 
-        var step = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable));
-        if (step is { } s)
-            return new MoveAction(s);
+        var away = Squad.AwayFromKnownThreats(world.Map.Passable);
+        var step = world.StepDownhill(self, away);
+        bool towardEnemy = step is { } first && Squad.LastKnownTarget is { } enemy
+                           && World.Distance(self.Position + first, enemy) < World.Distance(self.Position, enemy);
+        if (step is { } clear && !towardEnemy)
+            return new MoveAction(clear);
+        // Someone still fighting is in the way: trade places, so neither is stuck in a corridor.
+        foreach (var dir in World.EightWay)
+            if (world.ActorAt(self.Position + dir) is { } ally && world.CanSwap(self, ally)
+                && world.SquadOf(ally)?.State != SquadState.Flee && away[self.Position + dir] < away[self.Position])
+                return new MoveAction(dir);
+        if (step is { } onlyWay)
+            return new MoveAction(onlyWay); // the only way out runs past the enemy
         // Cornered: fight back.
         return world.AdjacentHostile(self) is { } adjacent
             ? new AttackAction(adjacent.Id)

@@ -63,7 +63,7 @@ public sealed record TheftCommitted(string ZoneName, int? WitnessId) : GameEvent
 public sealed record IncursionBegan(int SquadId, string FactionId, string ZoneName) : GameEvent;
 
 /// <summary>The player brought the errand's object back. It's handed over for a reward.</summary>
-public sealed record ObjectiveCompleted(Item Item, int Gold, int Xp) : GameEvent;
+public sealed record ObjectiveCompleted(Item Item, int Gold, int Xp, Item? Reward = null) : GameEvent;
 
 /// <summary>The player took the stairs down from the last level: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;

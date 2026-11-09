@@ -74,9 +74,9 @@
     { "table": "floor", "at": [50, 4], "owner": "the {tribe} camp" },
     { "table": "floor", "at": [51, 5], "owner": "the {tribe} camp" }
   ],
-  // The valley's errand: fetch "item" from "at" and carry it to "returnTo", for "xp" and "gold".
+  // The valley's errand: fetch "item" from "at" and carry it to "returnTo", for "xp", "gold" and a "reward" item.
   // The goblins don't care about it, so taking it isn't theft: the camp is simply in the way.
-  "objective": { "item": "reliquary", "at": [55, 3], "returnTo": [1, 20], "xp": 100, "gold": 30 },
+  "objective": { "item": "reliquary", "at": [55, 3], "returnTo": [1, 20], "xp": 100, "gold": 0, "reward": "healing_potion", "rewardCount": 2 },
   // On "turn" a squad appears at its members' spots and marches on the zone "target".
   // If the player is away from this map then, it happens when they come back.
   "incursions": [

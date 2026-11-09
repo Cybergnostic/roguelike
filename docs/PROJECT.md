@@ -578,8 +578,15 @@ you, a quick way to see progression; spectating: time passes).
      mine fell), and plague as a third kind of fall~~ (done 2026-11-09)
    - c. Later: more kinds of fall and tribe, per-level identity below the mine, factions that want the heirloom,
      the incursion depending on the history (it's the same every run).
-8. **Time passing in places the player has left**: camps and levels change while they're away, and show it on return
-9. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
+8. **Time passing in places the player has left**: camps and levels change while they're away, and show it on return.
+   Corpses rot and wither away eventually (user, 2026-11-09).
+9. **Graphics and interface**: bring the user's Enhanced ASCII browser prototype into the game
+   (https://claude.ai/code/artifact/fd537e04-08d9-409e-8e67-936186d89a81), screen scaling, longer log, mouse, journal.
+10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.
+11. **Dungeon identity**: levels below the mine get their own monsters and places.
+12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
+13. **Wider region**: more sites, rethink the surface map.
+14. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
 fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.
 

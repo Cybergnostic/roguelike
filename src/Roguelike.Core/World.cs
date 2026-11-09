@@ -650,7 +650,13 @@ public sealed class World
         errand.Completed = true;
         Player.Inventory.Remove(errand.Item);
         Player.Gold += errand.Def.Gold;
-        Emit(new ObjectiveCompleted(errand.Item, errand.Def.Gold, errand.Def.Xp));
+        Item? reward = null;
+        if (errand.Def.Reward is { } id)
+        {
+            reward = CreateItem(Content.Items[id], count: errand.Def.RewardCount);
+            Player.Inventory.Add(reward);
+        }
+        Emit(new ObjectiveCompleted(errand.Item, errand.Def.Gold, errand.Def.Xp, reward));
         GrantXp(XpSource.Objective, errand.Item.Def.Id, errand.Def.Xp);
     }
 
@@ -1155,13 +1161,14 @@ public sealed class World
 
     /// <summary>
     /// The next step of a route that goes around everyone in the way. Costs a whole-map search,
-    /// so it's for one actor's deliberate travel (scripted player commands), not for the AI.
+    /// so it's for scripted player travel and for actors whose direct way is blocked, not routine AI steps.
     /// </summary>
     public Direction? StepAroundOthers(Actor self, Point goal)
     {
         var open = new ArrayView<bool>(Map.Width, Map.Height);
+        var occupied = _actors.Where(a => !a.IsDead).Select(a => a.Position).ToHashSet();
         foreach (var p in open.Positions())
-            open[p] = Map.Passable[p] && (p == self.Position || p == goal || ActorAt(p) is null);
+            open[p] = Map.Passable[p] && (p == self.Position || p == goal || !occupied.Contains(p));
         var map = new DistanceMap(open);
         map.Update([goal]);
         return StepDownhill(self, map);
@@ -1185,7 +1192,7 @@ public sealed class World
             if (IsFree(p) && Distance(p, goal) < current) // shuffling closer never opens a gate
                 return dir;
         }
-        return null;
+        return StepAroundOthers(self, goal);
     }
 
     // ---- Setup ----

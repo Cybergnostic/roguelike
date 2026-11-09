@@ -126,7 +126,7 @@ public sealed record PlaceGroup(string Name, string Faction, int Leash, int[] Ho
 public sealed record PlaceLoot(string Table, int[] At, string? Owner = null);
 
 /// <summary>The valley's errand: fetch Item from At and bring it to ReturnTo, for Xp and Gold.</summary>
-public sealed record PlaceObjective(string Item, int[] At, int[] ReturnTo, int Xp, int Gold);
+public sealed record PlaceObjective(string Item, int[] At, int[] ReturnTo, int Xp, int Gold, string? Reward = null, int RewardCount = 1);
 
 /// <summary>On turn Turn, a squad of Faction appears on the map and marches on the zone Target.</summary>
 public sealed record PlaceIncursion(int Turn, string Faction, string Target, IReadOnlyList<PlaceMember> Members);
@@ -538,6 +538,8 @@ public sealed class ContentDatabase
             CheckCell(objective.ReturnTo, "objective returnTo");
             if (objective.Xp < 0 || objective.Gold < 0)
                 throw Error(name, "objective xp and gold can't be negative");
+            if (objective.Reward is { } reward && (itemFile.Items.All(i => i.Id != reward) || objective.RewardCount < 1))
+                throw Error(name, $"objective reward '{reward}' must be a known item, at least one of it");
         }
         foreach (var incursion in place.Incursions ?? [])
         {

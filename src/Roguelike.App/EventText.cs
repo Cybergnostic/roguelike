@@ -52,7 +52,7 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         TheftCommitted { WitnessId: { } guard } => $"{Cap(Name(guard))} sees you take it!",
         TheftCommitted => "Nobody saw you take it.",
         IncursionBegan i => $"{Cap(world.Content.Factions[i.FactionId].Name)} are marching on {i.ZoneName}!",
-        ObjectiveCompleted o => $"You set {ItemText.TheName(o.Item)} down at the waystone. Your errand is done. (+{o.Gold} gold, +{o.Xp} XP)",
+        ObjectiveCompleted o => $"You set {ItemText.TheName(o.Item)} down at the waystone. Your errand is done. (+{o.Xp} XP{(o.Reward is { } r ? $", {ItemText.AName(r)}" : "")}{(o.Gold > 0 ? $", +{o.Gold} gold" : "")})",
         GateMoved g when g.ActorId == world.Player.Id => g.Open ? "You push the gate open." : "You pull the gate shut.",
         GateMoved g => g.Open ? "You hear a gate creak open." : "You hear a gate slam shut.",
         LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",

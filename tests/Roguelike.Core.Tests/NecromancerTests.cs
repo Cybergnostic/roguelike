@@ -1,3 +1,4 @@
+using Roguelike.Core.Map;
 using Roguelike.Core;
 using Roguelike.Core.Actions;
 using Roguelike.Core.AI;
@@ -45,6 +46,56 @@ public class NecromancerTests
             Assert.True(World.Distance(necromancer.Position, world.Player.Position) >= world.Content.SafeStartDistance / 2,
                 $"seed {seed}: necromancer starts too close");
         }
+    }
+
+    [Fact]
+    public void TheNecromancerBacksAwayFromSomeoneClose()
+    {
+        var world = World.Create(1);
+        var necromancer = NecromancerOf(world);
+        world.Player.Hp = 100_000;
+        world.Player.Position = SpotInSight(world, necromancer);
+        int before = World.Distance(necromancer.Position, world.Player.Position);
+        Assert.True(before <= 3);
+
+        world.Step(new WaitAction()); // he notices
+        world.Step(new WaitAction());
+
+        Assert.True(World.Distance(necromancer.Position, world.Player.Position) > before, "he should have stepped away");
+    }
+
+    [Fact]
+    public void TheNecromancerDoesNotWalkAheadOfHisGuards()
+    {
+        for (ulong seed = 0; seed < 60; seed++)
+        {
+            var world = World.Create(seed);
+            var necromancer = NecromancerOf(world);
+            var squad = world.SquadOf(necromancer)!;
+            var guards = squad.Members.Where(m => m != necromancer).ToList();
+            if (guards.Count == 0)
+                continue;
+
+            // Somewhere he's nearer to than any of his guards, so going there would put him in front.
+            var room = Tower(world).Area;
+            foreach (var goal in room.Positions().Where(world.IsFree))
+            {
+                var toward = new DistanceMap(world.Map.Passable);
+                toward.Update([goal]);
+                if (toward[necromancer.Position] is not >= 2 || guards.Any(g => toward[g.Position] <= toward[necromancer.Position] + 1))
+                    continue;
+                var at = necromancer.Position;
+                squad.State = SquadState.Engage;
+                squad.LastKnownTarget = goal;
+                squad.LastSeenTurn = world.Turn;
+
+                world.Step(new WaitAction());
+
+                Assert.Equal(at, necromancer.Position);
+                return;
+            }
+        }
+        Assert.Fail("no seed gave him a place nearer to him than to his guards");
     }
 
     [Fact]

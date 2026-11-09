@@ -604,7 +604,8 @@ public class CampTests
         Assert.Contains(events, e => e is ObjectiveCompleted);
         Assert.True(world.Objective!.Completed);
         Assert.Null(world.Player.Inventory!.Find(world.Objective.Item.Id));
-        Assert.Equal(startGold - 20 + 30, world.Player.Gold);
+        Assert.Equal(startGold - 20, world.Player.Gold);
+        Assert.Equal(5, world.Player.Inventory!.Items.Single(i => i.Def.Id == "healing_potion").Count);
         Assert.DoesNotContain(events, e => e is ActorDied);
         Assert.DoesNotContain(events, e => e is ActorAttacked a && a.TargetId == world.Player.Id);
         Assert.DoesNotContain(events, e => e is CampAlarmed);
@@ -633,7 +634,7 @@ public class CampTests
         Assert.Contains(events, e => e is ObjectiveCompleted);
         Assert.DoesNotContain(events, e => e is SquadSpotted);
         Assert.DoesNotContain(events, e => e is ActorDied);
-        Assert.Equal(30 + 30, world.Player.Gold); // nothing paid
+        Assert.Equal(30, world.Player.Gold); // nothing paid
     }
 
     [Fact]
@@ -649,6 +650,93 @@ public class CampTests
             events.AddRange(world.Step(new WaitAction()));
 
         Assert.Contains(events, e => e is SquadSpotted s && s.SquadId == patrol.Id);
+    }
+
+    [Fact]
+    public void KillTwoGuardsEscapeAndComeBack()
+    {
+        var world = Valley();
+        var sentries = Sentries(world);
+        var victims = sentries.Members.Where(m => m.Kind == "goblin_warrior").Take(2).ToList();
+        var survivor = sentries.Members.Single(m => !victims.Contains(m));
+        world.Player.Position = JustOutsideGate;
+        var events = new List<GameEvent>();
+
+        foreach (var victim in victims)
+        {
+            victim.Hp = 1;
+            victim.Position = JustOutsideGate + Direction.Up + Direction.Left; // within reach of the blow
+            while (!victim.IsDead)
+                events.AddRange(world.Step(new AttackAction(victim.Id)));
+        }
+
+        Assert.True(CampOf(world).Provoked);
+        Assert.Contains(events, e => e is CampAlarmed);
+        int corpses = world.Corpses.Count;
+        Assert.True(corpses >= 2);
+
+        // Run for the cave. Some of them give chase; none of them follow all the way.
+        events.AddRange(WalkTo(world, world.Map.StairsDown!.Value, maxTurns: 200));
+        events.AddRange(Run(world, 40));
+        Assert.Contains(events, e => e is SquadStoodDown);
+        Assert.DoesNotContain(world.Squads, s => s.Camp is not null && s.State == SquadState.Engage);
+
+        world.Step(new DescendAction());
+        world.Player.Position = world.Map.StairsUp!.Value;
+        world.Step(new AscendAction());
+
+        Assert.True(CampOf(world).Provoked); // it remembers
+        Assert.All(victims, v => Assert.Null(world.GetActor(v.Id)));
+        Assert.Equal(corpses, world.Corpses.Count);
+        Assert.NotNull(world.GetActor(survivor.Id));
+    }
+
+    [Fact]
+    public void AFleeingGoblinAndAFighterTradePlacesInACorridor()
+    {
+        World? world = null;
+        List<Point>? corridor = null;
+        for (ulong seed = 0; seed < 200 && corridor is null; seed++)
+        {
+            world = World.Create(seed);
+            corridor = Runs(world).FirstOrDefault();
+        }
+        Assert.NotNull(corridor);
+        foreach (var other in world!.Actors.Where(a => a != world.Player && a.Faction.Id != "goblins"))
+            other.Hp = 0;
+        var goblins = world.Squads.Where(s => s.Faction.Id == "goblins" && !s.IsFearless).Take(2).ToList();
+        foreach (var extra in world.Squads.Where(s => !goblins.Contains(s)).SelectMany(s => s.Members))
+            extra.Hp = 0;
+        var fleeing = goblins[0].Members[0];
+        var fighter = goblins[1].Members[0];
+        foreach (var m in goblins.SelectMany(s => s.Members).Where(m => m != fleeing && m != fighter))
+            m.Hp = 0;
+        world.Player.Hp = 100_000;
+        world.Player.Position = corridor![0];
+        fleeing.Position = corridor[2];
+        fighter.Position = corridor[3];
+        goblins[0].State = SquadState.Flee;
+        goblins[0].LastKnownTarget = corridor[0];
+
+        bool swapped = false;
+        for (int t = 0; t < 6 && !swapped; t++)
+        {
+            goblins[0].Morale = 0;
+            world.Step(new WaitAction());
+            swapped = World.Distance(fighter.Position, corridor[0]) < World.Distance(fleeing.Position, corridor[0]);
+        }
+
+        Assert.True(swapped, "the fleeing goblin should let the fighter past");
+
+        static IEnumerable<List<Point>> Runs(World w)
+        {
+            foreach (var p in w.Map.Tiles.Positions())
+            {
+                var run = Enumerable.Range(0, 6).Select(i => p + new Point(i, 0)).ToList();
+                if (run.All(c => w.Map.InBounds(c) && w.IsChokepoint(c)) && run.All(w.IsFree))
+                    yield return run;
+            }
+        }
     }
 
     [Fact]
