@@ -36,6 +36,8 @@ public enum Tile : byte
     Rubble,
     /// <summary>A gate smashed open: anyone can pass and see through, and it can't be shut.</summary>
     GateBroken,
+    /// <summary>Too deep to wade: blocks movement, but you can see across it.</summary>
+    Water,
 }
 
 /// <summary>
@@ -79,7 +81,7 @@ public sealed class GameMap
     public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp
         or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth or Tile.Waystone or Tile.Inscription or Tile.GateBroken;
 
-    public static bool IsTransparent(Tile tile) => IsWalkable(tile) && tile != Tile.Brush;
+    public static bool IsTransparent(Tile tile) => (IsWalkable(tile) && tile != Tile.Brush) || tile == Tile.Water;
 
     public static bool IsPassable(Tile tile) => IsWalkable(tile) || tile == Tile.GateClosed;
 

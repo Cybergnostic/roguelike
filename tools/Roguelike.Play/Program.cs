@@ -122,6 +122,8 @@ string? Describe(GameEvent e) => e switch
     PassRunningOut r => $"a guard warns you: {r.TurnsLeft} turns of paid time left",
     PassExpired x => x.Inside ? "*** your paid time is over and you are still inside ***" : "*** your paid time is over ***",
     AbilityUsed a when Seen(a.ActorId) => $"{Name(a.ActorId)} uses {a.AbilityId}{(a.TargetId is { } t ? " on " + Name(t) : "")}",
+    Talked t => $"{Name(t.NpcId)} says: {t.Line}{(t.HasGoods ? " (buy ID ITEM)" : "")}",
+    ItemBought b => $"bought {ItemName(b.Item)} for {b.Price} gold",
     LoreDiscovered d => $"*** you read a stone about the {d.Era.Kind} ***",
     TheftCommitted t => t.WitnessId is { } w ? $"*** {Name(w)} sees you steal ***" : "you steal it unseen",
     CampAttackedWhileAway a => $"*** while you were gone {a.ZoneName} was attacked: {(a.Held ? "it held" : "it fell")}, {a.DefendersLost} defenders lost ***",
@@ -173,7 +175,7 @@ string ItemName(Item i)
 static char Letter(string kind) => kind switch
 {
     "goblin_warrior" => 'w', "goblin_archer" => 'a', "goblin_shaman" => 's', "goblin_runner" => 'r',
-    "skeleton_warrior" => 'W', "skeleton_archer" => 'A', "goblin_zombie" => 'Z', "necromancer" => 'N', "acolyte" => 'n', "bone_knight" => 'K', "wraith" => 'V', "goblin_brute" => 'B', "goblin_warlord" => 'L',
+    "skeleton_warrior" => 'W', "skeleton_archer" => 'A', "goblin_zombie" => 'Z', "necromancer" => 'N', "acolyte" => 'n', "bone_knight" => 'K', "wraith" => 'V', "wolf" => 'l', "boar" => 'b', "giant_spider" => 'x', "bear" => 'E', "bandit" => 'r', "bandit_archer" => 'q', "bandit_chief" => 'R', "peddler" => 'p', "hermit" => 'h', "villager" => 'v', "goblin_brute" => 'B', "goblin_warlord" => 'L',
     _ => '?',
 };
 
@@ -226,7 +228,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "Inscription" => '"', "Rubble" => 'o', "GateBroken" => '\'', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "Inscription" => '"', "Rubble" => 'o', "Water" => '~', "GateBroken" => '\'', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }

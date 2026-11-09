@@ -56,6 +56,15 @@
       { "item": "long_bow",       "weight": 2 },
       { "item": "healing_potion", "weight": 2 }
     ],
+    "bandit": [
+      { "item": null,             "weight": 35 },
+      { "item": "gold",           "weight": 35, "min": 5, "max": 15 },
+      { "item": "healing_potion", "weight": 6 },
+      { "item": "dagger",         "weight": 8 },
+      { "item": "short_sword",    "weight": 6 },
+      { "item": "short_bow",      "weight": 5 },
+      { "item": "leather_armor",  "weight": 5 }
+    ],
     "floor": [
       { "item": "healing_potion", "weight": 6 },
       { "item": "dagger",         "weight": 8 },

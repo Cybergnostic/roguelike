@@ -94,6 +94,9 @@ public sealed class Actor
 
     public Rank Rank { get; init; }
 
+    /// <summary>How many times the player has spoken to it, so it can say the next thing.</summary>
+    public int TimesTalkedTo { get; set; }
+
     /// <summary>The word an elite goes by ("brutal"), if it has one.</summary>
     public string? Title { get; init; }
 

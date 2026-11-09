@@ -59,6 +59,11 @@ public sealed record PassExpired(string ZoneName, bool Inside) : GameEvent;
 /// <summary>The player took something belonging to a camp. WitnessId: the guard who saw it, if any.</summary>
 public sealed record TheftCommitted(string ZoneName, int? WitnessId) : GameEvent;
 
+/// <summary>The player spoke to someone. Line: what they said, as written in the data. HasGoods: they sell things.</summary>
+public sealed record Talked(int NpcId, string? Line, bool HasGoods) : GameEvent;
+
+public sealed record ItemBought(int ActorId, Item Item, int Price) : GameEvent;
+
 /// <summary>An elite or boss used a skill. TargetId: who it was aimed at, if anyone.</summary>
 public sealed record AbilityUsed(int ActorId, string AbilityId, int? TargetId) : GameEvent;
 

@@ -114,6 +114,40 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
     }
 }
 
+/// <summary>Speaks to someone next to the player. Takes no time.</summary>
+public sealed record TalkAction(int NpcId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.GetActor(NpcId) is not { IsDead: false } npc || world.NpcOf(npc) is not { } def || !world.IsAdjacent(actor.Position, npc.Position))
+            return false;
+        var line = def.Lines is { Count: > 0 } lines ? lines[npc.TimesTalkedTo % lines.Count] : null;
+        npc.TimesTalkedTo++;
+        world.Emit(new Talked(npc.Id, line, def.Goods is { Count: > 0 }));
+        return false;
+    }
+}
+
+/// <summary>Buys one of what an adjacent person sells.</summary>
+public sealed record BuyAction(int NpcId, string ItemId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.GetActor(NpcId) is not { IsDead: false } npc || !world.IsAdjacent(actor.Position, npc.Position)
+            || world.NpcOf(npc)?.Goods?.FirstOrDefault(w => w.Item == ItemId) is not { } ware || actor.Inventory is not { } pack)
+            return false;
+        if (actor.Gold < ware.Price)
+            return PickUpAction.Fail(world, actor, FailureReason.NotEnoughGold);
+        var item = world.CreateItem(world.Content.Items[ware.Item], enchantment: 0);
+        if (!pack.CanAdd(item))
+            return PickUpAction.Fail(world, actor, FailureReason.InventoryFull);
+        actor.Gold -= ware.Price;
+        pack.Add(item);
+        world.Emit(new ItemBought(actor.Id, item, ware.Price));
+        return true;
+    }
+}
+
 /// <summary>Pays the toll at a nearby camp gate (the player only).</summary>
 public sealed record PayTollAction : GameAction
 {
@@ -155,6 +189,8 @@ public sealed record MoveAction(Direction Direction) : GameAction
         {
             if (world.AreHostile(actor, other))
                 return new AttackAction(other.Id).Perform(world, actor);
+            if (actor == world.Player && world.NpcOf(other) is not null)
+                return new TalkAction(other.Id).Perform(world, actor);
             // Someone leaving you alone: the first bump is a warning, the second means it.
             if (actor == world.Player && world.CouldFight(actor, other))
             {

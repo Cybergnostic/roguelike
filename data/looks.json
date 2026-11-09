@@ -13,6 +13,16 @@
     "goblin_zombie":    { "glyph": "z", "color": "#8CA060" },
     "necromancer":      { "glyph": "N", "color": "#D090FF", "rangedVerb": "blasts" },
     "acolyte":          { "glyph": "n", "color": "#B478FF", "rangedVerb": "blasts" },
+    "wolf":             { "glyph": "w", "color": "#A8A8B0" },
+    "boar":             { "glyph": "b", "color": "#9A7A58" },
+    "giant_spider":     { "glyph": "x", "color": "#B05050" },
+    "bear":             { "glyph": "B", "color": "#A07040" },
+    "bandit":           { "glyph": "r", "color": "#D08050" },
+    "bandit_archer":    { "glyph": "r", "color": "#D8B070" },
+    "bandit_chief":     { "glyph": "R", "color": "#E09050" },
+    "peddler":          { "glyph": "p", "color": "#70E0C0" },
+    "hermit":           { "glyph": "h", "color": "#70E0C0" },
+    "villager":         { "glyph": "v", "color": "#70C0E0" },
     "bone_knight":      { "glyph": "K", "color": "#E6E2D2" },
     "wraith":           { "glyph": "W", "color": "#90A8E0", "rangedVerb": "chills" },
     "goblin_brute":     { "glyph": "G", "color": "#6EC846" },
@@ -49,6 +59,7 @@
     "waystone":   { "glyph": 239, "color": "#C8C8D2" },
     "inscription": { "glyph": 234, "color": "#D8C890" },
     "rubble":      { "glyph": 177, "color": "#7A7468" },
+    "water":       { "glyph": "~", "color": "#4A80C0" },
     "gatebroken":  { "glyph": "'", "color": "#8A6A3A" }
   }
 }

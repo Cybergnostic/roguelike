@@ -21,7 +21,7 @@ public sealed class CommandPlayer(World world)
     public const string Help =
         "n s e w ne nw se sw [count] | wait [count] | rest [max] | explore [max] | go X Y | " +
         "attack ID | fire ID | fight ID [max] | pickup | drink | equip ITEM | drop ITEM | raise ATTR | learn SKILL | " +
-        "stairs (walk to the known stairs) | descend | ascend | close (an adjacent gate; walk into one to open it) | pay (the toll at a nearby gate)";
+        "stairs (walk to the known stairs) | descend | ascend | close (an adjacent gate; walk into one to open it) | pay (the toll at a nearby gate) | buy NPC ITEM (walk into someone to talk)";
 
     /// <summary>Why the last command ended early, or null if it simply finished.</summary>
     public string? StopReason { get; private set; }
@@ -62,6 +62,7 @@ public sealed class CommandPlayer(World world)
             case "ascend": return [new AscendAction()];
             case "close": return [new CloseGateAction()];
             case "pay": return [new PayTollAction()];
+            case "buy" when c.Length > 2: return [new BuyAction(Arg(1, -1), c[2])];
             case "stairs":
                 if (world.Map.StairsDown is { } stairs && world.Map.Explored[stairs])
                     return Repeat(300, () => world.StepAroundOthers(p, stairs) is { } d ? new MoveAction(d) : null, interruptible: true);

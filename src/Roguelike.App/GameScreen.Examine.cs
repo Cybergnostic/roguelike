@@ -68,7 +68,8 @@ public sealed partial class GameScreen
     private void DrawExamine()
     {
         var cursor = _examine!.Cursor;
-        _map.SetBackground(cursor.X, cursor.Y, Theme.Warning.GetDarker());
+        if (OnScreen(cursor, out var at))
+            _map.SetBackground(at.X, at.Y, Theme.Warning.GetDarker());
 
         _sidebar.Clear();
         _sidebar.Fill(Theme.Text, Theme.SidebarBackground, 0);
@@ -147,6 +148,8 @@ public sealed partial class GameScreen
     private (string, Color) Stance(Actor actor)
     {
         var player = _world.Player;
+        if (_world.NpcOf(actor) is { } npc)
+            return (npc.Goods is { Count: > 0 } ? "Walk into them to talk and trade." : "Walk into them to talk.", Theme.Good);
         if (!_world.CouldFight(player, actor))
             return ("Not your enemy.", Theme.Good);
         if (_world.SquadOf(actor)?.Camp is not { } camp)
@@ -193,6 +196,7 @@ public sealed partial class GameScreen
         Tile.Waystone => ("Waystone", "The old marker where the road begins."),
         Tile.Inscription => ("Inscribed stone", "Old words, carved deep. Step on it to read them."),
         Tile.Rubble => ("Fallen rock", "The roof came down here."),
+        Tile.Water => ("Water", "Too deep to wade."),
         Tile.GateBroken => ("Broken gate", "Smashed open. It won't shut again."),
         _ => (tile.ToString(), ""),
     };

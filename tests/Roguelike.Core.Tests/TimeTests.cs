@@ -133,15 +133,15 @@ public class TimeTests
         var world = HistoryTests.ValleyHeldBy("tollkeepers");
         world.Player.Hp = 100_000;
         var sentries = world.Squads[0];
-        var post = sentries.Members[0].Position;
-        var kind = sentries.Members[0].Kind;
+        int newestId = world.Actors.Max(a => a.Id);
         world.Damage(world.Player, sentries.Members[0], 999, ranged: false);
         world.Step(new WaitAction());
 
         var events = AwayFor(world, world.Content.Dungeon.TurnsPerReplacement + 5);
 
         Assert.Contains(events, e => e is CampReinforced);
-        Assert.Equal(kind, world.ActorAt(post)?.Kind);
+        var fresh = Assert.Single(world.Actors, a => a.Id > newestId && a.Faction.Id == "goblins");
+        Assert.Contains(world.Squads, s => s.Posts.TryGetValue(fresh.Id, out var post) && post == fresh.Position);
     }
 
     [Fact]

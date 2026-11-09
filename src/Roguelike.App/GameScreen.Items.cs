@@ -30,7 +30,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -107,8 +107,12 @@ public sealed partial class GameScreen
             _examine = null;
             _askingToll = false;
             _chronicleOpen = false;
+            _shop = null;
             return null;
         }
+
+        if (_shop is not null)
+            return ShopInput(keyboard);
 
         if (_chronicleOpen)
         {
@@ -159,10 +163,10 @@ public sealed partial class GameScreen
         foreach (var floorItem in _world.FloorItems)
         {
             var p = floorItem.Position;
-            if (!fov[p] && !_reveal)
+            if ((!fov[p] && !_reveal) || !OnScreen(p, out var at))
                 continue;
             var look = Theme.ForItem(floorItem.Item);
-            _map.SetGlyph(p.X, p.Y, look.Glyph, look.Foreground, _map.Surface[p.X, p.Y].Background);
+            _map.SetGlyph(at.X, at.Y, look.Glyph, look.Foreground, _map.Surface[at.X, at.Y].Background);
         }
     }
 
@@ -180,6 +184,8 @@ public sealed partial class GameScreen
             DrawTollPrompt();
         if (_chronicleOpen)
             DrawChronicle();
+        if (_shop is not null)
+            DrawShop();
     }
 
     private void DrawTargeting(Targeting t)
@@ -194,9 +200,11 @@ public sealed partial class GameScreen
         {
             if (p == player.Position || p == target.Position)
                 continue;
-            _map.SetGlyph(p.X, p.Y, '*', color);
+            if (OnScreen(p, out var cell))
+                _map.SetGlyph(cell.X, cell.Y, '*', color);
         }
-        _map.SetBackground(target.Position.X, target.Position.Y, color.GetDarker());
+        if (OnScreen(target.Position, out var aim))
+            _map.SetBackground(aim.X, aim.Y, color.GetDarker());
 
         var note = !inRange ? "out of range" : !clear ? "blocked" : $"{player.RangedAttack} atk";
         _status.Clear();

@@ -12,6 +12,8 @@ public enum SquadRole
     Runner,
     /// <summary>Raises corpses into undead servants and casts bolts from behind the line.</summary>
     Necromancer,
+    /// <summary>Someone who isn't here to fight: stays put, and talks when spoken to.</summary>
+    Civilian,
 }
 
 public enum SquadState

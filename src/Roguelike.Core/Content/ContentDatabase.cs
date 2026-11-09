@@ -15,7 +15,11 @@ public sealed record MonsterDef(
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
     int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
     int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0, Rank Rank = Rank.Normal,
-    IReadOnlyList<string>? Abilities = null, bool EndsRun = false);
+    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null);
+
+/// <summary>Someone the player can talk to. Lines: said in turn. Goods: for sale.</summary>
+public sealed record NpcDef(IReadOnlyList<string>? Lines = null, IReadOnlyList<WareDef>? Goods = null);
+public sealed record WareDef(string Item, int Price);
 
 public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain }
 
@@ -399,6 +403,10 @@ public sealed class ContentDatabase
         var history = Read<HistoryDef>(directory, "history.json");
         ValidateHistory(history, dungeon, spawnFile, monsters, items, surface);
 
+        foreach (var m in monsters.Values)
+            foreach (var ware in m.Npc?.Goods ?? [])
+                if (!items.ContainsKey(ware.Item))
+                    throw Error("monsters.json", $"'{m.Id}' sells unknown item '{ware.Item}'");
         var abilities = Read<AbilityFile>(directory, "abilities.json").Abilities.ToDictionary(a => a.Id);
         var elites = Read<EliteRules>(directory, "elites.json");
         ValidateSkills(abilities, elites, monsters);
@@ -417,6 +425,10 @@ public sealed class ContentDatabase
             if (ability.Kind == AbilityKind.Summon && (ability.Monster is null || !monsters.ContainsKey(ability.Monster) || ability.Count < 1))
                 throw Error("abilities.json", $"'{ability.Id}': a summon needs a known monster and a count");
         }
+        foreach (var m in monsters.Values)
+            foreach (var ware in m.Npc?.Goods ?? [])
+                if (ware.Price <= 0)
+                    throw Error("monsters.json", $"'{m.Id}': a price must be positive");
         foreach (var m in monsters.Values)
             foreach (var id in m.Abilities ?? [])
                 if (!abilities.ContainsKey(id))

@@ -177,6 +177,7 @@ public sealed partial class GameScreen : ScreenObject
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
                 LoreDiscovered => Theme.Warning,
+                Talked or ItemBought => Theme.Intent,
                 TheftCommitted { WitnessId: not null } => Theme.Danger,
                 IncursionBegan or CampAttackedWhileAway or CampReinforced => Theme.Warning,
                 LevelEntered or GameWon or TollPaid or ObjectiveCompleted => Theme.Good,
@@ -188,6 +189,8 @@ public sealed partial class GameScreen : ScreenObject
                 color = Theme.Danger;
             AddMessage(line, color);
         }
+        if (events.OfType<Talked>().FirstOrDefault(t => t.HasGoods) is { } trade && _world.GetActor(trade.NpcId) is { } seller)
+            _shop = seller;
         if (playerMoved)
             DescribeItemsUnderfoot();
         if (playerMoved && _world.Map.StairsDown == _world.Player.Position)
@@ -218,8 +221,27 @@ public sealed partial class GameScreen : ScreenObject
             _messages.RemoveAt(0);
     }
 
+    private Point _camera;
+
+    /// <summary>Keeps the player (or the examine cursor) in the middle of the view, as far as the map allows.</summary>
+    private void UpdateCamera()
+    {
+        var focus = _examine?.Cursor ?? _world.Player.Position;
+        _camera = new Point(
+            Math.Clamp(focus.X - MapWidth / 2, 0, Math.Max(0, _world.Map.Width - MapWidth)),
+            Math.Clamp(focus.Y - MapHeight / 2, 0, Math.Max(0, _world.Map.Height - MapHeight)));
+    }
+
+    /// <summary>Where a map cell falls in the view, if it's on screen.</summary>
+    private bool OnScreen(Point p, out Point screen)
+    {
+        screen = p - _camera;
+        return screen.X >= 0 && screen.Y >= 0 && screen.X < MapWidth && screen.Y < MapHeight;
+    }
+
     private void Draw()
     {
+        UpdateCamera();
         DrawMap();
         DrawSidebar();
         DrawStatus();
@@ -237,11 +259,11 @@ public sealed partial class GameScreen : ScreenObject
         var heat = HeatmapView();
 
         _map.Clear();
-        for (int y = 0; y < map.Height; y++)
-        for (int x = 0; x < map.Width; x++)
+        for (int y = 0; y < MapHeight; y++)
+        for (int x = 0; x < MapWidth; x++)
         {
-            var p = new Point(x, y);
-            if (!map.Explored[p] && !_reveal)
+            var p = new Point(x, y) + _camera;
+            if (!map.InBounds(p) || (!map.Explored[p] && !_reveal))
                 continue;
             var look = Theme.ForTile(map.Tiles[p]);
             var fg = fov[p] ? look.Foreground
@@ -252,10 +274,10 @@ public sealed partial class GameScreen : ScreenObject
 
         foreach (var corpse in _world.Corpses)
         {
-            if (!fov[corpse.Position] && !_reveal)
+            if ((!fov[corpse.Position] && !_reveal) || !OnScreen(corpse.Position, out var at))
                 continue;
             var look = Theme.ForCorpse(corpse.Kind, _world.IsWithered(corpse));
-            _map.SetGlyph(corpse.Position.X, corpse.Position.Y, look.Glyph, look.Foreground, _map.Surface[corpse.Position.X, corpse.Position.Y].Background);
+            _map.SetGlyph(at.X, at.Y, look.Glyph, look.Foreground, _map.Surface[at.X, at.Y].Background);
         }
         DrawFloorItems();
         if (_showSquads)
@@ -263,16 +285,16 @@ public sealed partial class GameScreen : ScreenObject
 
         foreach (var actor in _world.Actors)
         {
-            if (actor.IsDead || !(fov[actor.Position] || _reveal))
+            if (actor.IsDead || !(fov[actor.Position] || _reveal) || !OnScreen(actor.Position, out var at))
                 continue;
             var look = Theme.ForKind(actor.Kind);
             var squad = _world.SquadOf(actor);
             var bg = squad?.State == SquadState.Flee ? Theme.FleeingBackground
                 : _showSquads && squad is not null ? Theme.SquadTint(squad.Id)
                 : actor.Rank != Rank.Normal ? Theme.ForRank(actor.Rank)
-                : _map.Surface[actor.Position.X, actor.Position.Y].Background;
+                : _map.Surface[at.X, at.Y].Background;
             var fg = actor == _world.Player && _world.ObserverMode ? Theme.Intent : look.Foreground;
-            _map.SetGlyph(actor.Position.X, actor.Position.Y, look.Glyph, fg, bg);
+            _map.SetGlyph(at.X, at.Y, look.Glyph, fg, bg);
         }
     }
 
@@ -332,6 +354,8 @@ public sealed partial class GameScreen : ScreenObject
         if (_world.SquadOf(actor) is not { } squad)
             return "";
         var role = squad.RoleOf(actor);
+        if (role == SquadRole.Civilian)
+            return "going about their day";
         return squad.State switch
         {
             SquadState.Flee when squad.Rally is not null => "falling back",

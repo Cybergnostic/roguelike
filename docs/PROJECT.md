@@ -70,7 +70,9 @@ loot (rarity tiers, +X gear).
 | **The player starts as a neutral traveler** (user, 2026-11-09) | Warnings, tolls and peaceful passage only make sense if factions don't start out at war with the player | Known enemy; status varying by origin |
 | **Permadeath; the world resets on death, and persists fully within a run** (user, 2026-11-09; "for now") | Classic roguelike stakes; no campaign continuity to design yet | Persistent world across runs |
 | **A seed fixes the layout, whatever the player does** (user, 2026-11-09) | Players can retry the same world. Each location generates from its own stream derived from world seed + location id, separate from gameplay randomness | One shared stream, which makes later maps depend on how earlier ones were played |
-| **The surface is a few connected maps** (user, 2026-11-09; to be rethought later) | Reuses the stored-location work; cheap to prototype | One large tactical map; a region map with local maps |
+| **The surface is one large scrolling map for now** (user, 2026-11-09) | The user wanted a wider starting area with more in it; the window's view follows the player | A few connected maps (the earlier choice) |
+| **Seven dungeon levels, ending in the necromancer's crypt; killing him wins** (user, 2026-11-09) | A boss at the end of a shorter dungeon reads as a little RPG | Ten levels; walking out the bottom to win |
+| **Character traits, general skills and crafting are fine-tuning, later** (user, 2026-11-09) | First a complete vertical slice | |
 
 ---
 
@@ -80,8 +82,10 @@ loot (rarity tiers, +X gear).
 Roguelike.slnx
 data/                        game content (JSON with comments), copied next to every program
   factions.json              factions + relations (hostile/neutral/allied) + raid orders
-  monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed,
-                             risesAs (corpse → undead), raise (necromancers), xp (kill reward)
+  monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed, rank, abilities,
+                             risesAs (corpse → undead), raise (necromancers), xp (kill reward), npc (lines, goods)
+  abilities.json             skills for elites and bosses (charge, war cry, volley, blink, summon, drain)
+  elites.json                the chance and kinds of elite squad members (title, stat changes, skills)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
   items.json                 item types (minDepth), +X enchantment weights (minDepth), loot tables
@@ -132,6 +136,7 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Character.cs    character sheet (c): attributes, skill trees, derived stats; letters spend XP
   GameScreen.Examine.cs      examine mode (x) and the toll prompt (t); shows only what the player knows
   GameScreen.Chronicle.cs    what the stones tell (m): words the site's history for the player
+  GameScreen.Shop.cs         buying from people in the valley (opens after talking to anyone with goods)
   ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
@@ -231,7 +236,7 @@ The report gives: death rate, survivors' lowest HP and close calls (<25% HP), sh
 inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
 ### In-game keys
-Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Gates: walk into one to open it, `C`
+Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Walk into someone in the hamlet to talk (and buy from the peddler). Gates: walk into one to open it, `C`
 closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
@@ -355,7 +360,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: the finished camp and time passing** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **55.7%**, died 42%.
+- **Current: seven levels with the crypt boss and elites** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **30.9%**, died 68%.
+  Death rate by depth: 9.7, 17.8, 7.2, 4.8, 5.0, 5.0, 47.1% (the warlord's warren makes level 2 hard; the last level is the boss).
+- **The finished camp and time passing** (2026-11-09), same setup: won **55.7%**, died 42%.
   About 59000 turns/s. The bot rarely goes back up, so this barely tests time passing.
 - **The history generator with tribes and plague** (2026-11-09), same setup:
   - Won **55.1%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
@@ -496,7 +503,8 @@ you, a quick way to see progression; spectating: time passes).
   healing, calming down, replacing guards and a due incursion. Raids and musters don't run while away.
 - Monsters don't follow on the stairs, so stairs are a perfect escape for now.
 - Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
-- A theft nobody saw is never discovered: guards don't notice missing goods. Gold buys nothing but the toll.
+- A theft nobody saw is never discovered: guards don't notice missing goods.
+- The wider valley is only tested by the rules, not by bots: the balance sim never plays the surface.
 - The camp only reacts to the undead attack by fighting: it doesn't shut its gate or sound a horn for it.
 - `World.StepToward` gives up when its next step is blocked and no neighbour is strictly closer (goblins can jam
   like this). Scripted player commands use `StepAroundOthers` instead.
@@ -585,8 +593,12 @@ you, a quick way to see progression; spectating: time passes).
    (user's request; the ancient dead don't), and on return monsters have healed and calmed, camps have replaced fallen
    guards, and an attack that came due was fought without the player, leaving a broken gate, bodies, or a fallen camp.
    Later: raids and musters while away, repairs, supplies, pursuit up the stairs.
-9. **Graphics and interface**: bring the user's Enhanced ASCII browser prototype into the game
-   (https://claude.ai/code/artifact/fd537e04-08d9-409e-8e67-936186d89a81), screen scaling, longer log, mouse, journal.
+9. ~~**A little vertical slice of an RPG**~~ (done 2026-11-09): seven levels ending in the necromancer's crypt (boss;
+   killing him wins), elites and skills, a 150x46 scrolling valley with a hamlet (peddler, hermit, villagers), the
+   Thornwood (wolves, spiders), boars, a bear and a bandit den. Character traits, general skills and crafting come later.
+9a. **Graphics and interface (next)**: the user's Enhanced ASCII browser prototype as the guide
+   (https://claude.ai/code/artifact/fd537e04-08d9-409e-8e67-936186d89a81; Claude can't open it, the tool returns only
+   the editor shell and the site blocks headless browsers, so it needs a screenshot or export), screen scaling, longer log, mouse, journal.
 10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.

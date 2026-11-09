@@ -140,18 +140,25 @@ public sealed partial class GameScreen
             if (squad.IsLeashed)
                 foreach (var p in _world.Map.Tiles.Positions())
                     if (OnChaseLimit(squad, p))
-                        _map.SetBackground(p.X, p.Y, Theme.SquadTint(squad.Id));
+                        if (OnScreen(p, out var ring))
+                            _map.SetBackground(ring.X, ring.Y, Theme.SquadTint(squad.Id));
             foreach (var post in squad.Posts.Values)
-                _map.SetGlyph(post.X, post.Y, 'o', color);
+                Mark(post, 'o', color);
             foreach (var stop in squad.Route ?? [])
-                _map.SetGlyph(stop.X, stop.Y, 'r', color);
+                Mark(stop, 'r', color);
             if (squad.Rally is { } rally)
-                _map.SetGlyph(rally.X, rally.Y, 'R', color);
+                Mark(rally, 'R', color);
             if (squad.Destination is { } d && squad.State is SquadState.Idle or SquadState.Alert)
-                _map.SetGlyph(d.X, d.Y, 'x', color);
+                Mark(d, 'x', color);
             if (squad.LastKnownTarget is { } k && squad.State is SquadState.Alert or SquadState.Engage)
-                _map.SetGlyph(k.X, k.Y, '?', color);
+                Mark(k, '?', color);
         }
+    }
+
+    private void Mark(Point p, char glyph, Color color)
+    {
+        if (OnScreen(p, out var at))
+            _map.SetGlyph(at.X, at.Y, glyph, color);
     }
 
     /// <summary>The last walkable cells a leashed squad will go to: inside its limit, with a neighbour outside it.</summary>

@@ -51,6 +51,9 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         PassRunningOut p => $"A guard snarls: \"{p.TurnsLeft} turns and your time is up. Get out, or pay again at the gate.\"",
         PassExpired { Inside: true } => "\"Time's up!\" Your paid time is over, and you're still inside.",
         PassExpired => "Your paid time at the camp is over.",
+        Talked { Line: { } line } t => $"{Cap(Name(t.NpcId))} says: \"{Expand(line)}\"",
+        Talked => null,
+        ItemBought b => $"You buy {ItemText.AName(b.Item)} for {b.Price} gold.",
         LoreDiscovered => "Old words are carved into this stone. You stop and read them. (m: what the stones tell)",
         XpGained { Source: XpSource.Lore } x => $"You understand this place a little better. (+{x.Amount} XP)",
         TheftCommitted { WitnessId: { } guard } => $"{Cap(Name(guard))} sees you take it!",
@@ -131,6 +134,12 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 
         _ => null,
     };
+
+    /// <summary>Fills in the history's names in something written in the data.</summary>
+    private string Expand(string text) => text
+        .Replace("{tribe}", world.History.Tribe)
+        .Replace("{founder}", world.History.Founder)
+        .Replace("{necromancer}", world.History.Necromancer);
 
     /// <summary>Unseen attackers are "something": you know you were shot, not by whom.</summary>
     private string Name(int id) =>

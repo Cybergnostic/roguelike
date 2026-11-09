@@ -23,6 +23,9 @@ public sealed class World
 {
     public const int FovRadius = 8;
 
+    /// <summary>How far the player sees in the open air.</summary>
+    public const int SurfaceFovRadius = 14;
+
     /// <summary>The depth of the hand-drawn surface map; the dungeon starts at 1.</summary>
     public const int SurfaceDepth = 0;
 
@@ -1360,7 +1363,7 @@ public sealed class World
 
     private void UpdateFov()
     {
-        Map.PlayerFov.Calculate(Player.Position, FovRadius, SadRogue.Primitives.Distance.Euclidean);
+        Map.PlayerFov.Calculate(Player.Position, Depth == SurfaceDepth ? SurfaceFovRadius : FovRadius, SadRogue.Primitives.Distance.Euclidean);
         foreach (var p in Map.PlayerFov.CurrentFOV)
             Map.Explored[p] = true;
         NoticeNewKinds();
@@ -1390,6 +1393,9 @@ public sealed class World
             XpMultiplier = elite?.Xp ?? 1,
             Abilities = (def.Abilities ?? []).Concat(elite?.Abilities ?? []).Select(id => Content.Abilities[id]).ToList(),
         });
+
+    /// <summary>What someone has to say and sell, if they're a person to talk to.</summary>
+    public NpcDef? NpcOf(Actor actor) => Content.Monsters.GetValueOrDefault(actor.Kind)?.Npc;
 
     /// <summary>Whether this squad member comes out an elite, and what kind; only ordinary monsters can.</summary>
     private EliteKindDef? RollElite(MonsterDef def)

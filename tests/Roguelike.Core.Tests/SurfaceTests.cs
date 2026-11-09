@@ -33,14 +33,14 @@ public class SurfaceTests
     public void TheValleyFitsTheScreenAndHasItsParts()
     {
         var world = Valley();
-        Assert.Equal((80, 24), (world.Map.Width, world.Map.Height));
+        Assert.Equal((150, 46), (world.Map.Width, world.Map.Height));
         Assert.Equal(World.SurfaceDepth, world.Depth);
         Assert.Equal(Tile.Road, world.Map.Tiles[world.Player.Position]);
         Assert.Equal(Tile.GateOpen, world.Map.Tiles[Gate]);
         Assert.Equal(Cave, world.Map.StairsDown);
         Assert.Equal(Tile.CaveMouth, world.Map.Tiles[Cave]);
-        Assert.Equal(9, world.Actors.Count(a => a != world.Player));
-        Assert.Equal(4, world.Squads.Count);
+        Assert.Equal(9, world.Actors.Count(a => a.Faction.Id == "goblins"));
+        Assert.Equal(4, world.Squads.Count(s => s.Camp is not null));
     }
 
     [Fact]

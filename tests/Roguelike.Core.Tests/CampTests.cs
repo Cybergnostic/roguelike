@@ -126,7 +126,7 @@ public class CampTests
         }
 
         Assert.True(stopsReached.Count >= 4, $"only {stopsReached.Count} legs walked");
-        Assert.Equal(3, route.Count);
+        Assert.Equal(4, route.Count);
     }
 
     [Fact]

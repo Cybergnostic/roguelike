@@ -8,11 +8,17 @@
     { "id": "player", "name": "you" },
     // The goblins hate the tower. Their dead feed the necromancer, so each raid makes him stronger.
     { "id": "goblins", "name": "the goblins", "raid": { "every": 100, "against": "undead" } },
-    { "id": "undead", "name": "the undead" }
+    { "id": "undead", "name": "the undead" },
+    // Out in the wider valley.
+    { "id": "beasts", "name": "wild animals" },
+    { "id": "bandits", "name": "the bandits" },
+    { "id": "folk", "name": "the hamlet folk" }
   ],
   "relations": [
     { "a": "player", "b": "goblins", "relation": "hostile" },
     { "a": "player", "b": "undead", "relation": "hostile" },
-    { "a": "goblins", "b": "undead", "relation": "hostile" }
+    { "a": "goblins", "b": "undead", "relation": "hostile" },
+    { "a": "player", "b": "beasts", "relation": "hostile" },
+    { "a": "player", "b": "bandits", "relation": "hostile" }
   ]
 }
