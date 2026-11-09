@@ -4,7 +4,35 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-09 (world decisions; honest enemy knowledge; stored levels and seed-fixed layouts; the valley; the living camp; gate warning, toll and examine)
+Last updated: 2026-11-09 (classes, squad minds, trials, and the fixes they led to)
+
+---
+
+## 0. Where we left off
+
+Start here in a new chat. Everything below is merged to `main` and pushed. 380 tests pass.
+
+**Last finished**
+- Four classes with their own kits and skills.
+- Squad minds: mindless, beast, pack, rabble, drilled. A commander lifts its squad to drilled while it lives.
+- Trials that pit every class and build against every enemy, stage and mind (`--trials`).
+- Follow-ups from the trials: drilled fighters run at shooters, commanded goblin and skeleton squads on levels 3-5, half Strength on the off-hand dagger.
+
+**Open, in the order I would take them**
+1. **The crypt is still a cliff.** Levels 1-6 kill at most 14%, level 7 kills 43-72%. Commanders made the middle harder, but the last level did not get gentler.
+2. **Class balance.** Rogue is 18%, under the 20-30% target. Soldier 36% and Mystic 33% are over.
+3. **Ranger and Rogue walk over most single fights**, even against drilled squads. Enemies still need more ways to punish them.
+4. **Human playtests** against [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12. The user will do these when ready; don't wait for them.
+5. **Choose what to build next** from §7 below and [IDEAS.md](IDEAS.md) (its §16 suggests an order). Nothing in IDEAS is a commitment until the user picks it.
+
+**Documents**
+| File | What it's for |
+|---|---|
+| this file | Vision, decisions, architecture, current state, roadmap |
+| [HISTORY.md](HISTORY.md) | What was built when, and every past balance measurement |
+| [IDEAS.md](IDEAS.md) | The user's idea bank: possibilities, not commitments |
+| [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) | Exploration and world direction |
+| [UI_DESIGN_VISION.md](UI_DESIGN_VISION.md) | Presentation direction |
 
 ---
 
@@ -61,11 +89,11 @@ loot (rarity tiers, +X gear).
 | **Content in JSON (`data/`)** | Tuning without recompiling; modding later. Validated at load with file-specific errors | Hard-coded C# templates |
 | **Factions are data, relations table** | Adding a faction = data, not code. Unlisted pairs neutral, same faction allied | Enum of factions |
 | **Six D&D attributes** (user, 2026-11-08; to be revisited) | Familiar; CHA/INT/WIS get real uses as talking, magic and factions arrive. Their effects live in `attributes.json`, so revisiting is a data edit | 4 Sil-style attributes; none (Brogue) |
-| **XP is spent on attributes and skills now; ToME-style classes and skill trees later** (user) | Skills are data, grouped in trees, so a class can later just be "which trees you start with" (plus actives with cooldowns) | Fixed level-ups |
+| **XP is spent on attributes and skills** (user) | Skills are data, grouped in trees; a class is the trees it can learn plus its kit. The direction is ToME: more classes and many more skills | Fixed level-ups |
 | **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
 | **One derived-stat vocabulary (`Stat`)** | Attributes, skills and item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
 | **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
-| **A squad's tactics come from what it is** (`minds.json`; user, 2026-11-09) | Each monster has a mind (mindless, beast, pack, rabble), and one with `commands` lifts its whole squad to that mind while it lives (drilled). Killing the commander drops the squad back and costs it morale. Minds are data: range of shouts, memory, sizing up, surrounding, holding corridors, advancing together, how much losses hurt | One tactics level for everyone; tactics by faction |
+| **A squad's tactics come from what it is** (`minds.json`; user, 2026-11-09) | Each monster has a mind (mindless, beast, pack, rabble), and one with `commands` lifts its whole squad to that mind while it lives (drilled). Killing the commander drops the squad back and costs it morale. Minds are data: range of shouts, memory, sizing up, surrounding, holding corridors, advancing together, running at shooters, how much losses hurt | One tactics level for everyone; tactics by faction |
 | **Classes are data** (`classes.json`; user, 2026-11-09) | Each class sets attributes, gold, starting kit, the skill trees it can learn and the skills it starts with. A skill can grant an active ability with a cooldown (`abilities.json`), so adding a class needs no code. A class can't learn from another class's own trees; a game started with no class (tests, plain tools) only gets the general trees | Classes coded by hand; open skill choice for everyone |
 | **Tune with the tactical bot over many seeds** | Balance target (2026-11-08): the tactical bot wins about 20–30% and deaths rise with depth. A human plays differently; the bot measures the curve, not absolute difficulty | Tuning by feel from single games |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
@@ -95,9 +123,9 @@ data/                        game content (JSON with comments), copied next to e
   items.json                 item types (minDepth), +X enchantment weights (minDepth), loot tables
   affixes.json               rarity tiers (chance by depth, affix count, special), affix pool (stat, range,
                              growth per level, slots), legendary specials per slot, rare-name word lists
-  dungeon.json               number of levels (10) and how monsters grow per level (HP, XP, attack, accuracy,
+  dungeon.json               number of levels (7) and how monsters grow per level (HP, XP, attack, accuracy,
                              defence, occupancy)
-  combat.json                hit chance (accuracy vs evasion), point-blank penalty, minimum damage
+  combat.json                hit chance (accuracy vs evasion), point-blank penalty, minimum damage, off-hand rules, sizing-up thresholds, ransoms
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
   skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
@@ -131,7 +159,8 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   AI/Strategy/FactionPlanner strategic layer, once per turn: lair musters and faction raids
   History/SiteHistory.cs     the site's past as facts, rolled once per seed from its own stream; World shapes levels from it
   Simulation/                bots (AggressiveBot, IdleBot, TacticalBot), Simulator (headless games + stats),
-                             CommandPlayer (scripted play), Exploration (auto-explore), ItemValue (bots' gear worth)
+                             CommandPlayer (scripted play), Exploration (auto-explore), ItemValue (bots' gear worth),
+                             Trials (class, build, stage and mind matchups)
 src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
   GameScreen.cs              map/sidebar/status/log, input, turn loop
@@ -147,14 +176,14 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Panels.cs       everything around the map: place bar, in sight, this place, status strip, log, key guide
   Fonts/                     bitmap fonts built by tools/scripts/make_font.py: 16x32 atlases, CP437 then bold copies at glyph + 256
   EventText.cs               events -> log messages (unseen things become sounds)
-tools/Roguelike.Sim/         headless simulation report CLI
+tools/Roguelike.Sim/         headless simulation report CLI (TrialReport.cs prints --trials)
 tools/Roguelike.Play/        text front end for playing by hand or by an AI agent: replays a command file
                              from a seed, prints the view, monsters (ids, hit chances), stats and log.
                              Commands are interpreted by Core's Simulation/CommandPlayer
 tools/scripts/make_font.py   rebuilds the bitmap fonts from JetBrains Mono (needs Pillow)
 tools/scripts/sendkey.py     send keys to the game window (UI checks without stealing focus)
 tests/Roguelike.Core.Tests/  xUnit: determinism, map connectivity, squad behaviour, observer mode
-docs/PROJECT.md              this file
+docs/                        this file, HISTORY, IDEAS and the two vision documents (see §0)
 ```
 
 ---
@@ -234,7 +263,7 @@ docs/PROJECT.md              this file
 ### Commands
 ```sh
 dotnet build Roguelike.slnx
-dotnet test                                     # ~15 s
+dotnet test                                     # ~25 s
 dotnet run --project src/Roguelike.App          # play, from the valley (--dungeon starts at level 1)
 dotnet run --project src/Roguelike.App -- --seed 640 --spectate
 dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000] [--bot aggressive|idle] [--observer] [--games]
@@ -289,262 +318,43 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 
 ## 6. Current state
 
-**Done**
-- Skeleton: map gen, FOV with memory, bump combat, message log, status line.
-- **Goblin squad AI**: roles (warrior, archer, shaman, runner); shared squad knowledge; states
-  idle (group patrol) → alert (search last known position) → engage → flee; morale (−25 per death,
-  −8 per badly wounded member, regen when not fighting, breaks below 30, rallies at 60);
-  warriors surround and hold corridor mouths up to 8 turns while archers shoot; archers kite and
-  seek clear shots; shamans heal (cooldown 5, range 6); runners fetch the nearest idle squad.
-- **Readability**: sidebar with visible monsters' HP and intent; unseen events reported as sounds;
-  unseen attackers are "something".
-- **Player kit**: items from data with +X enchantment (incl. cursed) and a rarity tier (see the
-  rarity entry below); inventory (20 slots, potions stack) and equipment slots; derived stats; loot
-  tables per monster and floor items; pick up/drop/equip/drink/fire; inventory menus and bow
-  targeting UI; the bot uses the kit (potions, bow, better gear, walks to loot).
-- **AI fixes found via a failing test**: runners keep their mission while the squad flees and call
-  from shouting range (6 + line of sight); allies swap places, which cured corridor deadlocks
-  that had frozen many patrols (idle time 86% → 71%).
-- **Observation tools**: debug overlays, spectator mode, autoplay, headless `Roguelike.Sim` report.
-- **Balance pass** (2026-11-07), measured with the sim:
-  - Map gen: 10–16 wider rooms, all dead ends trimmed. Floor inside rooms went from 29% to 57%.
-  - Quiet start: no squad spawns in a room within `safeStartDistance` (15) walking steps.
-  - Regen is now `regenInterval` in player.json (20 turns per HP, was 8).
-  - Monsters hit harder: warriors attack 6, archers 4. Skeleton warriors' defence went from 2 to 1,
-    which ended their 5:1 dominance over goblins (now about 1.5:1).
-  - Bigger goblin bands (2–4 warriors); 60% room occupancy.
-  - Fewer potions: 15 on the floor table, 10 on the goblin table.
-  - Death events carry `KillerId`.
-  - The sim report shows close calls and room share, and can print a level with `--map`.
-- **Necromancer, part 1** (2026-11-07):
-  - Speed/energy system (`speed` in monsters.json).
-  - Corpses left by deaths, drawn as `%` in a dim version of the dead kind's colour.
-  - `risesAs` per monster: goblins become slow, tough **goblin zombies**; skeletons reassemble.
-  - The **necromancer** (`N`) is a unique lair squad (necromancer + 2 skeleton warriors + 1 archer),
-    placed in the room farthest from the start. He waits there ("guarding"/"brooding").
-    He raises the nearest corpse in reach and sight (range 7, cooldown 8, max 6 servants),
-    otherwise fights like an archer with bolts. Raised dead join his squad and the undead faction.
-  - His servants crumble to dust when he dies, and raised dead leave no corpse.
-  - Sim counts "corpses raised", "minions crumbled" and "player killed by: <kind>".
-- **Necromancer, part 3: a living dungeon** (2026-11-07):
-  - `World.Lairs`: a lair is a zone, its recipe and the squad holding it; it falls when that squad
-    is wiped out. Lairs are placed as far as possible from the start and from each other.
-  - **The goblin warren**: a second lair (shaman, warrior, archer; leash 10) that **musters** a
-    fresh war band every 100 turns while it stands, if fewer than 3 goblin bands roam.
-  - **Raids** (`raid` in factions.json): every 100 turns the goblins send their nearest idle band
-    against the necromancer's tower while it stands. Raiders march (no ambling), fight whatever they
-    meet, call off the raid when routed, and finish on arrival. Dead raiders feed the necromancer.
-  - `FactionPlanner` (AI/Strategy) runs musters and raids once per turn, before squads think.
-  - Fix: squadmates following the same leader used to swap places back and forth forever in
-    single file (looked frozen). Followers now queue behind each other; only the leader swaps
-    through its own squad. A raid leader waits for stragglers at most 10 turns.
-  - Events `SquadMustered`, `RaidLaunched`; sidebar intents "marching to raid", squad list "raiding".
-  - looks.json kinds may set `rangedVerb` (the necromancer "blasts").
-  - Sim reports "raids launched", "squads mustered" and "player died in: <zone>".
-- **Necromancer, part 2: the tower** (2026-11-07):
-  - Lairs in spawns.json can have `zone` (a name announced on entry), `architecture` (a
-    `LairBuilder` style), `leash` and starting `corpses`.
-  - The necromancer's room becomes "the necromancer's tower": `LairFloor` tiles and free-standing
-    `Pillar`s that block sight (cover), with 3 old skeletons' bones lying about.
-  - His court is now the necromancer, 1 skeleton warrior and 1 archer. He raises only when roused
-    (Engage/Alert), so the bones get up when you arrive.
-  - Leash 12: lair squads never step farther (walking) from home, holding the border instead;
-    searches beyond it turn into going home.
-- **Character system** (step 5 part 1, 2026-11-08):
-  - Six attributes (str, dex, con, int, wis, cha), D&D modifiers. Effects from attributes.json:
-    Str melee, Dex bow + ½ defence, Con 3 HP, Int +10% XP, Wis regen + potion healing, Cha nothing yet.
-  - Starting scores 12/12/12/10/10/10 with base stats lowered to match, so the opening character is
-    exactly as before (30 HP, attack 2).
-  - XP: kills by the player (`xp` per monster), half that for the first sighting of each kind, 25 for
-    first entering a named zone. Int scales all of it.
-  - Spending: +1 to any attribute (30 XP, then 15 more each time, max 20) or skill ranks from three
-    trees (Warfare: Weapon Training, Toughness, Cleave; Archery: Steady Aim, Eagle Eye; Survival:
-    Thick Skin, Field Medicine, Second Wind). Prerequisites and max ranks enforced.
-  - Cleave is the first "special": a killing melee blow carries on into another adjacent foe.
-  - Character sheet (`c`), XP on the status line ("(c)" when you can afford something), a log hint
-    the first time you can, messages for sightings, zones, raises and skills.
-  - The bot buys the cheapest affordable skill rank or Str/Dex/Con point; UI autoplay uses the bot.
-- **Multi-faction foundation**: content in `data/`; factions + relations; per-monster line-of-sight
-  perception of any hostile; per-faction toward/flee maps; squads engage other factions.
-  Placeholder **undead** faction (skeleton warriors/archers, fearless) so goblins and skeletons
-  fight on their own. Unseen fights are reported as "You hear the clash of weapons."
+**What exists today**
+- **The valley**: a 150x46 scrolling surface with a hamlet (peddler, hermit, villagers), the Thornwood (wolves, spiders), boars, a bear and a bandit den.
+- **The goblin camp**: palisade, working gate, warnings, toll, an errand, theft from the storehouse, a gap in the fence and an undead incursion. Which tribe holds it comes from the site's history.
+- **The dungeon**: seven stored, revisitable levels ending in the necromancer's crypt. Killing him wins. Lairs include the goblin warren and the acolyte's shrine.
+- **A site history** rolled per seed: founder, mine depth, how it fell, heirloom, inscribed stones. Places left behind catch up in outline when you return, and corpses rot.
+- **Characters**: Soldier, Ranger, Rogue and Mystic, each with its own kit, skill tree and active skills. Six attributes, XP spending, items with +X, rarity tiers and affixes.
+- **Combat feel**: weapon speeds, twin daggers, stagger, the charge, heavy armour (slower steps, arrow guard, brace, menace), sneaking, noise and hearing.
+- **Squads**: each thinks according to its mind (`data/minds.json`), sizes up the player, routs, surrenders for a ransom, keeps to a leash, fetches help. Factions raid and muster.
+- **Front end**: enhanced ASCII look, panels, popups, mouse support, class picker, skill menu, examine, chronicle, shop, gate talk.
+- **Tools**: `Roguelike.Sim` (whole games, `--encounters`, `--trials`), `Roguelike.Play`, debug overlays, spectator mode.
 
-**Sim baselines** (Release build):
-- Aggressive bot, 50 seeds × 1000 turns (before content/factions): player died 76%;
-  ~19 goblins per level; squads 95% idle; ~1200 turns/s.
-- Observer + idle bot, 30 seeds × 800 turns (after factions): ~12 monsters per level;
-  goblins lose 126 dead vs undead 35; 27 routs; squads 92% idle; ~1600 turns/s.
-- Aggressive bot with the kit, 50 seeds × 1000 turns (after player kit + ally swap): player died
-  **2%** (far too easy); squads 71% idle, 18% engaged; 29 of 610 monsters survive; ~2700 turns/s.
-- After the balance pass, aggressive bot, 100 seeds × 1000 turns:
-  - Player died **23%**, mostly in the first 100–150 turns.
-  - Survivors' lowest HP averages 35%; 14 of 77 had a close call.
-  - About 21 monsters per level; the player kills about 11 and the factions kill about 7 of each other.
-  - Squads are 70% idle, 17% engaged; about 2500 turns/s.
-  - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
-    and survivors get real close calls. Deeper content should push from there.
-- **Current: squad minds** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **44.4%**, Ranger **37.0%**, Rogue **26.6%**, Mystic **41.0%**. All but the Rogue are above the 20–30% target: ordinary dungeon squads are now mindless or rabble, so they got easier. Not yet retuned.
-- **Trials** (`--trials`, 2026-11-09, 200 games per cell; fights with nothing else on the level). What they show:
-  - Thinking matters to characters who get reached. Six wolves, seasoned Soldier: beast 93%, pack 57%. Mystic: 72%, 15%. Goblin force, Soldier: rabble 91%, drilled 74%; Mystic 75%, 50%.
-  - Ranger and Rogue win 90–100% whatever the squad's mind. Nothing yet punishes them. Corridors help everyone (pack vs Mystic: 15% in the open, 50% in a corridor).
-  - Strength compounds on twin daggers (both hands get the full bonus): against the warlord's host a Rogue with attribute points in Dex alone wins 29%, Str alone 58%, both 78%. Str on a Soldier does nothing comparable.
-  - The bot's head-on fight with the necromancer's court is 0–5% for every build, far below its real win rates, so that row is not representative. Reason not established.
-  - Caveats: the tactical bot doesn't sneak or use doors; trial gear is the starting kit plus enchantment, so veteran and final characters are under-equipped.
-- **Classes** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **35.2%**, Ranger **23.6%**, Rogue **17.8%**, Mystic **31.4%**. Classless was not re-measured.
-  The bot doesn't sneak, so the Rogue's Backstab rarely fires and its figure is a floor. Soldier and Mystic sit a little over the 20–30% target and Rogue a little under.
-  Whole bandit den won: Soldier 53%, Ranger 87%, Rogue 63%, Mystic 26%. Run with `--class ID` (Sim and Play both take it, and so does `--encounters`).
-- **The big balance pass** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **28.0%**, died 72%, inside the 20–30% target.
-  Death rate by depth: 5.4, 9.4, 8.6, 10.6, 11.8, 9.0, 49.7% (the last level is the boss). Monster HP +26% a level, elites 12% + 3% a level, the warlord from level 4, brace only on plate with a 20% counter.
-  Valley fights (`--encounters --seeds 300`, bot with the starting kit, alone against one group): wolves won 93%, spiders 87%, boars 95%, bear 67%, den sentries 100%, den crew 50%, whole den 46%.
-- **Heavy armour and speed** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **57.5%**, died 42%, well above the 20–30% target.
-  Death rate by depth: 5.3, 14.6, 3.7, 1.7, 1.3, 2.1, 21.6%. The same build with `brace` removed from items.json won 32.0%, so bracing (extra armour and a free counter each turn) is what's too strong, at least for a bot that often holds still in corridors. Not retuned: the user will balance later.
-- **Sneaking, hearing and rarer secrets** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **29.1%**, died 70%, inside the 20–30% target.
-  Death rate by depth: 5.9, 18.0, 9.1, 6.6, 5.5, 9.1, 47.3%. The bot never sneaks, and now also learns nothing from Stealth.
-- **Squads size up the player** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **25.7%**, died 74%, inside the 20–30% target.
-  Death rate by depth: 4.3, 17.2, 11.4, 6.4, 7.0, 8.4, 53.2%. The bot kills anyone begging next to it.
-- **Weapon speeds and elastic leashes** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **21.9%**, died 77%, inside the 20–30% target.
-  Death rate by depth: 6.1, 19.4, 12.2, 10.7, 9.5, 8.4, 54.0%.
-- **Seven levels with the crypt boss and elites** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **30.9%**, died 68%.
-  Death rate by depth: 9.7, 17.8, 7.2, 4.8, 5.0, 5.0, 47.1% (the warlord's warren makes level 2 hard; the last level is the boss).
-- **The finished camp and time passing** (2026-11-09), same setup: won **55.7%**, died 42%.
-  About 59000 turns/s. The bot rarely goes back up, so this barely tests time passing.
-- **The history generator with tribes and plague** (2026-11-09), same setup:
-  - Won **55.1%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
-    not measured apart from the rest). Left as it is: the user will balance later.
-  - Death rate by depth: 9.5, 7.9, 3.1, 1.6, 1.9, 2.9, 4.7, 4.2, 6.9, 9.5%.
-  - The bot only plays the dungeon; these numbers say nothing about the camp.
-- **Coins in the loot tables** (2026-11-09), same setup: won 35.4%, died 61%. Coins replace "nothing" rolls and the
-  bot ignores them, so this is noise.
-- **Squads search where they lost someone** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **36.7%**, died 59%. Death rate by depth: 9.8, 8.7, 6.8, 3.4, 4.9, 4.5, 8.1, 10.8, 13.9, 17.7%.
-- **Honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
-  20000-turn cap, about 90 s on this 12-thread machine (71000 turns/s):
-  - Won **39.6%**, died 57%. Before stored levels, same seeds: won 40.2%, died 57%, so that refactor is
-    balance-neutral. Honest knowledge took it from 34.7% (the affix baseline below) to about 40%.
-  - Above the 20–30% target; deliberately not retuned yet, as orders, search and camps will move it again.
-  - Death rate by depth: 8.5, 6.4, 6.2, 4.3, 4.6, 5.3, 9.4, 8.4, 12.8, 17.0%.
-  - 200 games can mislead: the honest-knowledge build won 47% on seeds 1000–1199 but 40% over 1000.
-- **With rarity tiers and affixes** (2026-11-08, commit 24c231b), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **34.7%**, died 62%, timed out 4%: items add about 14 points over the item-less baseline
-    below. A bit above the 20–30% target (the 200-game sample said 29%); retune when the content
-    changes, not before.
-  - Death rate by depth: 9.3, 9.0, 7.1, 4.2, 5.1, 6.5, 7.7, 11.1, 15.8, 18.6%.
-  - Per game: 8.8 magic, 2.6 rare and 0.6 legendary drops; lifesteal fires 15 times, thorns 8.6, cleave 7.5.
-  - On arrival at depth 10 the character averages 68 HP (61 without affixes), accuracy 4.3, evasion 4.7.
-  - About 3900 turns/s for this run (1000 games in 25 minutes).
-- **After the difficulty pass** (2026-11-08, before affixes), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **21.1%**, died 75%, timed out 4%. Average turn of death about 3800.
-  - Death rate by depth: 9.3, 9.6, 5.4, 4.7, 7.5, 7.2, 11.8, 18.7, 23.8, **34.6%**: rising, as intended.
-  - On arrival at depth 10 the character averages 61 HP, melee 16, defence 6.9, 3.5 potions.
-  - Killers: goblin archer 239, goblin warrior 159, skeleton archer 126, necromancer 115, skeleton warrior 88.
-- **Tactical bot, full dungeon** (2026-11-08), 1000 games (seeds 1000–1999), 20000-turn cap, ~48 min:
-  - Won **67%**, died 29%, timed out 4%. A won game takes about 7900 turns and earns about 5900 XP.
-  - Deaths by depth: D1 **19.6%**, D2 4.1%, then about 1% per level down to D10 (1.5%).
-    **The difficulty curve is upside down**: the character outgrows the monster scaling after level 1.
-  - Killers: goblin archer 87, goblin warrior 70, skeleton archer 60, necromancer 43, skeleton warrior 29.
-  - 11.4 potions drunk per game: potions are plentiful.
-- Combat pass, aggressive bot, 100 seeds × 1000 turns: player died **33%**; average
-  turn of death about 245; 13 of 67 survivors had a close call; about 320 XP per game.
-  Killers: skeleton archer 13, skeleton warrior 7, necromancer 6, goblin archer 5, goblin warrior 2.
-- Character system, aggressive bot, 100 seeds × 1000 turns:
-  - Player died **25%** (was 36% before XP); average turn of death about 150, before much XP comes in.
-  - XP earned about 320 per game (survivors 370): about 7 skill ranks and 1 attribute point.
-  - 13 of 75 survivors had a close call. Within the 20–35% target, so no retune. The XP economy is
-    sized for one level; revisit costs when there are deeper levels.
-- Necromancer part 3 (warren, musters, raids), aggressive bot, 100 seeds × 1000 turns:
-  - Player died **36%**; 11 of 64 survivors had a close call; average turn of death about 160.
-  - Nearly all deaths are in the open dungeon, not inside the lairs (`player died in:` in the report).
-  - Per game: about 2 raids and 2 musters with the bot playing.
-  - Retuned for a self-replenishing dungeon: goblin warriors attack 5, regen 12, 3 starting potions,
-    and the warren's guards are a shaman, a warrior and an archer. Before retuning it was 55%.
-  - Observer mode (no player): about 4 raids, 3 musters and **11.5 corpses raised** per game (was 6);
-    the necromancer sometimes falls (about 2 servants crumble per game).
-- Necromancer part 2: player died 37%; 12 of 63 survivors had a close call.
-  With 2 guards it was 47%; the lightly guarded tower whose bones rise is both fairer and creepier.
-- Necromancer part 1, aggressive bot, 100 seeds × 1000 turns:
-  - Player died **39%**; average turn of death about 170. The lair is now the boss fight.
-  - Killers: skeleton warrior 17, necromancer 8, goblin warrior 6, skeleton archer 5, goblin archer 3.
-  - About 2 corpses raised per game.
-  - With unlimited reassembling skeletons it was 53%. "The dead rise only once" plus a weaker
-    bolt (4) and slower raising (cooldown 8) brought it down.
-  - The bot attacks whatever is nearest; a human who goes for the necromancer first should do
-    better.
+Older build notes and every past measurement are in [HISTORY.md](HISTORY.md).
 
-- **Combat pass** (2026-11-08, after the playtest below):
-  - Hit rolls: accuracy vs evasion (Dex gives both; zombies are easy to hit, runners hard). Armour
-    absorbs a random 0..defence, and every hit does at least 1: no more immunity.
-  - Shooting point-blank costs 4 accuracy (−20%).
-  - Gear by depth: long sword and long bow from depth 2, chain mail from depth 3, +2 from depth 2,
-    +3 from depth 4. The single level is depth 1. Skeletons drop as if 1 level deeper, the
-    necromancer 2 (the boss reward).
-  - Archers and the necromancer no longer step into melee reach while closing in.
-  - Retuned: player base HP 33 (36 at start) and natural evasion 1. Bot deaths 33% (was 45% right
-    after the change); average death turn about 245, so danger lasts the whole level.
-  - The play tool's commands moved to Core (`CommandPlayer`); the window can `--follow` a command file.
+**Current balance** (2026-11-09, commit "Drilled squads run at shooters"). Tactical bot, 500 games per class, seeds 1000-1499:
 
-- **Ten levels and a tactical bot** (2026-11-08):
-  - Stairs down (`>`) in the room farthest from where you arrive; `World.Descend` rebuilds the level
-    around the same player (keeps character, kit, turn count). Taking the stairs on level 10 wins.
-  - dungeon.json: monsters get +12% HP and +15% XP per level, +1 attack every 3 levels, +1 accuracy
-    every 4; rooms 2% more likely occupied per level. Squads and lairs have minDepth/maxDepth: goblin
-    war parties from depth 4, skeleton cohorts from 6. Both lairs appear on every level (generic).
-  - `TacticalBot`: plays like the playtests (see its doc comment). Breaks corridor stand-offs,
-    retreats out of sight to rest, leaves a level after 1500 turns (the warren musters forever).
-  - Sim runs games in parallel (`--bot tactical`), reports wins and deaths per depth; `--trace` follows
-    one game (TRACE_EVERY env var sets the interval) and prints the cells around the player at the end.
+| Class | Won | Died | Death rate on levels 1-7 (%) |
+|---|---|---|---|
+| Soldier | 36.2% | 63% | 6.4, 6.7, 6.2, 5.4, 6.7, 9.7, 43.4 |
+| Ranger | 26.6% | 73% | 0.2, 1.4, 2.8, 4.8, 7.3, 12.6, 63.7 |
+| Rogue | 18.4% | 81% | 0.0, 2.4, 3.5, 7.9, 13.4, 10.4, 72.3 |
+| Mystic | 32.6% | 67% | 6.2, 2.8, 3.7, 8.2, 10.7, 8.3, 49.7 |
 
-- **Faster simulation** (2026-11-08), found by profiling with `dotnet-trace`:
-  - Walkability is a flat array (`CellGrid`), kept in sync by `GameMap.SetTile`.
-  - `StepToward` reuses each actor's A* path while it stays on it and the goal is unchanged.
-  - `SafetyMap` merges two sorted streams instead of a priority queue (same values; a test pins it).
-  - 24 tactical games: 2584 → 4822 turns/s on this desktop.
-- **Difficulty pass** (2026-11-08): deaths now rise with depth instead of peaking on level 1.
-  - Monsters: +20% HP per level (was 12%), +1 attack every 2 levels (was 3), +1 accuracy every 3
-    (was 4), and +1 defence every 4 (new). Rooms 3% more likely occupied per level.
-  - A gentler first level: goblin scouts (1–3 warriors, maybe an archer, no runner) instead of war
-    bands, no skeleton patrols, a young warren that musters scouts every 150 turns (max 2), and a
-    small court (necromancer, one skeleton warrior, one corpse). Lairs come in level ranges for this.
-  - Fewer potions: goblins 3 and floor 6 by weight (was 10 and 15).
-  - A runner whose target band dies goes to the next nearest band instead of giving up.
-  - The sim prints the character's average stats on arriving at each level (`LevelArrival`).
-- **Rarity tiers and affixes** (step 5 part 2, 2026-11-08):
-  - Each generated weapon, bow or armour rolls +X, then a tier: magic 10% (+0.5% per level), rare 2%
-    from depth 2 (+0.4%), legendary 0.3% from depth 4 (+0.15%), else common.
-  - Magic: 1 affix, named by it ("keen dagger", "leather armor of the bear"). Rare: 2–3 affixes and
-    a name ("Raven Sting (long bow)"). Legendary: 3–4 affixes, a name and a signature special.
-  - Twelve affixes add to the shared `Stat`s (accuracy, melee/ranged attack, range, defence,
-    evasion, max HP, regen, potion healing, XP), some growing with depth. Worn items add through
-    `Actor.Bonus`. Max HP from gear brings no HP (else swapping heals), and taking it off clamps HP.
-  - Specials: cleave and lifesteal (weapons), piercing (bows: arrows meet half the armour), thorns
-    (armour: melee attackers take 1–3). `Actor.HasSpecial` covers skills and gear.
-  - Front end: tier colours on the floor glyph, in menus and on pickup/loot lines (white, green,
-    orange, red; gold and violet reserved for uniques and artifacts); stat lines list affixes.
-  - Bots value gear with `ItemValue` (affixes weighted against attack). Sim counts loot and
-    equipped items by tier.
-  - Balance: with affixes the bot won 49.5%; rarer tiers, a weaker HP affix (2–4 + 0.5/level) and
-    monster HP growth 17% → 20% brought it to 29% (200 games).
+Target: 20-30% wins, deaths rising with depth. Ranger is on target, Rogue just under, Soldier and Mystic over.
 
-**Playtest by Claude, seed 42 (2026-11-08)**, played turn by turn with `Roguelike.Play`:
-- Cleared the level by turn ~366 (warren fallen, necromancer dead), ending at full HP. The only real
-  danger was the first fight (lost 10 of 30 HP); it was good: a warrior corking a corridor with
-  archers stuck behind him, the shaman healing, the band routing at low morale.
-- **Defence makes the player immune (critical).** Damage is roll(1..attack) − defence, and no
-  monster has attack above 6. A +3 chain mail (def 6) found at turn 130 meant every later hit did 0,
-  including the necromancer's court. Reachable without luck: chain mail 3 + Thick Skin 2 + Dex 14.
-  Fix the combat formula before item affixes add more defence.
-- **The bow dominates.** Shooting an adjacent enemy has no penalty and a good bow out-damages the
-  sword, so melee and its skills are pointless once you find one.
-- **The necromancer stepped adjacent to the player** (into a dead zombie's spot) instead of keeping
-  his distance behind his guards.
-- XP spent mid-fight on Toughness/Constitution heals instantly (free action); minor.
-- Attribute points are poor value next to skills (+1 score is half a modifier for 30+ XP); ended
-  with 175 unspent XP and nothing worth buying.
-- 100 quiet turns at the start; the living dungeon mostly reaches the player as off-screen noises.
-- Ended with 5 unused healing potions.
+**What the trials say** (`--trials --seeds 200 --start 1000`; one fight, nothing else on the level):
+- Thinking matters to characters who get reached. Six wolves in a room, seasoned: Soldier beast 96%, pack 56%; Mystic 71%, 15%. Goblin force: Soldier rabble 90%, drilled 75%; Mystic 74%, 52%.
+- Corridors help (pack against Mystic: 15% in the open, 48% in a corridor). Fearless skeletons barely change with mind, because the mind differences are mostly about breaking.
+- Ranger and Rogue still win most single fights. Running at shooters cost the Ranger little there: drilled wolves 93% to 84%, drilled goblins 99% to 96%. Its whole-game rate fell further, 37% to 27%, with the new commanded squads in the mix.
+- Tension by class: Mystic fights are 65% real and 30% lethal with 4% walkovers. Ranger walks over 57-61% and Rogue 70-74%.
+- By stage: fresh 88%, seasoned 92%, veteran 65%, final 13%. The stage rosters are fixed, so these don't see `spawns.json` changes.
+- Zombies are always a walkover. The bear (81% real) and bandits with their chief (75% real) are the best-shaped fights.
+- Caveats: the bot doesn't sneak or use doors; trial gear is the starting kit plus enchantment, so veteran and final characters are under-equipped; the court trial (0-1%) is far below real win rates, so it is not representative, and the reason isn't established.
 
 **Known issues / tech debt**
 - Places the player has left catch up in outline when they return (`World.CatchUp`), not turn by turn: only corpses,
   healing, calming down, replacing guards and a due incursion. Raids and musters don't run while away.
+- The crypt is a wall: 43-72% of those who reach level 7 die there, against 14% at most on any other level.
 - Monsters don't follow on the stairs, so stairs are a perfect escape for now.
 - Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
 - A theft nobody saw is never discovered: guards don't notice missing goods.
@@ -556,15 +366,11 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 - Camp squads don't answer arrows from beyond their leash, so a long bow can pick them off from outside.
 - Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
 - Squad leashes stretch by `Squad.PursuitStretch` for a while after someone hurts the squad; past that, it goes home.
-- Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
-  tactical bot is about 6000 turns, so 1000 games take about 20 minutes and 10k games 3–4 hours.
-  Next costs per the profile: per-faction Dijkstra and flee maps every turn, FOV, map generation.
+- 500 tactical games per class, plus the valley fights, take about 2-3 minutes on this 12-thread machine. The largest costs were per-faction Dijkstra and flee maps, FOV and map generation.
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
   it should look for another route or another squad.
 - Levels are generic: the same factions and lairs on every level, only stronger. Deep levels need
   their own content (new monsters, places) rather than ever bigger numbers.
-- Goblin archers are the top killer at every depth: the bot (and likely a player) has no good
-  answer to arrows in the open but rushing them.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once
   out of sight; potions are used even at full HP.
 - Squads are still idle about 77% of the time, because patrols are random. Raids and musters keep
@@ -574,13 +380,13 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 - The warren has no architecture of its own yet (it's a plain room with a name).
 - The squad's state is shared, so a member out of earshot follows the squad's state even though it
   couldn't have heard (rare: followers stay close).
-- Test suite takes ~30 s in Debug (the multi-seed simulations dominate).
+- Test suite takes ~25 s in Debug (the multi-seed simulations dominate).
 - `ActorAt` is a linear scan; switch to a spatial index (GoRogue `SpatialMap`) when actor counts grow.
 - Terrain changes must go through `GameMap.SetTile` (walkability cache). Cached A* paths assume walls
-  don't change during a level; clear `World._paths` when doors or digging arrive.
+  don't change during a level; clear `World._paths` when digging arrives.
 - Items aren't identified: every property is visible at once (identify-by-use is part 3).
 - Monster sight is radius + Bresenham line; the player's FOV is shadowcasting. They can disagree
-  slightly at edges. Stealth will need a proper model (noise, light, facing).
+  slightly at edges. Noise is modelled; light and facing are not.
 
 ---
 
@@ -602,7 +408,7 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
    - Part 3 (parked until the camp slice works): random uniques, identify-by-use, scrolls of enchanting (+X)
    - ~~Classes, class skill trees, active skills with cooldowns~~ (done 2026-11-09). Still later (ToME direction, user):
      a use for Charisma/Intelligence/Wisdom beyond the passives
-6. **Camp vertical slice (next)**: one surface map, one goblin camp, one underground map, with
+6. **Camp vertical slice** (built; human playtests still to come): one surface map, one goblin camp, one underground map, with
    several ways through (see [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12 for acceptance criteria)
    - ~~a. Honest enemy knowledge: squads act only on sight, shouts and last-known position; no pathing
      to true positions of unseen enemies; a test pins it~~ (done 2026-11-09)
@@ -649,13 +455,14 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 11a. ~~**Heavy builds and speed**~~ (done 2026-11-09): slower steps, arrow guard, brace, menace, stagger, the charge (`v`), Fleet Foot. Still to come: a speed affix.
 11b. ~~**Popups, mouse, gate talk**~~ (done 2026-11-09): speech, grunts and noises over the map; hover tooltip and Inspect, left click pins, right click walks; the guards' challenge as a choice in the side panel (1-3 or click).
+11c. ~~**Squad minds and trials**~~ (done 2026-11-09): see §0 and §6.
 12. **Character depth**: identify-by-use, enchant scrolls. (Classes and active skills are done.)
 13. **Wider region**: more sites, rethink the surface map.
 14. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
 fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.
 
-Re-run the sim and compare with the current baseline (§6) after every content or AI change.
+Re-run the sim and compare with the current balance (§6) after every content or AI change.
 
 ---
 
