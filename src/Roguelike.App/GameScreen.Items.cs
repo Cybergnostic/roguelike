@@ -217,26 +217,26 @@ public sealed partial class GameScreen
         var lines = menu.Items
             .Select((item, i) => $"{(char)('a' + i)}) {ItemText.Name(item)}{ItemText.EquippedTag(player, item)}  [{ItemText.Stats(item)}]")
             .ToList();
-        int width = Math.Min(MapWidth - 4, Math.Max(menu.Title.Length, lines.Max(l => l.Length)) + 4);
+        int width = Math.Min(UiWidth - 4, Math.Max(menu.Title.Length, lines.Max(l => l.Length)) + 4);
         int height = lines.Count + 4;
-        int x0 = (MapWidth - width) / 2, y0 = Math.Max(1, (MapHeight - height) / 2);
+        int x0 = (UiWidth - width) / 2, y0 = Math.Max(1, (MapHeight - height) / 2);
 
         var bg = Theme.SidebarBackground;
         for (int y = y0; y < y0 + height; y++)
         for (int x = x0; x < x0 + width; x++)
-            _map.SetGlyph(x, y, ' ', Theme.Text, bg);
-        _map.DrawBox(new Rectangle(x0, y0, width, height),
+            _ui.SetGlyph(x, y, ' ', Theme.Text, bg);
+        _ui.DrawBox(new Rectangle(x0, y0, width, height),
             ShapeParameters.CreateStyledBox(ICellSurface.ConnectedLineThin, new ColoredGlyph(Theme.Intent, bg)));
 
-        _map.Print(x0 + 2, y0 + 1, menu.Title, Theme.Warning, bg);
+        _ui.Print(x0 + 2, y0 + 1, menu.Title, Theme.Warning, bg);
         for (int i = 0; i < lines.Count; i++)
         {
             var item = menu.Items[i];
             var color = item.Rarity != Roguelike.Core.Items.Rarity.Common ? Theme.ForRarity(item.Rarity)
                 : player.Equipment!.IsEquipped(item) ? Theme.Good : Theme.Text;
-            _map.Print(x0 + 2, y0 + 2 + i, lines[i], color, bg);
+            _ui.Print(x0 + 2, y0 + 2 + i, lines[i], color, bg);
         }
-        _map.Print(x0 + 2, y0 + height - 1, " Esc: cancel ", Theme.Intent, bg);
+        _ui.Print(x0 + 2, y0 + height - 1, " Esc: cancel ", Theme.Intent, bg);
     }
 
     /// <summary>"You see here: ..." after stepping onto items.</summary>

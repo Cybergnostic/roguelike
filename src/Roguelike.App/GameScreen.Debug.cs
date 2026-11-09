@@ -65,6 +65,8 @@ public sealed partial class GameScreen
             _showSquads = !_showSquads;
         else if (keyboard.IsKeyPressed(Keys.F3))
             _heatmap = (_heatmap + 1) % HeatmapChoices().Count;
+        else if (keyboard.IsKeyPressed(Keys.F4))
+            _classic = !_classic;
         else if (keyboard.IsKeyPressed(Keys.F5))
         {
             _world.ObserverMode = !_world.ObserverMode;

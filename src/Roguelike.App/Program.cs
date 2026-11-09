@@ -19,10 +19,17 @@ if (paceIndex >= 0 && paceIndex + 1 < args.Length && double.TryParse(args[paceIn
     GameScreen.FollowSecondsPerTurn = pace;
 
 var config = new Builder()
-    .SetWindowSizeInCells(GameScreen.Width, GameScreen.Height, zoom: true)
+    .SetWindowSizeInCells(GameScreen.Width, GameScreen.Height, zoom: false)
     .SetStartingScreen<GameScreen>()
     .IsStartingScreenFocused(true)
-    .ConfigureFonts(true);
+    .ConfigureFonts((fonts, _) =>
+    {
+        var folder = Path.Combine(AppContext.BaseDirectory, "Fonts");
+        fonts.UseCustomFont(Path.Combine(folder, "ui.font"));
+        fonts.AddExtraFonts(Path.Combine(folder, "map.font"));
+    });
+
+Settings.ClearColor = Theme.Void;
 
 Game.Create(config);
 Game.Instance.Run();

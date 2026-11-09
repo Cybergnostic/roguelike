@@ -1,0 +1,11 @@
+{
+  "$type": "SadConsole.SadFont, SadConsole",
+  "Name": "MapFont",
+  "FilePath": "map.png",
+  "GlyphHeight": 18,
+  "GlyphPadding": 0,
+  "GlyphWidth": 18,
+  "SolidGlyphIndex": 219,
+  "Columns": 16,
+  "UnsupportedGlyphIndex": 63
+}

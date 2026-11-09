@@ -32,18 +32,18 @@ public sealed partial class GameScreen
         lines.RemoveAt(lines.Count - 1);
 
         int height = lines.Count + 4;
-        int x0 = (MapWidth - Width) / 2, y0 = Math.Max(1, (MapHeight - height) / 2);
+        int x0 = (UiWidth - Width) / 2, y0 = Math.Max(1, (MapHeight - height) / 2);
         var bg = Theme.SidebarBackground;
         for (int y = y0; y < y0 + height; y++)
         for (int x = x0; x < x0 + Width; x++)
-            _map.SetGlyph(x, y, ' ', Theme.Text, bg);
-        _map.DrawBox(new Rectangle(x0, y0, Width, height),
+            _ui.SetGlyph(x, y, ' ', Theme.Text, bg);
+        _ui.DrawBox(new Rectangle(x0, y0, Width, height),
             ShapeParameters.CreateStyledBox(ICellSurface.ConnectedLineThin, new ColoredGlyph(Theme.Intent, bg)));
 
-        _map.Print(x0 + 2, y0 + 1, "What the stones tell", Theme.Warning, bg);
+        _ui.Print(x0 + 2, y0 + 1, "What the stones tell", Theme.Warning, bg);
         for (int i = 0; i < lines.Count; i++)
-            _map.Print(x0 + 2, y0 + 2 + i, lines[i].Text, lines[i].Color, bg);
-        _map.Print(x0 + 2, y0 + height - 1, " m/Esc: close ", Theme.Intent, bg);
+            _ui.Print(x0 + 2, y0 + 2 + i, lines[i].Text, lines[i].Color, bg);
+        _ui.Print(x0 + 2, y0 + height - 1, " m/Esc: close ", Theme.Intent, bg);
     }
 
     private string EraText(Era era)

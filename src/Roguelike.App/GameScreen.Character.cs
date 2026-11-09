@@ -48,36 +48,36 @@ public sealed partial class GameScreen
         var c = player.Character!;
         var content = _world.Content;
         var bg = Theme.SidebarBackground;
-        int x0 = 2, y0 = 0, width = MapWidth - 4, height = MapHeight;
+        int x0 = 2, y0 = 0, width = UiWidth - 4, height = MapHeight;
 
         for (int y = y0; y < y0 + height; y++)
         for (int x = x0; x < x0 + width; x++)
-            _map.SetGlyph(x, y, ' ', Theme.Text, bg);
-        _map.DrawBox(new Rectangle(x0, y0, width, height),
+            _ui.SetGlyph(x, y, ' ', Theme.Text, bg);
+        _ui.DrawBox(new Rectangle(x0, y0, width, height),
             ShapeParameters.CreateStyledBox(ICellSurface.ConnectedLineThin, new ColoredGlyph(Theme.Intent, bg)));
 
         int y1 = y0 + 1;
-        _map.Print(x0 + 2, y1, "Character", Theme.Warning, bg);
+        _ui.Print(x0 + 2, y1, "Character", Theme.Warning, bg);
         var xp = $"{c.Xp} XP to spend ({c.TotalXp} earned)";
-        _map.Print(x0 + width - xp.Length - 2, y1++, xp, c.Xp > 0 ? Theme.Good : Theme.Text, bg);
+        _ui.Print(x0 + width - xp.Length - 2, y1++, xp, c.Xp > 0 ? Theme.Good : Theme.Text, bg);
 
         var lines = SheetLines();
         int i = 0;
         Color ColorOf(SheetLine l, bool done) => done ? Theme.Intent : l.Available ? Theme.Good : Theme.Text;
 
-        _map.Print(x0 + 2, y1++, $"Attributes  (next point: {c.RaiseCost} XP)", Theme.Warning, bg);
+        _ui.Print(x0 + 2, y1++, $"Attributes  (next point: {c.RaiseCost} XP)", Theme.Warning, bg);
         foreach (var a in content.Attributes)
         {
             var line = lines[i++];
             int score = c.Score(a.Id), mod = c.ModifierOf(a.Id);
             bool maxed = score >= content.AttributeRaise.MaxScore;
             var text = $"{line.Letter}) {a.Name,-13} {score,2} ({(mod >= 0 ? "+" : "")}{mod})  {a.Description}";
-            _map.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, maxed), bg);
+            _ui.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, maxed), bg);
         }
 
         foreach (var tree in content.SkillTrees)
         {
-            _map.Print(x0 + 2, y1++, tree.Name, Theme.Warning, bg);
+            _ui.Print(x0 + 2, y1++, tree.Name, Theme.Warning, bg);
             foreach (var s in tree.Skills)
             {
                 var line = lines[i++];
@@ -86,13 +86,13 @@ public sealed partial class GameScreen
                 var missing = s.Requires.Where(r => c.Rank(r) == 0).Select(r => content.Skills[r].Name).ToList();
                 var note = missing.Count > 0 ? $"needs {string.Join(", ", missing)}" : s.Description;
                 var text = $"{line.Letter}) {s.Name,-16} {rank}/{s.Ranks}  {cost,-8}  {note}";
-                _map.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, rank >= s.Ranks), bg);
+                _ui.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, rank >= s.Ranks), bg);
             }
         }
 
         var derived = $"Melee {player.Attack}  Bow {player.RangedAttack}  Def {player.Defense}  HP {player.MaxHp}  " +
                       $"Regen 1 HP/{_world.RegenInterval} turns  Potions +{player.Bonus(Stat.PotionHealing)}%  XP +{player.Bonus(Stat.XpGain)}%";
-        _map.Print(x0 + 2, y0 + height - 2, Truncate(derived, width - 4), Theme.Text, bg);
-        _map.Print(x0 + 2, y0 + height - 1, " letter: spend XP (free action)  Esc/c: close ", Theme.Intent, bg);
+        _ui.Print(x0 + 2, y0 + height - 2, Truncate(derived, width - 4), Theme.Text, bg);
+        _ui.Print(x0 + 2, y0 + height - 1, " letter: spend XP (free action)  Esc/c: close ", Theme.Intent, bg);
     }
 }

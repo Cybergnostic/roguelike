@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Roguelike.Core\Roguelike.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fonts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Fonts" />
+  </ItemGroup>
+
 </Project>

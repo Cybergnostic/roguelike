@@ -13,12 +13,23 @@ namespace Roguelike.App;
 /// <summary>Root screen: map, sidebar, status line and message log. Owns input; draws the World.</summary>
 public sealed partial class GameScreen : ScreenObject
 {
-    public const int MapWidth = 80;
-    public const int MapHeight = 24;
-    public const int SidebarWidth = 22;
-    public const int LogLines = 5;
-    public const int Width = MapWidth + SidebarWidth;
-    public const int Height = MapHeight + 1 + LogLines;
+    /// <summary>The view of the map, in square cells; the world can be larger and scrolls under it.</summary>
+    public const int MapWidth = 62;
+    public const int MapHeight = 36;
+
+    /// <summary>How big dungeon levels are.</summary>
+    public const int WorldWidth = 80;
+    public const int WorldHeight = 24;
+
+    // Everything else is laid out in narrow text cells of 9x18 pixels. A map cell is 18x18.
+    private const int CellWidth = 9;
+    private const int CellHeight = 18;
+    public const int SidebarWidth = 36;
+    public const int LogRows = 8;
+    public const int LogLines = 7;
+    public const int UiWidth = MapWidth * 2;
+    public const int Width = UiWidth + SidebarWidth;
+    public const int Height = 2 + MapHeight + 2 + LogRows;
 
     private static readonly Dictionary<Keys, Direction> MoveKeys = new()
     {
@@ -34,20 +45,42 @@ public sealed partial class GameScreen : ScreenObject
         [Keys.NumPad1] = Direction.DownLeft, [Keys.NumPad3] = Direction.DownRight,
     };
 
-    private readonly Console _map = new(MapWidth, MapHeight);
-    private readonly Console _sidebar = new(SidebarWidth, MapHeight) { Position = new Point(MapWidth, 0) };
-    private readonly Console _status = new(Width, 1) { Position = new Point(0, MapHeight) };
-    private readonly Console _log = new(Width, LogLines) { Position = new Point(0, MapHeight + 1) };
+    private readonly Console _map;
+    private readonly Console _ui;
+    private readonly Console _sidebar;
+    private readonly Console _header;
+    private readonly Console _status;
+    private readonly Console _log;
+    private readonly Console _keys;
     private readonly List<(string Text, Color Color)> _messages = [];
 
     private World _world;
 
     public GameScreen()
     {
+        var uiFont = Game.Instance.Fonts["UiFont"];
+        var mapFont = Game.Instance.Fonts["MapFont"];
+        Console Panel(int width, int height, int x, int y, Color background)
+        {
+            var panel = new Console(width, height) { Font = uiFont, FontSize = uiFont.GetFontSize(IFont.Sizes.One), UsePixelPositioning = true, Position = new Point(x, y) };
+            panel.Surface.DefaultBackground = background;
+            panel.Clear();
+            Children.Add(panel);
+            return panel;
+        }
+
+        int mapTop = 2 * CellHeight, mapPixels = MapWidth * 18, statusTop = mapTop + MapHeight * 18, logTop = statusTop + 2 * CellHeight;
+        Panel(Width, 2, 0, 0, Theme.PanelBackground);
+        Panel(Width, 2, 0, statusTop, Theme.PanelBackground);
+        _map = new Console(MapWidth, MapHeight) { Font = mapFont, FontSize = mapFont.GetFontSize(IFont.Sizes.One), UsePixelPositioning = true, Position = new Point(0, mapTop) };
+        _map.Surface.DefaultBackground = Theme.Void;
         Children.Add(_map);
-        Children.Add(_sidebar);
-        Children.Add(_status);
-        Children.Add(_log);
+        _sidebar = Panel(SidebarWidth, MapHeight, mapPixels, mapTop, Theme.SidebarBackground);
+        _header = Panel(Width, 1, 0, CellHeight / 2, Theme.PanelBackground);
+        _status = Panel(Width, 1, 0, statusTop + CellHeight / 2, Theme.PanelBackground);
+        _log = Panel(UiWidth, LogRows, 0, logTop, Theme.LogBackground);
+        _keys = Panel(SidebarWidth, LogRows, mapPixels, logTop, Theme.LogBackground);
+        _ui = Panel(UiWidth, MapHeight, 0, mapTop, Color.Transparent);
         _world = NewWorld();
         ApplyStartOptions();
         Draw();
@@ -63,7 +96,7 @@ public sealed partial class GameScreen : ScreenObject
     {
         var seed = StartSeed ?? (ulong)Random.Shared.NextInt64();
         StartSeed = null;
-        var world = World.Create(seed, MapWidth, MapHeight, depth: StartInDungeon ? 1 : World.SurfaceDepth);
+        var world = World.Create(seed, WorldWidth, WorldHeight, depth: StartInDungeon ? 1 : World.SurfaceDepth);
         _messages.Clear();
         _commands = null; // follow mode drives the new world from here on
         _following = null;
@@ -72,8 +105,7 @@ public sealed partial class GameScreen : ScreenObject
             AddMessage($"Following commands from {Path.GetFileName(FollowFile)}.", Theme.Intent);
         if (world.Objective is { } errand)
             AddMessage($"Errand: bring the {errand.Item.Def.Name} from the back of the goblin camp to the waystone (far west).", Theme.Warning);
-        AddMessage("Move/attack: arrows, numpad, hjklyubn.  Wait: . 5 Space.  Stairs: > <  Close gate: C  Quit: Esc.", Theme.Text);
-        AddMessage("Items: g pick up  i inventory  e equip  q drink  d drop  f fire bow   c character  x examine  t toll", Theme.Text);
+        AddMessage("Move: arrows, numpad or hjklyubn. Walk into things to fight, talk or open them. Wait: . or Space.", Theme.Intent);
         AddMessage("Debug: F1 reveal  F2 squads  F3 heatmap  F5 spectator  P autoplay", Theme.Intent);
         return world;
     }
@@ -227,10 +259,12 @@ public sealed partial class GameScreen : ScreenObject
     private void UpdateCamera()
     {
         var focus = _examine?.Cursor ?? _world.Player.Position;
-        _camera = new Point(
-            Math.Clamp(focus.X - MapWidth / 2, 0, Math.Max(0, _world.Map.Width - MapWidth)),
-            Math.Clamp(focus.Y - MapHeight / 2, 0, Math.Max(0, _world.Map.Height - MapHeight)));
+        _camera = new Point(CameraAxis(focus.X, MapWidth, _world.Map.Width), CameraAxis(focus.Y, MapHeight, _world.Map.Height));
     }
+
+    /// <summary>Follows the focus, stops at the map's edges, and centres a map smaller than the view.</summary>
+    private static int CameraAxis(int focus, int view, int size) =>
+        size <= view ? (size - view) / 2 : Math.Clamp(focus - view / 2, 0, size - view);
 
     /// <summary>Where a map cell falls in the view, if it's on screen.</summary>
     private bool OnScreen(Point p, out Point screen)
@@ -242,14 +276,67 @@ public sealed partial class GameScreen : ScreenObject
     private void Draw()
     {
         UpdateCamera();
+        DrawHeader();
         DrawMap();
         DrawSidebar();
         DrawStatus();
+        DrawLog();
+        DrawKeys();
+        _ui.Clear();
+        _ui.IsVisible = _menu is not null || _sheetOpen || _chronicleOpen || _shop is not null;
         DrawModalUi();
+    }
 
-        _log.Clear();
-        for (int i = 0; i < _messages.Count; i++)
-            _log.Print(1, i, _messages[i].Text, _messages[i].Color);
+    /// <summary>F4: plain colours, no lighting.</summary>
+    private bool _classic;
+
+    /// <summary>Light sources in the view: the player's torch and any fires. Radius and strength as in the visual prototype.</summary>
+    private List<(Point At, double Radius, double Power)> LightSources()
+    {
+        var lights = new List<(Point, double, double)> { (_world.Player.Position, 7, 0.75) };
+        var map = _world.Map;
+        for (int y = 0; y < MapHeight; y++)
+        for (int x = 0; x < MapWidth; x++)
+        {
+            var p = new Point(x, y) + _camera;
+            if (map.InBounds(p) && map.Tiles[p] == Roguelike.Core.Map.Tile.Fire)
+                lights.Add((p, 11, 1.2));
+        }
+        return lights;
+    }
+
+    private static double Glow(Point p, List<(Point At, double Radius, double Power)> lights)
+    {
+        double glow = 0;
+        foreach (var (at, radius, power) in lights)
+        {
+            double d = Math.Sqrt((p.X - at.X) * (p.X - at.X) + (p.Y - at.Y) * (p.Y - at.Y));
+            if (d < radius)
+                glow += Math.Pow(1 - d / radius, 1.4) * power;
+        }
+        return glow;
+    }
+
+    /// <summary>What an actor's stance looks like: its colour and, when it matters, a background.</summary>
+    private (Color Color, Color? Background) StanceOf(Actor actor)
+    {
+        var look = Theme.ForKind(actor.Kind);
+        if (actor == _world.Player)
+            return (Theme.Player, null);
+        if (_world.SquadOf(actor) is not { } squad)
+            return (look.Foreground, null);
+        if (squad.State == SquadState.Flee)
+            return (Theme.Teal, Theme.FleeingBackground);
+        if (squad.State == SquadState.Engage && squad.TargetId == _world.Player.Id)
+            return (Theme.Danger, Theme.HostileBackground);
+        if (squad.Camp is { } camp && !_world.AreHostile(actor, _world.Player))
+        {
+            if (camp.HasPass(_world.Turn))
+                return (Theme.Teal, null);
+            if (_world.CanSee(actor, _world.Player))
+                return (Theme.Wary, null);
+        }
+        return (look.Foreground, null);
     }
 
     private void DrawMap()
@@ -259,6 +346,7 @@ public sealed partial class GameScreen : ScreenObject
         var heat = HeatmapView();
 
         _map.Clear();
+        var lights = LightSources();
         for (int y = 0; y < MapHeight; y++)
         for (int x = 0; x < MapWidth; x++)
         {
@@ -266,10 +354,15 @@ public sealed partial class GameScreen : ScreenObject
             if (!map.InBounds(p) || (!map.Explored[p] && !_reveal))
                 continue;
             var look = Theme.ForTile(map.Tiles[p]);
-            var fg = fov[p] ? look.Foreground
-                : map.Explored[p] ? Theme.Remembered(look.Foreground)
-                : Theme.Revealed(look.Foreground);
-            _map.SetGlyph(x, y, look.Glyph, fg, heat?.Invoke(p) ?? Theme.Background);
+            int glyph = Theme.GlyphAt(look, p.X, p.Y);
+            Color fg, bg;
+            if (_classic)
+                (fg, bg) = (fov[p] ? look.Foreground : Theme.Remembered(look.Foreground), Theme.Ground);
+            else if (fov[p])
+                (fg, bg) = Theme.Lit(look, Glow(p, lights));
+            else
+                (fg, bg) = (Theme.Remembered(look.Foreground), Theme.RememberedGround);
+            _map.SetGlyph(x, y, glyph, fg, heat?.Invoke(p) ?? bg);
         }
 
         foreach (var corpse in _world.Corpses)
@@ -289,47 +382,12 @@ public sealed partial class GameScreen : ScreenObject
                 continue;
             var look = Theme.ForKind(actor.Kind);
             var squad = _world.SquadOf(actor);
-            var bg = squad?.State == SquadState.Flee ? Theme.FleeingBackground
-                : _showSquads && squad is not null ? Theme.SquadTint(squad.Id)
+            var (stance, stanceBg) = _classic ? (look.Foreground, null) : StanceOf(actor);
+            var bg = _showSquads && squad is not null ? Theme.SquadTint(squad.Id)
                 : actor.Rank != Rank.Normal ? Theme.ForRank(actor.Rank)
-                : _map.Surface[at.X, at.Y].Background;
-            var fg = actor == _world.Player && _world.ObserverMode ? Theme.Intent : look.Foreground;
-            _map.SetGlyph(at.X, at.Y, look.Glyph, fg, bg);
-        }
-    }
-
-    /// <summary>Brogue-style list of visible monsters, with health and what they're up to.</summary>
-    private void DrawSidebar()
-    {
-        _sidebar.Clear();
-        _sidebar.Fill(Theme.Text, Theme.SidebarBackground, 0);
-        if (_showSquads)
-        {
-            DrawSquadList();
-            return;
-        }
-
-        var player = _world.Player;
-        var visible = _world.Actors
-            .Where(a => a != player && !a.IsDead && (_reveal || _world.PlayerCanSee(a)))
-            .OrderBy(a => World.Distance(a.Position, player.Position))
-            .ToList();
-
-        int y = 0;
-        _sidebar.Print(1, y++, visible.Count == 0 ? "Nothing in sight" : "In sight", Theme.Text, Theme.SidebarBackground);
-        y++;
-        foreach (var actor in visible)
-        {
-            if (y + 2 >= MapHeight)
-            {
-                _sidebar.Print(1, y, $"...and {visible.Count - visible.IndexOf(actor)} more", Theme.Text, Theme.SidebarBackground);
-                break;
-            }
-            var look = Theme.ForKind(actor.Kind);
-            _sidebar.SetGlyph(1, y, look.Glyph, look.Foreground, Theme.SidebarBackground);
-            _sidebar.Print(3, y++, Truncate(actor.Name, SidebarWidth - 4), Theme.Text, Theme.SidebarBackground);
-            DrawBar(1, y++, SidebarWidth - 2, actor.Hp, actor.MaxHp);
-            _sidebar.Print(1, y++, Truncate(Intent(actor), SidebarWidth - 2), Theme.Intent, Theme.SidebarBackground);
+                : stanceBg ?? _map.Surface[at.X, at.Y].Background;
+            var fg = actor == _world.Player && _world.ObserverMode ? Theme.Intent : stance;
+            _map.SetGlyph(at.X, at.Y, Theme.Bold(look.Glyph), fg, bg);
         }
     }
 
@@ -385,30 +443,6 @@ public sealed partial class GameScreen : ScreenObject
         squad.TargetId == _world.Player.Id ? "you"
         : squad.TargetId is { } id && _world.GetActor(id) is { } t ? t.Name.Split(' ')[0] + "s"
         : "enemies";
-
-    private void DrawStatus()
-    {
-        var player = _world.Player;
-        _status.Clear();
-        _status.Print(1, 0, $"HP {Math.Max(0, player.Hp)}/{player.MaxHp}",
-            player.Hp * 3 <= player.MaxHp ? Theme.Danger : Theme.Good);
-        var bow = player.Equipment?.Bow is null ? "no bow" : $"Bow {player.RangedAttack} r{player.Range}";
-        _status.Print(14, 0, $"Atk {player.Attack}  Def {player.Defense}  {bow}", Theme.Text);
-        _status.Print(46, 0, $"{(_world.Depth == World.SurfaceDepth ? "Valley" : $"D{_world.Depth}")} T{_world.Turn}", Theme.Text);
-        if (player.Character is { } c)
-            _status.Print(58, 0, CanSpendXp() ? $"XP {c.Xp} (c)" : $"XP {c.Xp}", CanSpendXp() ? Theme.Warning : Theme.Text);
-        _status.Print(72, 0, $"Gold {player.Gold}", Theme.Text);
-        if (_world.Camps.FirstOrDefault(camp => camp.HasPass(_world.Turn)) is { } paid)
-            _status.Print(83, 0, $"Pass {paid.PassTurnsLeft(_world.Turn)}", Theme.Good);
-
-        var flags = new List<string>();
-        if (_world.ObserverMode) flags.Add(_autoplay ? "SPECTATING (auto)" : "SPECTATING");
-        if (_reveal) flags.Add("REVEAL");
-        if (_showSquads) flags.Add("SQUADS");
-        if (_heatmap != 0) flags.Add($"HEAT: {HeatmapName}");
-        var text = string.Join("  ", flags);
-        _status.Print(Width - text.Length - 1, 0, text, Theme.Warning);
-    }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 }

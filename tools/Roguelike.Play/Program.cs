@@ -228,7 +228,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "Inscription" => '"', "Rubble" => 'o', "Water" => '~', "GateBroken" => '\'', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "Inscription" => '"', "Rubble" => 'o', "Water" => '~', "Fire" => '*', "GateBroken" => '\'', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }

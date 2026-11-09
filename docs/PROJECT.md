@@ -138,12 +138,15 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Chronicle.cs    what the stones tell (m): words the site's history for the player
   GameScreen.Shop.cs         buying from people in the valley (opens after talking to anyone with goods)
   ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
-  Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
+  Theme.cs                   ALL visuals: glyphs, colours, the lighting formula (swap for tiles later)
+  GameScreen.Panels.cs       everything around the map: place bar, in sight, this place, status strip, log, key guide
+  Fonts/                     bitmap fonts built by tools/scripts/make_font.py: 16x32 atlases, CP437 then bold copies at glyph + 256
   EventText.cs               events -> log messages (unseen things become sounds)
 tools/Roguelike.Sim/         headless simulation report CLI
 tools/Roguelike.Play/        text front end for playing by hand or by an AI agent: replays a command file
                              from a seed, prints the view, monsters (ids, hit chances), stats and log.
                              Commands are interpreted by Core's Simulation/CommandPlayer
+tools/scripts/make_font.py   rebuilds the bitmap fonts from JetBrains Mono (needs Pillow)
 tools/scripts/sendkey.py     send keys to the game window (UI checks without stealing focus)
 tests/Roguelike.Core.Tests/  xUnit: determinism, map connectivity, squad behaviour, observer mode
 docs/PROJECT.md              this file
@@ -240,6 +243,7 @@ Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`.
 closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
+Plain look without lighting: `F4`.
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, tinted ring = chase limit, `o` posts, `r` patrol stops, `R` rally,
 `x` destinations, `?` last known target position, squad list with orders and morale, camp state), `F3` cycle heatmaps (toward player, then per faction
 "toward enemies" and "flee"),
@@ -596,9 +600,10 @@ you, a quick way to see progression; spectating: time passes).
 9. ~~**A little vertical slice of an RPG**~~ (done 2026-11-09): seven levels ending in the necromancer's crypt (boss;
    killing him wins), elites and skills, a 150x46 scrolling valley with a hamlet (peddler, hermit, villagers), the
    Thornwood (wolves, spiders), boars, a bear and a bandit den. Character traits, general skills and crafting come later.
-9a. **Graphics and interface (next)**: the user's Enhanced ASCII browser prototype as the guide
-   (https://claude.ai/code/artifact/fd537e04-08d9-409e-8e67-936186d89a81; Claude can't open it, the tool returns only
-   the editor shell and the site blocks headless browsers, so it needs a screenshot or export), screen scaling, longer log, mouse, journal.
+9a. ~~**Enhanced ASCII look**~~ (done 2026-11-09, from the user's exported prototype): palette, JetBrains Mono bitmap fonts,
+   18px square map cells with a scrolling view, firelight and torchlight, darker memory, panel layout (in sight, this place,
+   inspect, HP strip, log, key guide). `F4` switches to a plain look. Still from the prototype: mouse (click to inspect, walk
+   here), gate talk with choices in the panel, a journal, proportional panel fonts, smoke, screen scaling.
 10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.

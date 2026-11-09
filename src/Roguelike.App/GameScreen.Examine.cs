@@ -71,13 +71,15 @@ public sealed partial class GameScreen
         if (OnScreen(cursor, out var at))
             _map.SetBackground(at.X, at.Y, Theme.Warning.GetDarker());
 
-        _sidebar.Clear();
-        _sidebar.Fill(Theme.Text, Theme.SidebarBackground, 0);
-        int y = 0;
+        int y = _inspectRow;
+        for (int row = y; row < MapHeight; row++)
+            for (int x = 0; x < SidebarWidth; x++)
+                _sidebar.SetGlyph(x, row, ' ', Theme.Text, Theme.SidebarBackground);
+        PrintBold(_sidebar, 2, y++, "INSPECT", Theme.Warning, Theme.SidebarBackground);
         foreach (var (text, color) in DescribeCell(cursor))
-            foreach (var line in Wrap(text, SidebarWidth - 2))
+            foreach (var line in Wrap(text, SidebarWidth - 4))
                 if (y < MapHeight)
-                    _sidebar.Print(1, y++, line, color, Theme.SidebarBackground);
+                    _sidebar.Print(2, y++, line, color, Theme.SidebarBackground);
 
         _status.Clear();
         _status.Print(1, 0, "Examine: move the cursor  Tab: next thing  x/Esc: done  (takes no time)", Theme.Warning);
@@ -197,6 +199,7 @@ public sealed partial class GameScreen
         Tile.Inscription => ("Inscribed stone", "Old words, carved deep. Step on it to read them."),
         Tile.Rubble => ("Fallen rock", "The roof came down here."),
         Tile.Water => ("Water", "Too deep to wade."),
+        Tile.Fire => ("Cookfire", "Throws light over everything near it."),
         Tile.GateBroken => ("Broken gate", "Smashed open. It won't shut again."),
         _ => (tile.ToString(), ""),
     };

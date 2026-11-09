@@ -1,0 +1,11 @@
+{
+  "$type": "SadConsole.SadFont, SadConsole",
+  "Name": "UiFont",
+  "FilePath": "ui.png",
+  "GlyphHeight": 18,
+  "GlyphPadding": 0,
+  "GlyphWidth": 9,
+  "SolidGlyphIndex": 219,
+  "Columns": 16,
+  "UnsupportedGlyphIndex": 63
+}

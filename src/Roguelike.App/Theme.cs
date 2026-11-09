@@ -13,17 +13,63 @@ namespace Roguelike.App;
 /// </summary>
 public static class Theme
 {
-    public readonly record struct Look(int Glyph, Color Foreground);
+    /// <summary>Variants: other glyphs a cell of this tile can show. Background: the tile's own ground colour.</summary>
+    public readonly record struct Look(int Glyph, Color Foreground, IReadOnlyList<int>? Variants = null, Color? Background = null);
 
-    public static readonly Color Background = Color.Black;
-    public static readonly Color Text = new(200, 200, 200);
-    public static readonly Color Danger = new(230, 80, 60);
-    public static readonly Color Good = new(120, 220, 120);
-    public static readonly Color Warning = new(235, 180, 60);
-    public static readonly Color Intent = new(150, 160, 190);
-    public static readonly Color SidebarBackground = new(18, 18, 26);
-    public static readonly Color BarEmpty = new(40, 40, 50);
-    public static readonly Color FleeingBackground = new(60, 40, 0);
+    // The palette of the Enhanced ASCII prototype.
+    public static readonly Color Void = Hex("#07090b");
+    public static readonly Color Ground = Hex("#0b0d10");
+    public static readonly Color LitGround = Hex("#0d1216");
+    public static readonly Color RememberedGround = Hex("#0a0c0f");
+    public static readonly Color Background = LitGround;
+    public static readonly Color PanelBackground = Hex("#101316");
+    public static readonly Color SidebarBackground = PanelBackground;
+    public static readonly Color LogBackground = Hex("#0c0f12");
+    public static readonly Color Line = Hex("#262c32");
+    public static readonly Color Bright = Hex("#f1ece1");
+    public static readonly Color Text = Hex("#d9d4c7");
+    public static readonly Color TextDim = Hex("#c7c2b5");
+    public static readonly Color Intent = Hex("#a7afb4");
+    public static readonly Color Danger = Hex("#ff7a5c");
+    public static readonly Color DangerSoft = Hex("#ff9a82");
+    public static readonly Color Good = Hex("#9fc27a");
+    public static readonly Color Warning = Hex("#e8a33d");
+    public static readonly Color Wary = Hex("#ffc04d");
+    public static readonly Color Teal = Hex("#7cc7c0");
+    public static readonly Color Gold = Hex("#e8c98b");
+    public static readonly Color Player = Hex("#fff4d6");
+    public static readonly Color BarEmpty = Line;
+    public static readonly Color FleeingBackground = Hex("#0d1a22");
+    public static readonly Color HostileBackground = Hex("#4a1a12");
+
+    private static readonly Color Firelight = Hex("#ffd79a");
+    private static readonly Color Ember = Hex("#54300f");
+    private static readonly Color Dusk = Hex("#5b656e");
+
+    public static Color Hex(string hex) => ParseColor(hex);
+
+    public static Color Mix(Color a, Color b, double t) =>
+        new((int)Math.Round(a.R + (b.R - a.R) * t), (int)Math.Round(a.G + (b.G - a.G) * t), (int)Math.Round(a.B + (b.B - a.B) * t));
+
+    public static Color Scale(Color c, double k) =>
+        new(Math.Min(255, (int)Math.Round(c.R * k)), Math.Min(255, (int)Math.Round(c.G * k)), Math.Min(255, (int)Math.Round(c.B * k)));
+
+    /// <summary>A cell in view, warmed by however much light reaches it.</summary>
+    public static (Color Foreground, Color Background) Lit(Look look, double light) => (
+        Scale(Mix(look.Foreground, Firelight, Math.Min(0.45, light * 0.5)), Math.Min(1.25, 0.72 + light * 0.6)),
+        Mix(look.Background ?? LitGround, Ember, Math.Min(0.8, light * 0.55)));
+
+    /// <summary>The same glyph in heavier type (the font atlas keeps bold copies 256 places on).</summary>
+    public static int Bold(int glyph) => glyph + 256;
+
+    /// <summary>Which of a tile's glyphs this cell shows; fixed per cell, so the ground doesn't shimmer.</summary>
+    public static int GlyphAt(Look look, int x, int y) =>
+        look.Variants is { Count: > 0 } variants
+            ? variants[(int)(((uint)(x * 73856093) ^ (uint)(y * 19349663)) % 100) % variants.Count]
+            : look.Glyph;
+
+    /// <summary>Faded for older lines in the message log.</summary>
+    public static Color Fade(Color c) => Mix(LogBackground, c, 0.78);
 
     private static readonly Look Unknown = new('?', Color.Magenta);
 
@@ -77,7 +123,7 @@ public static class Theme
     public static Color Revealed(Color c) => new((byte)(c.R * 0.55), (byte)(c.G * 0.55), (byte)(c.B * 0.65));
 
     /// <summary>How remembered-but-not-visible cells are drawn.</summary>
-    public static Color Remembered(Color c) => new((byte)(c.R / 3), (byte)(c.G / 3), (byte)(c.B / 2));
+    public static Color Remembered(Color c) => Scale(Mix(c, Dusk, 0.7), 0.66);
 
     private static readonly Color[] SquadPalette =
     [
@@ -127,7 +173,9 @@ public static class Theme
             int glyph = ReadGlyph(entry.Value.GetProperty("glyph"));
             if (entry.Value.TryGetProperty("rangedVerb", out var verb))
                 RangedVerbs[entry.Name] = verb.GetString()!;
-            result[entry.Name] = new Look(glyph, ParseColor(entry.Value.GetProperty("color").GetString()!));
+            var variants = entry.Value.TryGetProperty("glyphs", out var many) ? many.EnumerateArray().Select(ReadGlyph).ToList() : null;
+            var ground = entry.Value.TryGetProperty("background", out var b) ? ParseColor(b.GetString()!) : (Color?)null;
+            result[entry.Name] = new Look(glyph, ParseColor(entry.Value.GetProperty("color").GetString()!), variants, ground);
         }
         return result;
     }
