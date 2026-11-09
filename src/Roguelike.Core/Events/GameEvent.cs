@@ -59,6 +59,9 @@ public sealed record PassExpired(string ZoneName, bool Inside) : GameEvent;
 /// <summary>The player took something belonging to a camp. WitnessId: the guard who saw it, if any.</summary>
 public sealed record TheftCommitted(string ZoneName, int? WitnessId) : GameEvent;
 
+/// <summary>An elite or boss used a skill. TargetId: who it was aimed at, if anyone.</summary>
+public sealed record AbilityUsed(int ActorId, string AbilityId, int? TargetId) : GameEvent;
+
 /// <summary>Coming back, the player finds a camp was attacked while they were gone. Held: its defenders won.</summary>
 public sealed record CampAttackedWhileAway(string ZoneName, bool Held, int DefendersLost) : GameEvent;
 
@@ -71,7 +74,7 @@ public sealed record IncursionBegan(int SquadId, string FactionId, string ZoneNa
 /// <summary>The player brought the errand's object back. It's handed over for a reward.</summary>
 public sealed record ObjectiveCompleted(Item Item, int Gold, int Xp, Item? Reward = null) : GameEvent;
 
-/// <summary>The player took the stairs down from the last level: the run is won.</summary>
+/// <summary>The boss of the dungeon is dead: the run is won.</summary>
 public sealed record GameWon(int Turn) : GameEvent;
 
 /// <summary>The player walked into a named place (a lair).</summary>

@@ -96,11 +96,11 @@ public class CombatTests
     public void BossesDropFromDeeper()
     {
         var world = World.Create(1);
-        var necromancer = world.Actors.Single(a => a.Kind == "necromancer");
+        var necromancer = world.Actors.Single(a => a.Kind == "acolyte");
         var drops = new List<Item>();
         for (int i = 0; i < 40; i++)
         {
-            var n = world.SpawnMonster("necromancer", world.Map.Tiles.Positions().First(world.IsFree));
+            var n = world.SpawnMonster("acolyte", world.Map.Tiles.Positions().First(world.IsFree));
             world.Damage(world.Player, n, 1000, ranged: false);
             drops.AddRange(world.FloorItems.Where(f => f.Position == n.Position).Select(f => f.Item));
             foreach (var f in world.FloorItems.Where(f => f.Position == n.Position).ToList())

@@ -171,6 +171,7 @@ public sealed partial class GameScreen : ScreenObject
                 ItemPickedUp { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } p => Theme.ForRarity(p.Item.Rarity),
                 LootDropped { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } l => Theme.ForRarity(l.Item.Rarity),
                 ItemEquipped { Item.Rarity: > Roguelike.Core.Items.Rarity.Common } q => Theme.ForRarity(q.Item.Rarity),
+                AbilityUsed => Theme.Warning,
                 ActorDied or SquadRouted => Theme.Good,
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
@@ -191,8 +192,7 @@ public sealed partial class GameScreen : ScreenObject
             DescribeItemsUnderfoot();
         if (playerMoved && _world.Map.StairsDown == _world.Player.Position)
             AddMessage(_world.Depth == World.SurfaceDepth ? "A cave mouth opens here. (> to climb down)"
-                : _world.Depth >= _world.Content.Dungeon.Levels
-                ? "Stairs lead up and out of the dungeon. (> to leave and win)"
+
                 : "There are stairs down here. (> to descend)", Theme.Warning);
         if (playerMoved && _world.Map.StairsUp == _world.Player.Position)
             AddMessage("There are stairs up here. (< to climb back)", Theme.Warning);
@@ -269,6 +269,7 @@ public sealed partial class GameScreen : ScreenObject
             var squad = _world.SquadOf(actor);
             var bg = squad?.State == SquadState.Flee ? Theme.FleeingBackground
                 : _showSquads && squad is not null ? Theme.SquadTint(squad.Id)
+                : actor.Rank != Rank.Normal ? Theme.ForRank(actor.Rank)
                 : _map.Surface[actor.Position.X, actor.Position.Y].Background;
             var fg = actor == _world.Player && _world.ObserverMode ? Theme.Intent : look.Foreground;
             _map.SetGlyph(actor.Position.X, actor.Position.Y, look.Glyph, fg, bg);

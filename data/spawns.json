@@ -59,6 +59,7 @@
       "weight": 2,
       "minDepth": 4,
       "members": [
+        { "monster": "goblin_brute", "min": 0, "max": 1, "chance": 0.5 },
         { "monster": "goblin_warrior", "min": 3, "max": 5 },
         { "monster": "goblin_archer", "min": 1, "max": 3 },
         { "monster": "goblin_shaman", "min": 1, "max": 1 },
@@ -71,6 +72,8 @@
       "weight": 2,
       "minDepth": 6,
       "members": [
+        { "monster": "bone_knight", "min": 0, "max": 1, "chance": 0.5 },
+        { "monster": "wraith", "min": 0, "max": 1, "chance": 0.3 },
         { "monster": "skeleton_warrior", "min": 3, "max": 4 },
         { "monster": "skeleton_archer", "min": 1, "max": 2 }
       ]
@@ -87,28 +90,49 @@
   // Lairs are placed as far as possible from the start and from each other.
   "lairs": [
     {
-      // On the first level he is still gathering strength: a small court, few bones to raise.
+      // The bottom of everything: the necromancer himself, on the last level.
       "name": "the necromancer's court",
       "faction": "undead",
       "weight": 0,
+      "minDepth": 7,
+      "zone": "the necromancer's crypt",
+      "architecture": "crypt",
+      "leash": 18,
+      "corpses": [
+        { "monster": "skeleton_warrior", "count": 6 },
+        { "monster": "skeleton_archer", "count": 3 }
+      ],
+      "members": [
+        { "monster": "necromancer", "min": 1, "max": 1 },
+        { "monster": "bone_knight", "min": 2, "max": 2 },
+        { "monster": "wraith", "min": 1, "max": 1 },
+        { "monster": "skeleton_archer", "min": 1, "max": 1 }
+      ]
+    },
+    {
+      // On the first level he is still gathering strength: a small court, few bones to raise.
+      "name": "the acolyte's court",
+      "faction": "undead",
+      "weight": 0,
       "maxDepth": 1,
-      "zone": "the necromancer's tower",
+      "zone": "the acolyte's shrine",
       "architecture": "tower",
       "leash": 12,
       "corpses": [
         { "monster": "skeleton_warrior", "count": 1 }
       ],
       "members": [
-        { "monster": "necromancer", "min": 1, "max": 1 },
+        { "monster": "acolyte", "min": 1, "max": 1 },
         { "monster": "skeleton_warrior", "min": 1, "max": 1 }
       ]
     },
     {
-      "name": "the necromancer's court",
+      "name": "the acolyte's court",
       "faction": "undead",
       "weight": 0,
       "minDepth": 2,
-      "zone": "the necromancer's tower",
+      "maxDepth": 6,
+      "zone": "the acolyte's shrine",
       "architecture": "tower",
       "leash": 12,
       "corpses": [
@@ -116,7 +140,7 @@
         { "monster": "skeleton_archer", "count": 1 }
       ],
       "members": [
-        { "monster": "necromancer", "min": 1, "max": 1 },
+        { "monster": "acolyte", "min": 1, "max": 1 },
         { "monster": "skeleton_warrior", "min": 1, "max": 1 },
         { "monster": "skeleton_archer", "min": 1, "max": 1 }
       ]
@@ -141,9 +165,11 @@
       "faction": "goblins",
       "weight": 0,
       "minDepth": 2,
+      "maxDepth": 5,
       "zone": "the goblin warren",
       "leash": 10,
       "members": [
+        { "monster": "goblin_warlord", "min": 1, "max": 1 },
         { "monster": "goblin_shaman", "min": 1, "max": 1 },
         { "monster": "goblin_warrior", "min": 1, "max": 1 },
         { "monster": "goblin_archer", "min": 1, "max": 1 }

@@ -58,6 +58,10 @@ public static class Theme
         return item.Rarity == Rarity.Common ? look : look with { Foreground = ForRarity(item.Rarity) };
     }
 
+    /// <summary>A dim background behind elites and bosses, so they stand out from their kind.</summary>
+    public static Color ForRank(Roguelike.Core.Entities.Rank rank) =>
+        rank == Roguelike.Core.Entities.Rank.Boss ? new Color(80, 25, 95) : new Color(95, 65, 15);
+
     /// <summary>The tier colours (docs/PROJECT.md §8): white, green, orange, red, gold, violet.</summary>
     public static Color ForRarity(Rarity rarity) => rarity switch
     {

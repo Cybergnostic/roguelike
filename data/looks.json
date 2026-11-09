@@ -11,7 +11,12 @@
     "skeleton_warrior": { "glyph": "s", "color": "#E6E2D2" },
     "skeleton_archer":  { "glyph": "s", "color": "#B4AA8C" },
     "goblin_zombie":    { "glyph": "z", "color": "#8CA060" },
-    "necromancer":      { "glyph": "N", "color": "#B478FF", "rangedVerb": "blasts" }
+    "necromancer":      { "glyph": "N", "color": "#D090FF", "rangedVerb": "blasts" },
+    "acolyte":          { "glyph": "n", "color": "#B478FF", "rangedVerb": "blasts" },
+    "bone_knight":      { "glyph": "K", "color": "#E6E2D2" },
+    "wraith":           { "glyph": "W", "color": "#90A8E0", "rangedVerb": "chills" },
+    "goblin_brute":     { "glyph": "G", "color": "#6EC846" },
+    "goblin_warlord":   { "glyph": "G", "color": "#E0A030" }
   },
   // Items by id; categories are the fallback for ids not listed.
   "items": {

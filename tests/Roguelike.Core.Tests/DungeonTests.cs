@@ -1,3 +1,4 @@
+using Roguelike.Core.Entities;
 using Roguelike.Core;
 using Roguelike.Core.Actions;
 using Roguelike.Core.Events;
@@ -225,10 +226,18 @@ public class DungeonTests
     }
 
     [Fact]
-    public void TheStairsOnTheLastLevelLeadOutAndWin()
+    public void KillingTheBossWinsTheGame()
     {
         var world = World.Create(2, depth: Roguelike.Core.Content.ContentDatabase.Default.Dungeon.Levels);
-        var events = TakeStairs(world);
+        Assert.Null(world.Map.StairsDown);
+        world.Player.Hp = 100_000;
+        var boss = world.Actors.Single(a => a.Kind == "necromancer");
+        Assert.Equal(Rank.Boss, boss.Rank);
+        boss.Hp = 1;
+        boss.Position = world.Map.Tiles.Positions().First(p => world.IsFree(p) && World.Distance(p, world.Player.Position) == 1);
+        var events = world.Step(new AttackAction(boss.Id));
+        while (!boss.IsDead)
+            events = world.Step(new AttackAction(boss.Id));
         Assert.True(world.IsWon);
         Assert.True(world.IsOver);
         Assert.Contains(events, e => e is GameWon);

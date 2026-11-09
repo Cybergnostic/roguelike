@@ -1,6 +1,6 @@
 {
-  // The dungeon: "levels" deep. Taking the stairs down on the last level wins the game.
-  "levels": 10,
+  // The dungeon: "levels" deep. The last level has no stairs down: it's where the boss lives.
+  "levels": 7,
   // How monsters grow per level below the first (generic difficulty until levels get their own
   // content): +20% HP and +15% XP per level, +1 attack every 2 levels, +1 accuracy every 3,
   // +1 defence every 4, and rooms are 3% more likely to hold a squad. The character grows

@@ -10,7 +10,7 @@ namespace Roguelike.Core.Map;
 /// </summary>
 public static class LairBuilder
 {
-    public static readonly IReadOnlySet<string> Styles = new HashSet<string> { "tower" };
+    public static readonly IReadOnlySet<string> Styles = new HashSet<string> { "tower", "crypt" };
 
     /// <summary>
     /// Fallen rock in the middle of a room: single blocks that never touch each other or the
@@ -46,6 +46,9 @@ public static class LairBuilder
         {
             case "tower":
                 Tower(map, room);
+                break;
+            case "crypt":
+                Tower(map, room); // rows of tombs, for now built like a tower's pillars
                 break;
             default:
                 throw new ArgumentException($"unknown lair architecture '{style}'", nameof(style));

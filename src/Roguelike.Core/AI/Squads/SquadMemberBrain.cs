@@ -1,6 +1,7 @@
 using Roguelike.Core.Actions;
 using Roguelike.Core.Entities;
 using SadRogue.Primitives;
+using SadRogue.Primitives.GridViews;
 
 namespace Roguelike.Core.AI.Squads;
 
@@ -17,6 +18,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
     private int _nextHealTurn;
     private int _nextRaiseTurn;
+    private readonly Dictionary<string, int> _abilityReadyOn = [];
 
     public Squad Squad { get; } = squad;
 
@@ -51,6 +53,9 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (role == SquadRole.Runner && Squad.HelpTargetSquadId is not null && Squad.State != SquadState.Idle)
             return Runner(world, self);
 
+        if (Squad.State == SquadState.Engage && TryAbility(world, self) is { } ability)
+            return ability;
+
         // A roused necromancer raises whatever dead it can reach. At rest he broods, so the
         // bones in his lair are still lying there when someone comes calling.
         if (role == SquadRole.Necromancer && Squad.State is SquadState.Engage or SquadState.Alert
@@ -71,6 +76,52 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             _ => Patrol(world, self),
         };
     }
+
+    // ---- Skills ----
+
+    private GameAction? TryAbility(World world, Actor self)
+    {
+        foreach (var ability in self.Abilities)
+        {
+            if (world.Turn < _abilityReadyOn.GetValueOrDefault(ability.Id) || UseOf(world, self, ability) is not { } use)
+                continue;
+            _abilityReadyOn[ability.Id] = world.Turn + ability.Cooldown;
+            return use;
+        }
+        return null;
+    }
+
+    private GameAction? UseOf(World world, Actor self, Content.AbilityDef ability)
+    {
+        var target = world.NearestVisibleHostile(self);
+        int distance = target is null ? int.MaxValue : World.Distance(self.Position, target.Position);
+        bool canShoot = target is not null && distance >= 2 && distance <= self.Range && world.HasClearShot(self.Position, target.Position);
+        switch (ability.Kind)
+        {
+            case Content.AbilityKind.Charge when target is not null && distance >= 2 && distance <= ability.Range:
+                var landing = World.EightWay.Select(d => target.Position + d)
+                    .Where(p => world.IsFree(p) && Squad.WithinLeash(p) && world.HasClearShot(self.Position, p))
+                    .OrderBy(p => World.Distance(p, self.Position)).Cast<Point?>().FirstOrDefault();
+                return landing is { } at ? new AbilityAction(ability, target.Id, at) : null;
+            case Content.AbilityKind.Warcry when Squad.Morale < 80 && Squad.Members.Count > 1:
+                return new AbilityAction(ability, null);
+            case Content.AbilityKind.Volley when canShoot:
+            case Content.AbilityKind.Drain when canShoot:
+                return new AbilityAction(ability, target!.Id);
+            case Content.AbilityKind.Blink when world.AdjacentHostile(self) is { } foe:
+                var far = world.Map.Tiles.Positions()
+                    .Where(p => World.Distance(p, self.Position) <= ability.Range && world.IsFree(p) && Squad.WithinLeash(p)
+                                && world.HasLineOfSight(self.Position, p) && World.Distance(p, foe.Position) >= 4)
+                    .OrderByDescending(p => World.Distance(p, foe.Position)).Cast<Point?>().FirstOrDefault();
+                return far is { } away ? new AbilityAction(ability, null, away) : null;
+            case Content.AbilityKind.Summon when target is not null && world.MinionsOf(self).Count() < MaxSummoned:
+                return new AbilityAction(ability, target.Id);
+            default:
+                return null;
+        }
+    }
+
+    private const int MaxSummoned = 6;
 
     // ---- Roles while engaged ----
     // "Enemy" is anyone hostile to this actor's faction (the player, or another faction).

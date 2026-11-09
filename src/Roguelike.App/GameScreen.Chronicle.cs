@@ -61,7 +61,7 @@ public sealed partial class GameScreen
             EraKind.Fall =>
                 $"The roof came down on level {h.FallDepth}. {h.Founder} was lost under it with the {item} called {heirloom}, and the {h.Clan} clan left what they could not carry.",
             EraKind.GoblinsCame => h.Holders.Story.Replace("{tribe}", h.Tribe),
-            EraKind.NecromancerCame => $"{h.Necromancer} came for the unburied dead, and has not left.",
+            EraKind.NecromancerCame => $"{h.Necromancer} came for the unburied dead, and sits now at the bottom of the crypt, on level {_world.Content.Dungeon.Levels}.",
             _ => "",
         };
     }

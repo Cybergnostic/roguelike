@@ -135,6 +135,9 @@ public sealed class TacticalBot : IPlayerBot
         }
         if (Exploration.NextStep(world) is { } search)
             return new MoveAction(search); // stairs not found yet: keep looking
+        // The last level has no stairs: go and find whoever lives at the bottom.
+        if (world.Map.StairsDown is null && world.Map.Zones.LastOrDefault() is { } lair && world.StepToward(me, lair.Heart) is { } toLair)
+            return new MoveAction(toLair);
         return null;
     }
 

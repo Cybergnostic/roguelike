@@ -389,17 +389,12 @@ public sealed class World
 
     /// <summary>
     /// The player goes down the stairs, to a level built on the first visit and kept from then on
-    /// (they keep everything they carry and know). From the last level, the stairs lead out: the game is won.
+    /// (they keep everything they carry and know). The last level has no stairs down.
     /// </summary>
     public void Descend()
     {
-        if (Depth >= Content.Dungeon.Levels)
-        {
-            IsWon = true;
-            Emit(new GameWon(Turn));
-            return;
-        }
-        Travel(Depth + 1);
+        if (Depth < Content.Dungeon.Levels)
+            Travel(Depth + 1);
     }
 
     /// <summary>The player climbs back up the stairs to the level above, just as they left it.</summary>
@@ -553,6 +548,11 @@ public sealed class World
     /// <summary>Stairs down in the room farthest (walking) from the arrival point that no lair holds.</summary>
     private void PlaceStairs()
     {
+        if (Depth >= Content.Dungeon.Levels)
+        {
+            PlaceStairsUp();
+            return;
+        }
         var fromStart = new DistanceMap(Map.Walkable);
         fromStart.Update([Player.Position]);
         var lairRooms = _lairs.Select(l => l.Zone.Area).ToHashSet();
@@ -563,8 +563,12 @@ public sealed class World
             .OrderBy(p => Distance(p, room.Center)).FirstOrDefault(room.Center);
         Map.SetTile(spot, Tile.StairsDown);
         Map.StairsDown = spot;
+        PlaceStairsUp();
+    }
 
-        // The way back: under the player's feet, if there's a level above to go back to.
+    /// <summary>The way back: under the player's feet, if there's a level above to go back to.</summary>
+    private void PlaceStairsUp()
+    {
         if (_locations.ContainsKey(Depth - 1))
         {
             Map.SetTile(Player.Position, Tile.StairsUp);
@@ -921,10 +925,11 @@ public sealed class World
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
-            GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth));
+            GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth) * target.XpMultiplier);
         LeaveCorpse(target);
-        int lootDepth = DangerDepth + (Content.Monsters.TryGetValue(target.Kind, out var victimDef) ? victimDef.LootDepthBonus : 0);
-        if (target.LootTable is { } table && RollLoot(table, lootDepth) is { } loot)
+        Content.Monsters.TryGetValue(target.Kind, out var victimDef);
+        int lootDepth = DangerDepth + (victimDef?.LootDepthBonus ?? 0);
+        if (target.LootTable is { } table && RollDrop(target, table, lootDepth) is { } loot)
         {
             PlaceOnFloor(loot, target.Position);
             Emit(new LootDropped(target.Id, loot, target.Position));
@@ -937,6 +942,21 @@ public sealed class World
             Emit(new MinionCrumbled(minion.Id, minion.Kind, target.Id));
             LeaveCorpse(minion);
         }
+
+        if (victimDef?.EndsRun == true)
+        {
+            IsWon = true;
+            Emit(new GameWon(Turn));
+        }
+    }
+
+    /// <summary>Elites and bosses always drop something; everyone else takes a single roll.</summary>
+    private Item? RollDrop(Actor victim, string table, int depth)
+    {
+        for (int tries = victim.Rank == Rank.Normal ? 1 : 12; tries > 0; tries--)
+            if (RollLoot(table, depth) is { } loot)
+                return loot;
+        return null;
     }
 
     // ---- Corpses and the dead ----
@@ -1353,18 +1373,39 @@ public sealed class World
     }
 
     /// <summary>A monster from its stat block, grown for this depth (dungeon.json).</summary>
-    private Actor Spawn(MonsterDef def, Point at, Faction? faction = null) =>
+    private Actor Spawn(MonsterDef def, Point at, Faction? faction = null, EliteKindDef? elite = null) =>
         AddActor(new Actor(_nextId++, def.Id, faction ?? Content.Factions[def.Faction], at,
-            Content.Dungeon.HpFor(def.MaxHp, DangerDepth), def.Attack + Content.Dungeon.AttackBonus(DangerDepth),
+            (int)Math.Round(Content.Dungeon.HpFor(def.MaxHp, DangerDepth) * (elite?.Hp ?? 1)),
+            def.Attack + Content.Dungeon.AttackBonus(DangerDepth) + (elite?.Attack ?? 0),
             def.Defense + Content.Dungeon.DefenseBonus(DangerDepth))
         {
-            BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(DangerDepth),
+            BaseAccuracy = def.Accuracy + Content.Dungeon.AccuracyBonus(DangerDepth) + (elite?.Accuracy ?? 0),
             BaseEvasion = def.Evasion,
             BaseRange = def.Range,
             Fearless = def.Fearless,
             LootTable = def.Loot,
             Speed = def.Speed,
+            Rank = elite is not null ? Rank.Elite : def.Rank,
+            Title = elite?.Title,
+            XpMultiplier = elite?.Xp ?? 1,
+            Abilities = (def.Abilities ?? []).Concat(elite?.Abilities ?? []).Select(id => Content.Abilities[id]).ToList(),
         });
+
+    /// <summary>Whether this squad member comes out an elite, and what kind; only ordinary monsters can.</summary>
+    private EliteKindDef? RollElite(MonsterDef def)
+    {
+        var rules = Content.Elites;
+        if (def.Rank != Rank.Normal || DangerDepth < rules.MinDepth
+            || Rng.NextDouble() >= rules.Chance + rules.ChancePerLevel * (DangerDepth - rules.MinDepth))
+            return null;
+        var kinds = rules.Kinds.Where(k => k.Roles.Contains(def.Role)).ToList();
+        return kinds.Count == 0 ? null : kinds[Rng.NextInt(kinds.Count)];
+    }
+
+    /// <summary>A free cell within this distance of a place, the nearest first; null if there's none.</summary>
+    public Point? FreeCellNear(Point place, int within) =>
+        Map.Tiles.Positions().Where(p => IsFree(p) && Distance(p, place) <= within)
+            .OrderBy(p => Distance(p, place)).Cast<Point?>().FirstOrDefault();
 
     /// <summary>The player, with base stats and starting kit from player.json.</summary>
     private Actor CreatePlayer(Point at)
@@ -1499,7 +1540,7 @@ public sealed class World
                 if (Rng.NextDouble() >= member.Chance || RandomFreeFloor(room) is not { } p)
                     continue;
                 var def = Content.Monsters[member.Monster];
-                var monster = Spawn(def, p);
+                var monster = Spawn(def, p, elite: RollElite(def));
                 monster.Brain = new SquadMemberBrain(squad);
                 squad.Add(monster, def.Role);
             }

@@ -7,6 +7,8 @@
   // "xp": what killing one is worth to the player.
   // "accuracy"/"evasion": +/- hit chance (see combat.json); default 0.
   // "lootDepthBonus": its loot is rolled as if this many levels deeper (bosses, ancient dead).
+  // "rank": normal (default), elite or boss; drawn so they stand out, and worth more loot.
+  // "abilities": skills by id (abilities.json). "endsRun": killing this one wins the game.
   // "raise" (necromancers): reach in cells (needs line of sight), turns between raisings,
   // and how many servants it can control at once. Its servants crumble when it dies.
   "monsters": [
@@ -21,9 +23,22 @@
     { "id": "skeleton_archer",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "xp": 12, "lootDepthBonus": 1, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
     { "id": "goblin_zombie",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "accuracy": -1, "evasion": -3, "speed": 50, "fearless": true },
 
-    // The necromancer: stays in his lair, raises the dead, casts bolts from behind his guards.
-    { "id": "necromancer", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "xp": 80, "lootDepthBonus": 2, "range": 6,
+    { "id": "bone_knight", "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge"] },
+    { "id": "wraith", "faction": "undead", "role": "archer", "rank": "elite", "maxHp": 14, "attack": 5, "defense": 0, "xp": 35, "range": 6, "evasion": 3, "speed": 120, "fearless": true, "abilities": ["soul_drain"] },
+
+    // Goblins' big ones.
+    { "id": "goblin_brute", "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 7, "defense": 2, "xp": 30, "lootDepthBonus": 1, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["charge"] },
+    { "id": "goblin_warlord", "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 26, "attack": 7, "defense": 3, "accuracy": 1, "xp": 50, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry", "charge"] },
+
+    // An acolyte: stays in its shrine, raises the dead, casts bolts from behind its guards.
+    { "id": "acolyte", "faction": "undead", "role": "necromancer", "maxHp": 22, "attack": 4, "defense": 1, "xp": 80, "lootDepthBonus": 2, "range": 6,
       "fearless": true, "loot": "necromancer",
-      "raise": { "range": 7, "cooldown": 8, "maxMinions": 6 } }
+      "raise": { "range": 7, "cooldown": 8, "maxMinions": 6 } },
+
+    // The necromancer: the end of the dungeon. Killing him wins the game.
+    { "id": "necromancer", "faction": "undead", "role": "necromancer", "rank": "boss", "endsRun": true, "maxHp": 48, "attack": 5, "defense": 2, "accuracy": 2, "xp": 300, "lootDepthBonus": 3, "range": 7,
+      "fearless": true, "loot": "necromancer",
+      "raise": { "range": 9, "cooldown": 5, "maxMinions": 10 },
+      "abilities": ["blink", "raise_guard", "soul_drain"] }
   ]
 }

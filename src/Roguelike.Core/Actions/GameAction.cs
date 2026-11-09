@@ -1,3 +1,4 @@
+using Roguelike.Core.Content;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
 using Roguelike.Core.Map;
@@ -66,6 +67,50 @@ public sealed record CloseGateAction : GameAction
         }
         world.Emit(new ActionFailed(actor.Id, FailureReason.NoGateToClose));
         return false;
+    }
+}
+
+/// <summary>Uses a skill from abilities.json. At: where it lands, for skills that move the user.</summary>
+public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At = null) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        var target = TargetId is { } id ? world.GetActor(id) : null;
+        world.Emit(new AbilityUsed(actor.Id, Ability.Id, TargetId));
+        switch (Ability.Kind)
+        {
+            case AbilityKind.Charge:
+                actor.Position = At!.Value;
+                if (target is { IsDead: false })
+                    world.ResolveAttack(actor, target, ranged: false);
+                break;
+            case AbilityKind.Warcry:
+                if (world.SquadOf(actor) is { } squad)
+                    squad.Morale = Math.Min(AI.Squads.Squad.MaxMorale, squad.Morale + Ability.Amount);
+                break;
+            case AbilityKind.Volley:
+                for (int i = 0; i < Ability.Count && target is { IsDead: false }; i++)
+                    world.ResolveAttack(actor, target, ranged: true);
+                break;
+            case AbilityKind.Blink:
+                actor.Position = At!.Value;
+                break;
+            case AbilityKind.Summon:
+                for (int i = 0; i < Ability.Count; i++)
+                    if (world.FreeCellNear(actor.Position, 3) is { } spot)
+                        world.SpawnMonster(Ability.Monster!, spot, world.SquadOf(actor)).MasterId = actor.Id;
+                break;
+            case AbilityKind.Drain:
+                if (target is { IsDead: false })
+                {
+                    int before = target.Hp;
+                    world.ResolveAttack(actor, target, ranged: true);
+                    if (target.Hp < before)
+                        actor.Hp = Math.Min(actor.MaxHp, actor.Hp + Ability.Amount);
+                }
+                break;
+        }
+        return true;
     }
 }
 

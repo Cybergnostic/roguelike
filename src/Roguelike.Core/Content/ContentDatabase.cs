@@ -14,7 +14,19 @@ public sealed record MonsterDef(
     string Id, string Faction, SquadRole Role,
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
     int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
-    int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0);
+    int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0, Rank Rank = Rank.Normal,
+    IReadOnlyList<string>? Abilities = null, bool EndsRun = false);
+
+public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain }
+
+/// <summary>A skill (abilities.json); which fields matter depends on Kind. Verb: its log wording.</summary>
+public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null);
+
+/// <summary>One kind of elite (elites.json): a stronger version of a monster, with skills.</summary>
+public sealed record EliteKindDef(string Id, string Title, IReadOnlyList<SquadRole> Roles, double Hp = 1, int Attack = 0, int Accuracy = 0,
+    double Xp = 1, IReadOnlyList<string>? Abilities = null);
+
+public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDepth, IReadOnlyList<EliteKindDef> Kinds);
 
 /// <summary>
 /// How attacks resolve (combat.json). Hit chance = BaseHitChance + HitChancePerPoint × (accuracy −
@@ -192,6 +204,8 @@ public sealed class ContentDatabase
     /// <summary>The hand-drawn surface map (surface.json).</summary>
     public PlaceDef Surface { get; }
     public HistoryDef History { get; }
+    public IReadOnlyDictionary<string, AbilityDef> Abilities { get; }
+    public EliteRules Elites { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
@@ -224,8 +238,11 @@ public sealed class ContentDatabase
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
-        DungeonDef dungeon, AffixRules affixes, PlaceDef surface, HistoryDef history)
+        DungeonDef dungeon, AffixRules affixes, PlaceDef surface, HistoryDef history,
+        IReadOnlyDictionary<string, AbilityDef> abilities, EliteRules elites)
     {
+        Abilities = abilities;
+        Elites = elites;
         Surface = surface;
         History = history;
         Affixes = affixes;
@@ -382,9 +399,36 @@ public sealed class ContentDatabase
         var history = Read<HistoryDef>(directory, "history.json");
         ValidateHistory(history, dungeon, spawnFile, monsters, items, surface);
 
+        var abilities = Read<AbilityFile>(directory, "abilities.json").Abilities.ToDictionary(a => a.Id);
+        var elites = Read<EliteRules>(directory, "elites.json");
+        ValidateSkills(abilities, elites, monsters);
+
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes, surface, history);
+            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites);
+    }
+
+    private static void ValidateSkills(Dictionary<string, AbilityDef> abilities, EliteRules elites, Dictionary<string, MonsterDef> monsters)
+    {
+        foreach (var ability in abilities.Values)
+        {
+            if (ability.Cooldown < 0)
+                throw Error("abilities.json", $"'{ability.Id}': cooldown can't be negative");
+            if (ability.Kind == AbilityKind.Summon && (ability.Monster is null || !monsters.ContainsKey(ability.Monster) || ability.Count < 1))
+                throw Error("abilities.json", $"'{ability.Id}': a summon needs a known monster and a count");
+        }
+        foreach (var m in monsters.Values)
+            foreach (var id in m.Abilities ?? [])
+                if (!abilities.ContainsKey(id))
+                    throw Error("monsters.json", $"'{m.Id}' uses unknown ability '{id}'");
+        foreach (var kind in elites.Kinds)
+        {
+            if (kind.Hp <= 0 || kind.Xp <= 0 || kind.Roles.Count == 0)
+                throw Error("elites.json", $"'{kind.Id}': needs roles, and positive hp and xp multipliers");
+            foreach (var id in kind.Abilities ?? [])
+                if (!abilities.ContainsKey(id))
+                    throw Error("elites.json", $"'{kind.Id}' uses unknown ability '{id}'");
+        }
     }
 
     private static void ValidateTribes(HistoryDef history, Dictionary<string, MonsterDef> monsters, PlaceDef surface)
@@ -708,6 +752,7 @@ public sealed class ContentDatabase
     private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
+    private sealed record AbilityFile(List<AbilityDef> Abilities);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
         int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
     private sealed record AttributeFile(List<AttributeEntry> Attributes, AttributeRaiseRules Raise);

@@ -9,6 +9,14 @@ namespace Roguelike.Core.Entities;
 /// Anything that takes turns. <see cref="Kind"/> is a data id ("goblin"); the front end
 /// decides what a kind looks like, so the core never mentions glyphs or colours.
 /// </summary>
+public enum Rank
+{
+    Normal,
+    /// <summary>Stronger than its kind, with a skill of its own.</summary>
+    Elite,
+    Boss,
+}
+
 public sealed class Actor
 {
     public int Id { get; }
@@ -82,7 +90,18 @@ public sealed class Actor
     public int Range => Equipment?.Bow is { } bow ? bow.Def.Range + Bonus(Stat.Range) : BaseRange;
 
     /// <summary>Human-readable name derived from the kind id ("goblin_archer" -> "goblin archer").</summary>
-    public string Name => Kind.Replace('_', ' ');
+    public string Name => Title is null ? Kind.Replace('_', ' ') : $"{Title} {Kind.Replace('_', ' ')}";
+
+    public Rank Rank { get; init; }
+
+    /// <summary>The word an elite goes by ("brutal"), if it has one.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>What it can do beyond hitting things. Each is on its own cooldown.</summary>
+    public IReadOnlyList<Content.AbilityDef> Abilities { get; init; } = [];
+
+    /// <summary>Multiplies the XP for killing it (elites are worth more).</summary>
+    public double XpMultiplier { get; init; } = 1;
 
     public bool IsDead => Hp <= 0;
 

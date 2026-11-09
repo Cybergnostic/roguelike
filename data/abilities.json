@@ -1,0 +1,19 @@
+{
+  // What elites and bosses can do beyond hitting things. Monsters list these by id in "abilities"
+  // (monsters.json, elites.json). "kind" is the rule:
+  //   charge  rush up to "range" cells to a spot next to the enemy and strike
+  //   warcry  put "amount" morale back into the squad
+  //   volley  shoot the enemy "count" times at once
+  //   blink   vanish to a spot up to "range" cells away, when someone is adjacent
+  //   summon  call up "count" of "monster", bound to the summoner
+  //   drain   a ranged attack that heals the attacker by "amount" if it lands
+  // "verb" finishes the sentence "The bone knight ... you!" in the log.
+  "abilities": [
+    { "id": "charge",       "kind": "charge", "cooldown": 6,  "range": 4, "verb": "charges" },
+    { "id": "warcry",       "kind": "warcry", "cooldown": 12, "amount": 30, "verb": "bellows a war cry" },
+    { "id": "volley",       "kind": "volley", "cooldown": 5,  "count": 2, "verb": "looses a volley at" },
+    { "id": "blink",        "kind": "blink",  "cooldown": 6,  "range": 7, "verb": "vanishes in a twist of shadow" },
+    { "id": "raise_guard",  "kind": "summon", "cooldown": 14, "monster": "skeleton_warrior", "count": 2, "verb": "calls the dead up through the floor" },
+    { "id": "soul_drain",   "kind": "drain",  "cooldown": 4,  "amount": 6, "verb": "drinks the life from" }
+  ]
+}

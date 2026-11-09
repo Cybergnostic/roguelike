@@ -13,7 +13,7 @@ namespace Roguelike.Core.Tests;
 
 public class NecromancerTests
 {
-    private static Actor NecromancerOf(World world) => world.Actors.Single(a => a.Kind == "necromancer");
+    private static Actor NecromancerOf(World world) => world.Actors.Single(a => a.Kind == "acolyte");
 
     private static Roguelike.Core.Map.Zone Tower(World world) => world.Map.Zones.Single(z => z.FactionId == "undead");
 

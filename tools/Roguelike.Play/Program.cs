@@ -121,6 +121,7 @@ string? Describe(GameEvent e) => e switch
     TollPaid t => $"*** you pay {t.Price} gold: {t.Turns} turns in {t.ZoneName} ***",
     PassRunningOut r => $"a guard warns you: {r.TurnsLeft} turns of paid time left",
     PassExpired x => x.Inside ? "*** your paid time is over and you are still inside ***" : "*** your paid time is over ***",
+    AbilityUsed a when Seen(a.ActorId) => $"{Name(a.ActorId)} uses {a.AbilityId}{(a.TargetId is { } t ? " on " + Name(t) : "")}",
     LoreDiscovered d => $"*** you read a stone about the {d.Era.Kind} ***",
     TheftCommitted t => t.WitnessId is { } w ? $"*** {Name(w)} sees you steal ***" : "you steal it unseen",
     CampAttackedWhileAway a => $"*** while you were gone {a.ZoneName} was attacked: {(a.Held ? "it held" : "it fell")}, {a.DefendersLost} defenders lost ***",
@@ -172,7 +173,7 @@ string ItemName(Item i)
 static char Letter(string kind) => kind switch
 {
     "goblin_warrior" => 'w', "goblin_archer" => 'a', "goblin_shaman" => 's', "goblin_runner" => 'r',
-    "skeleton_warrior" => 'W', "skeleton_archer" => 'A', "goblin_zombie" => 'Z', "necromancer" => 'N',
+    "skeleton_warrior" => 'W', "skeleton_archer" => 'A', "goblin_zombie" => 'Z', "necromancer" => 'N', "acolyte" => 'n', "bone_knight" => 'K', "wraith" => 'V', "goblin_brute" => 'B', "goblin_warlord" => 'L',
     _ => '?',
 };
 

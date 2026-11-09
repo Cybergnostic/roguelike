@@ -29,6 +29,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ActorDied d when d.ActorId == world.Player.Id => "You die...",
         ActorDied d => $"The {d.Kind.Replace('_', ' ')} dies.",
 
+        AbilityUsed { TargetId: { } t } a when isVisible(a.ActorId) || t == world.Player.Id => $"{Cap(Name(a.ActorId))} {world.Content.Abilities[a.AbilityId].Verb} {Name(t)}!",
+        AbilityUsed a when isVisible(a.ActorId) => $"{Cap(Name(a.ActorId))} {world.Content.Abilities[a.AbilityId].Verb}!",
+        AbilityUsed => null,
+
         CorpseRaised r when isVisible(r.RaisedId) || isVisible(r.CasterId) =>
             $"{Cap(Name(r.CasterId))} raises the {Kind(r.CorpseKind)}'s corpse - it rises as a {Kind(r.RaisedKind)}!",
         CorpseRaised => "You hear a low, rhythmic chanting.",
@@ -59,9 +63,9 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         GateMoved g when g.ActorId == world.Player.Id => g.Open ? "You push the gate open." : "You pull the gate shut.",
         GateMoved g => g.Open ? "You hear a gate creak open." : "You hear a gate slam shut.",
         LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",
-        LevelEntered l when l.Depth >= world.Content.Dungeon.Levels => $"You descend to depth {l.Depth}, the bottom of the dungeon. The way out is somewhere here.",
+        LevelEntered l when l.Depth >= world.Content.Dungeon.Levels => $"You descend to depth {l.Depth}, the bottom of everything. The air tastes of old graves.",
         LevelEntered l => $"You descend the stairs to depth {l.Depth}.",
-        GameWon g => $"You climb out of the dungeon alive after {g.Turn} turns. You win!",
+        GameWon g => $"{world.History.Necromancer} falls, and the dead lie still. You win, after {g.Turn} turns!",
         SquadMustered m when world.Squads.FirstOrDefault(s => s.Id == m.SquadId)?.Members.Any(a => isVisible(a.Id)) == true =>
             $"A fresh band sets out from {m.ZoneName}!",
         SquadMustered m => $"Drums beat in {m.ZoneName}.",
