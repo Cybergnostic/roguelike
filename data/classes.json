@@ -1,0 +1,48 @@
+{
+  // What you can start as. "attributes" replace player.json's; "kit" and "gold" are what you carry.
+  // "trees": the skill trees this class can learn from (skills.json). "starts": skills it already knows.
+  "classes": [
+    { "id": "soldier", "name": "Soldier",
+      "description": "Heavy armour and a long blade. Slow on your feet, hard to stop once you arrive.",
+      "attributes": { "str": 14, "dex": 11, "con": 14, "int": 9, "wis": 10, "cha": 10 },
+      "gold": 20,
+      "kit": [
+        { "item": "long_sword",     "equip": true },
+        { "item": "chain_mail",     "equip": true },
+        { "item": "healing_potion", "count": 2 }
+      ],
+      "trees": ["warfare", "survival", "arms"], "starts": ["war_cry"] },
+    { "id": "ranger", "name": "Ranger",
+      "description": "Keeps its distance and reads the ground. Weak when the enemy gets close.",
+      "attributes": { "str": 11, "dex": 16, "con": 13, "int": 10, "wis": 12, "cha": 10 },
+      "gold": 30,
+      "kit": [
+        { "item": "short_bow",      "equip": true },
+        { "item": "dagger",         "equip": true },
+        { "item": "leather_armor",  "equip": true },
+        { "item": "healing_potion", "count": 4 }
+      ],
+      "trees": ["archery", "senses", "hunt"], "starts": ["volley"] },
+    { "id": "rogue", "name": "Rogue",
+      "description": "Two daggers and a light step. Deadly against anyone who hasn't noticed yet.",
+      "attributes": { "str": 12, "dex": 18, "con": 13, "int": 12, "wis": 10, "cha": 12 },
+      "gold": 60,
+      "kit": [
+        { "item": "dagger",         "equip": true },
+        { "item": "dagger",         "equip": true },
+        { "item": "leather_armor",  "equip": true },
+        { "item": "healing_potion", "count": 4 }
+      ],
+      "trees": ["senses", "survival", "shadow"], "starts": ["backstab", "shadow_strike"] },
+    { "id": "mystic", "name": "Mystic",
+      "description": "Fire and old words. Frail, but it can burn from afar and mend its own wounds.",
+      "attributes": { "str": 9, "dex": 11, "con": 11, "int": 16, "wis": 15, "cha": 11 },
+      "gold": 40,
+      "kit": [
+        { "item": "dagger",         "equip": true },
+        { "item": "robes",          "equip": true },
+        { "item": "healing_potion", "count": 4 }
+      ],
+      "trees": ["senses", "survival", "rites"], "starts": ["cinder_bolt"] }
+  ]
+}

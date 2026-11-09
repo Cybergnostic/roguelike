@@ -16,9 +16,15 @@ public sealed class Character
     private readonly HashSet<string> _discovered = [];
     private int[]? _bonuses;
 
-    public Character(ContentDatabase content, IReadOnlyDictionary<string, int>? scores = null)
+    /// <summary>The class this character started as; null for a classless wanderer.</summary>
+    public ClassDef? Class { get; }
+
+    public Character(ContentDatabase content, IReadOnlyDictionary<string, int>? scores = null, ClassDef? characterClass = null)
     {
         _content = content;
+        Class = characterClass;
+        foreach (var skill in characterClass?.Starts ?? [])
+            _ranks[skill] = 1;
         foreach (var a in content.Attributes)
             _scores[a.Id] = scores?.GetValueOrDefault(a.Id, BaseScore) ?? BaseScore;
     }
@@ -92,9 +98,21 @@ public sealed class Character
         return rank < def.Ranks ? def.Cost[rank] : null;
     }
 
+    /// <summary>Whether this character's class teaches this tree. The classless get only the general trees.</summary>
+    public bool CanLearnFrom(string tree) =>
+        Class is { } own ? own.Trees.Contains(tree) : !_content.Classes.Any(c => c.Starts.Any(s => _content.Skills[s].Tree == tree));
+
+    /// <summary>The active skills this character knows, in the order they were defined.</summary>
+    public IEnumerable<SkillDef> ActiveSkills =>
+        _content.SkillTrees.SelectMany(t => t.Skills).Where(s => s.Ability is not null && Rank(s.Id) > 0);
+
+    public bool KnowsAbility(string abilityId) => ActiveSkills.Any(s => s.Ability == abilityId);
+
     public FailureReason? CheckLearn(string skill)
     {
         var def = _content.Skills.TryGetValue(skill, out var d) ? d : throw new ArgumentException($"unknown skill '{skill}'");
+        if (!CanLearnFrom(def.Tree))
+            return FailureReason.NotYourClass;
         if (NextRankCost(skill) is not { } cost)
             return FailureReason.SkillMastered;
         if (def.Requires.Any(r => Rank(r) == 0))

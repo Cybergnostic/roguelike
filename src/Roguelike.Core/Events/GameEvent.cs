@@ -210,6 +210,10 @@ public enum FailureReason
     NoOneToPay,
     NotEnoughGold,
     TooLightToCharge,
+    NotYourClass,
+    AbilityUnknown,
+    AbilityNotReady,
+    NoTarget,
     ChargeNotReady,
 }
 

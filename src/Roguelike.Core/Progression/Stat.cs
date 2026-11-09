@@ -34,4 +34,6 @@ public enum Stat
     Speed,
     /// <summary>Added to the chance of staggering with a weapon that can stagger.</summary>
     Stagger,
+    /// <summary>Added to the strength of spells and healing.</summary>
+    Magic,
 }

@@ -34,6 +34,7 @@ ulong seed = 1;
 int logLines = 20;
 bool full = false;
 bool surface = false;
+string? classId = null;
 for (int i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -43,10 +44,11 @@ for (int i = 0; i < args.Length; i++)
         case "--log": logLines = int.Parse(args[++i]); break;
         case "--full": full = true; break;
         case "--surface": surface = true; break;
+        case "--class": classId = args[++i]; break;
     }
 }
 
-var world = World.Create(seed, depth: surface ? World.SurfaceDepth : 1);
+var world = World.Create(seed, depth: surface ? World.SurfaceDepth : 1, classId: classId);
 var log = new List<string>();
 var names = new Dictionary<int, string>();
 var commands = new CommandPlayer(world);

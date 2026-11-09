@@ -94,7 +94,13 @@ public sealed class Actor
     public bool StoodStill { get; set; }
 
     /// <summary>Extra armour it gets right now from having its feet set in heavy gear.</summary>
-    public int BraceBonus => StoodStill ? Equipment?.Armor?.Def.Brace ?? 0 : 0;
+    public int BraceBonus => StoodStill ? (Equipment?.Armor?.Def.Brace ?? 0) + (HasSpecial("hold_line") ? 1 : 0) : 0;
+
+    /// <summary>Percent chance of hitting back at the first attacker each turn while braced.</summary>
+    public int CounterChance => (Equipment?.Armor?.Def.Counter ?? 0) + (HasSpecial("hold_line") ? 15 : 0);
+
+    /// <summary>Unseen from a distance until this turn.</summary>
+    public int HiddenUntil { get; set; } = -1;
 
     /// <summary>How long a step takes in what it's wearing. 100 is an ordinary step.</summary>
     public int MoveTime => Equipment?.Armor?.Def.MoveTime ?? 100;

@@ -26,7 +26,7 @@ public sealed partial class GameScreen
         char letter = 'a';
         foreach (var a in content.Attributes)
             lines.Add(new SheetLine(letter++, new RaiseAttributeAction(a.Id), c.CheckRaise(a.Id) is null));
-        foreach (var s in content.SkillTrees.SelectMany(t => t.Skills))
+        foreach (var s in content.SkillTrees.Where(t => c.CanLearnFrom(t.Id)).SelectMany(t => t.Skills))
             lines.Add(new SheetLine(letter++, new LearnSkillAction(s.Id), c.CheckLearn(s.Id) is null));
         return lines;
     }
@@ -57,7 +57,7 @@ public sealed partial class GameScreen
             ShapeParameters.CreateStyledBox(ICellSurface.ConnectedLineThin, new ColoredGlyph(Theme.Intent, bg)));
 
         int y1 = y0 + 1;
-        _ui.Print(x0 + 2, y1, "Character", Theme.Warning, bg);
+        _ui.Print(x0 + 2, y1, c.Class?.Name ?? "Wanderer", Theme.Warning, bg);
         var xp = $"{c.Xp} XP to spend ({c.TotalXp} earned)";
         _ui.Print(x0 + width - xp.Length - 2, y1++, xp, c.Xp > 0 ? Theme.Good : Theme.Text, bg);
 
@@ -75,7 +75,7 @@ public sealed partial class GameScreen
             _ui.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, maxed), bg);
         }
 
-        foreach (var tree in content.SkillTrees)
+        foreach (var tree in content.SkillTrees.Where(t => c.CanLearnFrom(t.Id)))
         {
             _ui.Print(x0 + 2, y1++, tree.Name, Theme.Warning, bg);
             foreach (var s in tree.Skills)

@@ -65,6 +65,7 @@ loot (rarity tiers, +X gear).
 | **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
 | **One derived-stat vocabulary (`Stat`)** | Attributes, skills and item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
 | **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
+| **Classes are data** (`classes.json`; user, 2026-11-09) | Each class sets attributes, gold, starting kit, the skill trees it can learn and the skills it starts with. A skill can grant an active ability with a cooldown (`abilities.json`), so adding a class needs no code. A class can't learn from another class's own trees; a game started with no class (tests, plain tools) only gets the general trees | Classes coded by hand; open skill choice for everyone |
 | **Tune with the tactical bot over many seeds** | Balance target (2026-11-08): the tactical bot wins about 20–30% and deaths rise with depth. A human plays differently; the bot measures the curve, not absolute difficulty | Tuning by feel from single games |
 | **Own `SafetyMap` (Brogue flee map)** | Per-faction flee maps needed; GoRogue `FleeMap` cost ~1 ms each | GoRogue `FleeMap` |
 | **The player starts as a neutral traveler** (user, 2026-11-09) | Warnings, tolls and peaceful passage only make sense if factions don't start out at war with the player | Known enemy; status varying by origin |
@@ -84,7 +85,8 @@ data/                        game content (JSON with comments), copied next to e
   factions.json              factions + relations (hostile/neutral/allied) + raid orders
   monsters.json              stat blocks: faction, role, hp/attack/defense, range, fearless, speed, rank, abilities,
                              risesAs (corpse → undead), raise (necromancers), xp (kill reward), npc (lines, goods)
-  abilities.json             skills for elites and bosses (charge, war cry, volley, blink, summon, drain)
+  abilities.json             active skills for elites, bosses and the player (kinds in AbilityKind; "power" scales with Magic)
+  classes.json               the player classes: attributes, gold, kit, skill trees, starting skills
   elites.json                the chance and kinds of elite squad members (title, stat changes, skills)
   spawns.json                room occupancy, floor item chance, safe start, weighted squad templates,
                              lairs (unique squads placed in the farthest rooms, with a home)
@@ -251,7 +253,8 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Walk into someone in the hamlet to talk (and buy from the peddler). Gates: walk into one to open it, `C`
 closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Sneak: `z`. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
-`f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
+`f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Skills: `a` (pick one; aimed ones use Tab, `a`/Enter, Esc). Character sheet: `c` (letters spend XP).
+A new game opens on the class picker (letters choose, Esc quits); `--class ID` skips it and `S` retries the same seed and class.
 Plain look without lighting: `F4`.
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, tinted ring = chase limit, `o` posts, `r` patrol stops, `R` rally,
 `x` destinations, `?` last known target position, squad list with orders and morale, camp state), `F3` cycle heatmaps (toward player, then per faction
@@ -377,7 +380,10 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: the big balance pass** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **28.0%**, died 72%, inside the 20–30% target.
+- **Current: classes** (2026-11-09), tactical bot, 500 games each (seeds 1000–1499): Soldier won **35.2%**, Ranger **23.6%**, Rogue **17.8%**, Mystic **31.4%**. Classless was not re-measured.
+  The bot doesn't sneak, so the Rogue's Backstab rarely fires and its figure is a floor. Soldier and Mystic sit a little over the 20–30% target and Rogue a little under.
+  Whole bandit den won: Soldier 53%, Ranger 87%, Rogue 63%, Mystic 26%. Run with `--class ID` (Sim and Play both take it, and so does `--encounters`).
+- **The big balance pass** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **28.0%**, died 72%, inside the 20–30% target.
   Death rate by depth: 5.4, 9.4, 8.6, 10.6, 11.8, 9.0, 49.7% (the last level is the boss). Monster HP +26% a level, elites 12% + 3% a level, the warlord from level 4, brace only on plate with a 20% counter.
   Valley fights (`--encounters --seeds 300`, bot with the starting kit, alone against one group): wolves won 93%, spiders 87%, boars 95%, bear 67%, den sentries 100%, den crew 50%, whole den 46%.
 - **Heavy armour and speed** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **57.5%**, died 42%, well above the 20–30% target.
@@ -584,7 +590,7 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
    - ~~Part 2: rarity tiers and affixes, item names, loot generation by tier~~ (done 2026-11-08;
      preceded by a sim speed-up and a difficulty pass)
    - Part 3 (parked until the camp slice works): random uniques, identify-by-use, scrolls of enchanting (+X)
-   - Later (ToME direction, user): classes that grant skill trees, active skills with cooldowns,
+   - ~~Classes, class skill trees, active skills with cooldowns~~ (done 2026-11-09). Still later (ToME direction, user):
      a use for Charisma/Intelligence/Wisdom beyond the passives
 6. **Camp vertical slice (next)**: one surface map, one goblin camp, one underground map, with
    several ways through (see [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12 for acceptance criteria)
@@ -633,7 +639,7 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 11a. ~~**Heavy builds and speed**~~ (done 2026-11-09): slower steps, arrow guard, brace, menace, stagger, the charge (`v`), Fleet Foot. Still to come: a speed affix.
 11b. ~~**Popups, mouse, gate talk**~~ (done 2026-11-09): speech, grunts and noises over the map; hover tooltip and Inspect, left click pins, right click walks; the guards' challenge as a choice in the side panel (1-3 or click).
-12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
+12. **Character depth**: identify-by-use, enchant scrolls. (Classes and active skills are done.)
 13. **Wider region**: more sites, rethink the surface map.
 14. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
@@ -669,8 +675,8 @@ The user wants Diablo-style tiers **and** classic +X items. Proposed structure:
 ### Character
 - Now: six D&D attributes and skills bought with XP (Sil-style spending; XP for kills, first
   sightings and new places). Implemented in step 5 part 1.
-- Direction (user): toward **Tales of Maj'Eyal**: classes, many skills (talent trees), actives with
-  cooldowns. Classes should be data that grant trees and starting attributes/kit. The user will
+- Four classes exist (Soldier, Ranger, Rogue, Mystic), each with its own tree and active skills.
+- Direction (user): toward **Tales of Maj'Eyal**: more classes and many more skills. The user will
   revisit the attribute list.
 
 ### Factions planned

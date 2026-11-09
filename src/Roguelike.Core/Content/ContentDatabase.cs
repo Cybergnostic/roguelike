@@ -21,10 +21,21 @@ public sealed record MonsterDef(
 public sealed record NpcDef(IReadOnlyList<string>? Lines = null, IReadOnlyList<WareDef>? Goods = null);
 public sealed record WareDef(string Item, int Price);
 
-public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain }
+public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain, Frighten, Bash, Pin, Vanish, Bolt, Heal }
+
+/// <summary>A class the player can start as (classes.json): its attributes and kit, the skill trees it can learn, and what it already knows.</summary>
+public sealed record ClassDef(string Id, string Name, string Description, IReadOnlyDictionary<string, int> Attributes, int Gold,
+    IReadOnlyList<KitEntry> Kit, IReadOnlyList<string> Trees, IReadOnlyList<string> Starts);
 
 /// <summary>A skill (abilities.json); which fields matter depends on Kind. Verb: its log wording.</summary>
-public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null);
+public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null, int Power = 0, string? You = null)
+{
+    /// <summary>Whether using it means picking someone to aim it at.</summary>
+    public bool NeedsTarget => Kind is AbilityKind.Charge or AbilityKind.Volley or AbilityKind.Drain or AbilityKind.Bash or AbilityKind.Pin or AbilityKind.Bolt;
+
+    /// <summary>Whether it needs a bow readied.</summary>
+    public bool NeedsBow => Kind is AbilityKind.Volley or AbilityKind.Pin;
+}
 
 /// <summary>One kind of elite (elites.json): a stronger version of a monster, with skills.</summary>
 public sealed record EliteKindDef(string Id, string Title, IReadOnlyList<SquadRole> Roles, double Hp = 1, int Attack = 0, int Accuracy = 0,
@@ -78,7 +89,7 @@ public sealed record AttributeRaiseRules(int BaseCost, int CostPerRaise, int Max
 /// PerRank: derived stat bonuses per rank. Special: a named ability the rules know (see ContentDatabase.Specials).
 /// </summary>
 public sealed record SkillDef(string Id, string Name, string Tree, string Description, int Ranks, IReadOnlyList<int> Cost,
-    IReadOnlyList<string> Requires, IReadOnlyDictionary<Stat, double> PerRank, string? Special);
+    IReadOnlyList<string> Requires, IReadOnlyDictionary<Stat, double> PerRank, string? Special, string? Ability = null);
 
 /// <summary>A group of related skills. Later, classes will decide which trees a character can learn.</summary>
 public sealed record SkillTreeDef(string Id, string Name, IReadOnlyList<SkillDef> Skills);
@@ -215,6 +226,7 @@ public sealed class ContentDatabase
     public PlaceDef Surface { get; }
     public HistoryDef History { get; }
     public IReadOnlyDictionary<string, AbilityDef> Abilities { get; }
+    public IReadOnlyList<ClassDef> Classes { get; }
     public EliteRules Elites { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
@@ -225,7 +237,7 @@ public sealed class ContentDatabase
     public AffixRules Affixes { get; }
 
     /// <summary>Special abilities skills and legendary items can grant; each is implemented in the rules.</summary>
-    public static readonly IReadOnlyList<string> Specials = ["cleave", "lifesteal", "piercing", "thorns"];
+    public static readonly IReadOnlyList<string> Specials = ["cleave", "lifesteal", "piercing", "thorns", "backstab", "hold_line", "skirmisher"];
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
 
@@ -249,8 +261,9 @@ public sealed class ContentDatabase
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
         DungeonDef dungeon, AffixRules affixes, PlaceDef surface, HistoryDef history,
-        IReadOnlyDictionary<string, AbilityDef> abilities, EliteRules elites)
+        IReadOnlyDictionary<string, AbilityDef> abilities, EliteRules elites, IReadOnlyList<ClassDef> classes)
     {
+        Classes = classes;
         Abilities = abilities;
         Elites = elites;
         Surface = surface;
@@ -420,9 +433,39 @@ public sealed class ContentDatabase
         var elites = Read<EliteRules>(directory, "elites.json");
         ValidateSkills(abilities, elites, monsters);
 
+        var classes = Read<ClassFile>(directory, "classes.json").Classes;
+        ValidateClasses(classes, trees, attributes, items, abilities);
+
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites);
+            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites, classes);
+    }
+
+    private static void ValidateClasses(List<ClassDef> classes, List<SkillTreeDef> trees, List<AttributeDef> attributes,
+        Dictionary<string, ItemDef> items, Dictionary<string, AbilityDef> abilities)
+    {
+        const string name = "classes.json";
+        var skills = trees.SelectMany(t => t.Skills).ToDictionary(s => s.Id);
+        foreach (var skill in skills.Values)
+            if (skill.Ability is { } ability && !abilities.ContainsKey(ability))
+                throw Error("skills.json", $"skill '{skill.Id}' grants unknown ability '{ability}'");
+        if (classes.Count == 0 || classes.Select(c => c.Id).Distinct().Count() != classes.Count)
+            throw Error(name, "needs at least one class, with unique ids");
+        foreach (var c in classes)
+        {
+            foreach (var attribute in c.Attributes.Keys)
+                if (attributes.All(a => a.Id != attribute))
+                    throw Error(name, $"'{c.Id}' sets unknown attribute '{attribute}'");
+            foreach (var tree in c.Trees)
+                if (trees.All(t => t.Id != tree))
+                    throw Error(name, $"'{c.Id}' uses unknown skill tree '{tree}'");
+            foreach (var entry in c.Kit)
+                if (!items.ContainsKey(entry.Item))
+                    throw Error(name, $"'{c.Id}' starts with unknown item '{entry.Item}'");
+            foreach (var start in c.Starts)
+                if (!skills.TryGetValue(start, out var skill) || !c.Trees.Contains(skill.Tree))
+                    throw Error(name, $"'{c.Id}' starts with '{start}', which isn't a skill from one of its trees");
+        }
     }
 
     private static void ValidateSkills(Dictionary<string, AbilityDef> abilities, EliteRules elites, Dictionary<string, MonsterDef> monsters)
@@ -722,7 +765,7 @@ public sealed class ContentDatabase
                 if (s.Special is not null && !Specials.Contains(s.Special))
                     throw Error(name, $"skill '{s.Id}' grants unknown special '{s.Special}' (known: {string.Join(", ", Specials)})");
                 skills.Add(new SkillDef(s.Id, s.Name, t.Id, s.Description ?? "", s.Ranks, s.Cost, s.Requires ?? [],
-                    Stats(s.PerRank, name, $"skill '{s.Id}'"), s.Special));
+                    Stats(s.PerRank, name, $"skill '{s.Id}'"), s.Special, s.Ability));
             }
             trees.Add(new SkillTreeDef(t.Id, t.Name, skills));
         }
@@ -774,6 +817,7 @@ public sealed class ContentDatabase
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record AbilityFile(List<AbilityDef> Abilities);
+    private sealed record ClassFile(List<ClassDef> Classes);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
         int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
     private sealed record AttributeFile(List<AttributeEntry> Attributes, AttributeRaiseRules Raise);
@@ -781,7 +825,7 @@ public sealed class ContentDatabase
     private sealed record SkillFile(List<SkillTreeEntry> Trees);
     private sealed record SkillTreeEntry(string Id, string Name, List<SkillEntry> Skills);
     private sealed record SkillEntry(string Id, string Name, string? Description, int Ranks, List<int> Cost,
-        List<string>? Requires, Dictionary<string, double>? PerRank, string? Special);
+        List<string>? Requires, Dictionary<string, double>? PerRank, string? Special, string? Ability = null);
     private sealed record AffixFile(List<TierEntry> Tiers, List<AffixEntry> Affixes,
         Dictionary<string, List<string>> Specials, NamesEntry Names);
     private sealed record TierEntry(Rarity Rarity, double Chance, double ChancePerLevel, int[] Affixes,

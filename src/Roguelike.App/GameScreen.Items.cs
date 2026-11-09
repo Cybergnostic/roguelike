@@ -20,9 +20,10 @@ public sealed partial class GameScreen
     private sealed record ItemMenu(string Title, List<Item> Items, Func<Item, GameAction> OnPick);
 
     /// <summary>Choosing a target for the bow.</summary>
-    private sealed class Targeting(List<Actor> targets, bool charging = false)
+    private sealed class Targeting(List<Actor> targets, bool charging = false, Roguelike.Core.Content.AbilityDef? ability = null)
     {
         public bool Charging { get; } = charging;
+        public Roguelike.Core.Content.AbilityDef? Ability { get; } = ability;
         public List<Actor> Targets { get; } = targets;
         public int Index { get; set; }
         public Actor Current => Targets[Index];
@@ -31,7 +32,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null || _beggar is not null;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null || _beggar is not null || _choosing || _abilityMenu;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -59,6 +60,8 @@ public sealed partial class GameScreen
             StartTargeting();
         else if (keyboard.IsKeyPressed(Keys.V))
             StartCharging();
+        else if (keyboard.IsKeyPressed(Keys.A))
+            OpenAbilities();
         else if (keyboard.IsKeyPressed(Keys.Z))
             return new ToggleSneakAction();
         else if (keyboard.IsKeyPressed(Keys.M))
@@ -138,8 +141,12 @@ public sealed partial class GameScreen
             _chronicleOpen = false;
             _shop = null;
             _beggar = null;
+            _abilityMenu = false;
             return null;
         }
+
+        if (_abilityMenu)
+            return AbilityMenuInput(keyboard);
 
         if (_beggar is not null)
             return MercyInput(keyboard);
@@ -181,9 +188,11 @@ public sealed partial class GameScreen
         {
             if (keyboard.IsKeyPressed(Keys.Tab))
                 t.Index = (t.Index + 1) % t.Targets.Count;
-            else if (keyboard.IsKeyPressed(t.Charging ? Keys.V : Keys.F) || keyboard.IsKeyPressed(Keys.Enter))
+            else if (keyboard.IsKeyPressed(t.Ability is not null ? Keys.A : t.Charging ? Keys.V : Keys.F) || keyboard.IsKeyPressed(Keys.Enter))
             {
                 _targeting = null;
+                if (t.Ability is { } ability)
+                    return new UseAbilityAction(ability.Id, t.Current.Id);
                 return t.Charging ? new ChargeAction(t.Current.Id) : new FireAction(t.Current.Id);
             }
         }
@@ -220,13 +229,18 @@ public sealed partial class GameScreen
             DrawShop();
         if (_beggar is not null)
             DrawMercyPrompt();
+        if (_abilityMenu)
+            DrawAbilities();
+        if (_choosing)
+            DrawChooser();
     }
 
     private void DrawTargeting(Targeting t)
     {
         var player = _world.Player;
         var target = t.Current;
-        bool inRange = World.Distance(player.Position, target.Position) <= (t.Charging ? _world.Content.Combat.ChargeRange : player.Range);
+        bool inRange = t.Ability is { } aimed ? _world.AbilityProblem(player, aimed, target) != Roguelike.Core.Events.FailureReason.OutOfRange
+            : World.Distance(player.Position, target.Position) <= (t.Charging ? _world.Content.Combat.ChargeRange : player.Range);
         bool clear = _world.HasClearShot(player.Position, target.Position);
         var color = inRange && clear ? Theme.Warning : Theme.Danger;
 
@@ -240,6 +254,13 @@ public sealed partial class GameScreen
         if (OnScreen(target.Position, out var aim))
             _map.SetBackground(aim.X, aim.Y, color.GetDarker());
 
+        if (t.Ability is { } skill)
+        {
+            var problem = _world.AbilityProblem(player, skill, target);
+            _status.Clear();
+            _status.Print(1, 0, $"Aim at {target.Name} ({(problem is null ? "ready" : "can't reach")}). Tab: next target  a/Enter: use  Esc: cancel", Theme.Warning);
+            return;
+        }
         var note = !inRange ? "out of range" : !clear ? "blocked" : t.Charging ? $"{player.Attack + _world.Content.Combat.ChargeBonus} atk" : $"{player.RangedAttack} atk";
         _status.Clear();
         _status.Print(1, 0, t.Charging

@@ -30,6 +30,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ActorDied d when d.ActorId == world.Player.Id => "You die...",
         ActorDied d => $"The {d.Kind.Replace('_', ' ')} dies.",
 
+        AbilityUsed { ActorId: var me, TargetId: { } t } a when me == world.Player.Id => $"You {YouVerb(a.AbilityId)} {Name(t)}!",
+        AbilityUsed { ActorId: var me } a when me == world.Player.Id => $"You {YouVerb(a.AbilityId)}.",
         AbilityUsed { TargetId: { } t } a when isVisible(a.ActorId) || t == world.Player.Id => $"{Cap(Name(a.ActorId))} {world.Content.Abilities[a.AbilityId].Verb} {Name(t)}!",
         AbilityUsed a when isVisible(a.ActorId) => $"{Cap(Name(a.ActorId))} {world.Content.Abilities[a.AbilityId].Verb}!",
         AbilityUsed => null,
@@ -126,6 +128,7 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         ActorStaggered => null,
         ChargedAt c => $"You charge {Name(c.TargetId)}!",
         CampThreatened c => "You put a hand on your sword and tell them to move.",
+        SpecialUsed { Special: "backstab" } u when u.ActorId == world.Player.Id => $"You catch {Name(u.TargetId)} unawares!",
         SpecialUsed { Special: "counter" } u => $"Feet set, you turn the blow and hit back at {Name(u.TargetId)}!",
         SpecialUsed { Special: "thorns" } u when u.ActorId == world.Player.Id => $"Thorns bite {Name(u.TargetId)}!",
         SpecialUsed => null,
@@ -151,6 +154,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.TollAlreadyPaid => "You've already paid.",
             FailureReason.NoOneToPay => "There's nobody watching the gate to pay.",
             FailureReason.NotEnoughGold => "You can't afford that.",
+            FailureReason.NotYourClass => "That isn't something your training covers.",
+            FailureReason.AbilityUnknown => "You don't know how to do that.",
+            FailureReason.AbilityNotReady => "You need a moment before you can do that again.",
+            FailureReason.NoTarget => "There's nothing there to aim at.",
             FailureReason.TooLightToCharge => "Charging needs the weight of heavy armour behind it.",
             FailureReason.ChargeNotReady => "You haven't got your breath back for another charge.",
             _ => null,
@@ -181,6 +188,9 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         SoundKind.Footsteps => "footsteps",
         _ => "a gate moving",
     };
+
+    private string YouVerb(string abilityId) =>
+        world.Content.Abilities[abilityId].You ?? world.Content.Abilities[abilityId].Verb;
 
     private string Said(int speaker, Func<Roguelike.Core.Entities.Faction, IReadOnlyList<string>> lines, int line) =>
         world.GetActor(speaker) is { } a && lines(a.Faction) is { Count: > 0 } said ? said[line % said.Count] : "...";

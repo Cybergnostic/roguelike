@@ -7,6 +7,13 @@
   //   blink   vanish to a spot up to "range" cells away, when someone is adjacent
   //   summon  call up "count" of "monster", bound to the summoner
   //   drain   a ranged attack that heals the attacker by "amount" if it lands
+  //   frighten  squads within "range" lose "amount" morale
+  //   bash    a melee blow, "amount" harder, that always staggers
+  //   pin     a bow shot that always staggers
+  //   vanish  jump up to "range" cells away and go unseen for "amount" turns
+  //   bolt    a spell at "range": strength "power"
+  //   heal    restore "power" hit points
+  // "power" and healing grow with the Magic stat. "you" is the player's own wording.
   // "verb" finishes the sentence "The bone knight ... you!" in the log.
   "abilities": [
     { "id": "charge",       "kind": "charge", "cooldown": 6,  "range": 4, "verb": "charges" },
@@ -14,6 +21,17 @@
     { "id": "volley",       "kind": "volley", "cooldown": 5,  "count": 2, "verb": "looses a volley at" },
     { "id": "blink",        "kind": "blink",  "cooldown": 6,  "range": 7, "verb": "vanishes in a twist of shadow" },
     { "id": "raise_guard",  "kind": "summon", "cooldown": 14, "monster": "skeleton_warrior", "count": 2, "verb": "calls the dead up through the floor" },
-    { "id": "soul_drain",   "kind": "drain",  "cooldown": 4,  "amount": 6, "verb": "drinks the life from" }
+    { "id": "soul_drain",   "kind": "drain",  "cooldown": 4,  "amount": 6, "verb": "drinks the life from" },
+
+    // The player's skills (skills.json grants these).
+    { "id": "war_cry",      "kind": "frighten", "cooldown": 30, "range": 8, "amount": 40, "verb": "roars", "you": "roar a challenge" },
+    { "id": "crushing_blow","kind": "bash",   "cooldown": 14,  "amount": 3, "verb": "smashes", "you": "bring a crushing blow down on" },
+    { "id": "hunters_volley","kind": "volley","cooldown": 5,  "count": 2, "verb": "looses a volley at", "you": "loose a volley at" },
+    { "id": "pinning_shot", "kind": "pin",    "cooldown": 10, "verb": "pins", "you": "pin" },
+    { "id": "vanish",       "kind": "vanish", "cooldown": 25, "range": 7, "amount": 4, "verb": "vanishes", "you": "vanish in a blink" },
+    { "id": "shadow_strike","kind": "charge", "cooldown": 6, "range": 6, "verb": "strikes from the shadows at", "you": "step through the shadows at" },
+    { "id": "cinder_bolt",  "kind": "bolt",   "cooldown": 3,  "range": 7, "power": 7, "verb": "burns", "you": "hurl fire at" },
+    { "id": "mend",         "kind": "heal",   "cooldown": 30, "power": 10, "verb": "mends its wounds", "you": "mend your wounds" },
+    { "id": "life_drain",   "kind": "drain",  "cooldown": 14,  "range": 6, "power": 5, "amount": 3, "verb": "drinks the life from", "you": "drink the life from" }
   ]
 }

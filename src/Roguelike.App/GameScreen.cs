@@ -91,7 +91,9 @@ public sealed partial class GameScreen : ScreenObject
         _map.MouseExit += OnMapMouseExit;
         _map.MouseButtonClicked += OnMapClicked;
         _sidebar.MouseButtonClicked += OnSidebarClicked;
+        _classId = StartClass;
         _world = NewWorld();
+        _choosing = StartClass is null && FollowFile is null && !StartSpectating;
         ApplyStartOptions();
         Draw();
     }
@@ -106,7 +108,7 @@ public sealed partial class GameScreen : ScreenObject
     {
         var seed = StartSeed ?? (ulong)Random.Shared.NextInt64();
         StartSeed = null;
-        var world = World.Create(seed, WorldWidth, WorldHeight, depth: StartInDungeon ? 1 : World.SurfaceDepth);
+        var world = World.Create(seed, WorldWidth, WorldHeight, depth: StartInDungeon ? 1 : World.SurfaceDepth, classId: _classId);
         _messages.Clear();
         _commands = null; // follow mode drives the new world from here on
         _following = null;
@@ -122,6 +124,13 @@ public sealed partial class GameScreen : ScreenObject
 
     public override bool ProcessKeyboard(Keyboard keyboard)
     {
+        if (_choosing)
+        {
+            ChooserInput(keyboard);
+            Draw();
+            return true;
+        }
+
         if (_walk is not null && keyboard.KeysPressed.Count > 0)
         {
             _walk = null; // any key stops a walk ordered with the mouse
@@ -156,6 +165,7 @@ public sealed partial class GameScreen : ScreenObject
                 if (sameSeed)
                     StartSeed = _world.Seed;
                 _world = NewWorld();
+                _choosing = !sameSeed && FollowFile is null;
                 Draw();
             }
             return true;
@@ -310,7 +320,7 @@ public sealed partial class GameScreen : ScreenObject
         DrawLog();
         DrawKeys();
         _ui.Clear();
-        _ui.IsVisible = _menu is not null || _sheetOpen || _chronicleOpen || _shop is not null;
+        _ui.IsVisible = _menu is not null || _sheetOpen || _chronicleOpen || _shop is not null || _choosing || _abilityMenu;
         DrawModalUi();
     }
 

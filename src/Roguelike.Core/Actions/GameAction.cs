@@ -87,6 +87,27 @@ public sealed record CloseGateAction : GameAction
     }
 }
 
+/// <summary>The player uses a skill they know. Aimed ones need a target in reach; each has its own cooldown.</summary>
+public sealed record UseAbilityAction(string AbilityId, int? TargetId = null) : GameAction
+{
+    public override int NoiseMade(World world, Actor actor) => world.Content.Dungeon.FightNoise;
+
+    public override bool Perform(World world, Actor actor)
+    {
+        if (!world.Content.Abilities.TryGetValue(AbilityId, out var ability))
+            return false;
+        var target = TargetId is { } id ? world.GetActor(id) : null;
+        if (world.AbilityProblem(actor, ability, target) is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        new AbilityAction(ability, TargetId, world.AbilityLanding(actor, ability, target)).Perform(world, actor);
+        world.StartCooldown(ability);
+        return true;
+    }
+}
+
 /// <summary>Uses a skill from abilities.json. At: where it lands, for skills that move the user.</summary>
 public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At = null) : GameAction
 {
@@ -121,10 +142,41 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
                 if (target is { IsDead: false })
                 {
                     int before = target.Hp;
-                    world.ResolveAttack(actor, target, ranged: true);
+                    world.ResolveAttack(actor, target, ranged: true, power: Ability.Power > 0 ? Ability.Power + actor.Bonus(Progression.Stat.Magic) : null);
                     if (target.Hp < before)
                         actor.Hp = Math.Min(actor.MaxHp, actor.Hp + Ability.Amount);
                 }
+                break;
+            case AbilityKind.Frighten:
+                world.Frighten(actor, Ability);
+                break;
+            case AbilityKind.Bash:
+                if (target is { IsDead: false })
+                {
+                    world.ResolveAttack(actor, target, ranged: false, power: actor.Attack + Ability.Amount);
+                    world.StaggerIfAlive(target, actor);
+                }
+                break;
+            case AbilityKind.Pin:
+                if (target is { IsDead: false })
+                {
+                    world.ResolveAttack(actor, target, ranged: true);
+                    world.StaggerIfAlive(target, actor);
+                }
+                break;
+            case AbilityKind.Vanish:
+                actor.Position = At!.Value;
+                actor.HiddenUntil = world.Turn + Ability.Amount;
+                world.ForgetWhereThePlayerIs();
+                break;
+            case AbilityKind.Bolt:
+                if (target is { IsDead: false })
+                    world.ResolveAttack(actor, target, ranged: true, power: Ability.Power + actor.Bonus(Progression.Stat.Magic), accuracyBonus: 3);
+                break;
+            case AbilityKind.Heal:
+                int healed = Math.Min(actor.MaxHp - actor.Hp, Ability.Power + actor.Bonus(Progression.Stat.Magic));
+                actor.Hp += healed;
+                world.Emit(new ActorHealed(actor.Id, actor.Id, healed));
                 break;
         }
         return true;

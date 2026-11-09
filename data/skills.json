@@ -2,7 +2,8 @@
   // Skills bought with XP, grouped in trees. Later, classes will decide which trees you can learn.
   // "cost": XP per rank (one entry per rank). "requires": skills you need at least rank 1 in first.
   // "perRank": derived stat bonuses per rank (same stat names as attributes.json).
-  // "special": a named ability implemented in the rules ("cleave").
+  // "special": a named ability implemented in the rules ("cleave"). "ability": an active skill it grants
+  // (abilities.json). Which trees a character can learn from is set by its class (classes.json).
   "trees": [
     { "id": "warfare", "name": "Warfare", "skills": [
       { "id": "weapon_training", "name": "Weapon Training", "description": "Hit harder in melee.",
@@ -23,6 +24,38 @@
         "ranks": 3, "cost": [30, 45, 60], "perRank": { "perception": 1 } },
       { "id": "stealth", "name": "Stealth", "description": "Quieter footsteps; harder to spot when sneaking.",
         "ranks": 3, "cost": [30, 45, 60], "perRank": { "stealth": 1 } }
+    ]},
+    { "id": "arms", "name": "Arms", "skills": [
+      { "id": "war_cry", "name": "War Cry", "description": "Shake the nerve of every squad nearby.",
+        "ranks": 1, "cost": [40], "ability": "war_cry" },
+      { "id": "crushing_blow", "name": "Crushing Blow", "description": "A heavy hit that always staggers.",
+        "ranks": 1, "cost": [60], "ability": "crushing_blow" },
+      { "id": "hold_the_line", "name": "Hold the Line", "description": "Stand still: more armour, and hit back more often, in any gear.",
+        "ranks": 1, "cost": [70], "special": "hold_line" }
+    ]},
+    { "id": "hunt", "name": "The Hunt", "skills": [
+      { "id": "volley", "name": "Volley", "description": "Two arrows at once.",
+        "ranks": 1, "cost": [40], "ability": "hunters_volley" },
+      { "id": "pinning_shot", "name": "Pinning Shot", "description": "An arrow that stops them in their tracks.",
+        "ranks": 1, "cost": [50], "ability": "pinning_shot" },
+      { "id": "skirmisher", "name": "Skirmisher", "description": "No penalty for shooting at close quarters.",
+        "ranks": 1, "cost": [60], "special": "skirmisher" }
+    ]},
+    { "id": "shadow", "name": "Shadow", "skills": [
+      { "id": "backstab", "name": "Backstab", "description": "Double damage on anyone not yet fighting you.",
+        "ranks": 1, "cost": [40], "special": "backstab" },
+      { "id": "vanish_skill", "name": "Vanish", "description": "Jump away and go unseen for a few turns.",
+        "ranks": 1, "cost": [50], "ability": "vanish" },
+      { "id": "shadow_strike", "name": "Shadow Strike", "description": "Cross the gap in a blink and strike.",
+        "ranks": 1, "cost": [70], "ability": "shadow_strike" }
+    ]},
+    { "id": "rites", "name": "Old Rites", "skills": [
+      { "id": "cinder_bolt", "name": "Cinder Bolt", "description": "Burn someone from afar. Each rank adds to your Magic.",
+        "ranks": 2, "cost": [40, 70], "perRank": { "magic": 1 }, "ability": "cinder_bolt" },
+      { "id": "mend", "name": "Mend", "description": "Close your own wounds.",
+        "ranks": 1, "cost": [50], "ability": "mend" },
+      { "id": "life_drain", "name": "Life Drain", "description": "Take their strength for your own.",
+        "ranks": 1, "cost": [70], "ability": "life_drain" }
     ]},
     { "id": "survival", "name": "Survival", "skills": [
       { "id": "thick_skin", "name": "Thick Skin", "description": "Shrug off part of every hit.",

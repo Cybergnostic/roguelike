@@ -59,6 +59,7 @@ public sealed class CommandPlayer(World world)
                 var goal = new Point(Arg(1, 0), Arg(2, 0));
                 return Repeat(200, () => world.StepAroundOthers(p, goal, knownOnly: true) is { } d ? new MoveAction(d) : null, interruptible: true);
             }
+            case "use" when c.Length > 1: return [new UseAbilityAction(c[1], c.Length > 2 ? Arg(2, -1) : null)];
             case "charge": return [new ChargeAction(Arg(1, -1))];
             case "fight": return Fight(Arg(1, -1), Arg(2, 12));
             case "attack": return [new AttackAction(Arg(1, -1))];

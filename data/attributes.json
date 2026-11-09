@@ -11,8 +11,8 @@
       "perModifier": { "accuracy": 1, "evasion": 1, "rangedAttack": 0.5, "stealth": 1 } },
     { "id": "con", "name": "Constitution", "description": "Hit points.",
       "perModifier": { "maxHp": 3 } },
-    { "id": "int", "name": "Intelligence", "description": "Learn faster: more XP from everything.",
-      "perModifier": { "xpGain": 10 } },
+    { "id": "int", "name": "Intelligence", "description": "Learn faster, and channel more power into spells.",
+      "perModifier": { "xpGain": 10, "magic": 1 } },
     { "id": "wis", "name": "Wisdom",       "description": "Recover faster, treat wounds, and tell what you hear.",
       "perModifier": { "regen": 1, "potionHealing": 10, "perception": 1 } },
     // Nothing to persuade yet: Charisma will matter once you can talk to factions.

@@ -60,6 +60,9 @@ public sealed class TacticalBot : IPlayerBot
             (_depth, _arrivedTurn) = (world.Depth, world.Turn);
         bool overstayed = world.Turn - _arrivedTurn > LevelTurnBudget;
 
+        if (threats.Count > 0 && UseSkill(world, me, threats, hp) is { } skill)
+            return skill;
+
         // 1. Survival.
         if (threats.Count > 0 && hp < 0.5 && Potion(me) is { } potion)
             return new DrinkAction(potion.Id);
@@ -277,15 +280,44 @@ public sealed class TacticalBot : IPlayerBot
         return best;
     }
 
+    /// <summary>Whichever known skill is ready and worth using now.</summary>
+    private static GameAction? UseSkill(World world, Actor me, List<Actor> threats, double hp)
+    {
+        if (me.Character is not { } c)
+            return null;
+        foreach (var skill in c.ActiveSkills)
+        {
+            var ability = world.Content.Abilities[skill.Ability!];
+            if (ability.Kind == Content.AbilityKind.Heal && hp < 0.6 && world.AbilityProblem(me, ability, null) is null)
+                return new UseAbilityAction(ability.Id);
+            if (ability.Kind == Content.AbilityKind.Frighten && threats.Count >= 2 && world.AbilityProblem(me, ability, null) is null)
+                return new UseAbilityAction(ability.Id);
+            if (ability.Kind == Content.AbilityKind.Vanish && hp < 0.3 && world.AbilityProblem(me, ability, null) is null)
+                return new UseAbilityAction(ability.Id);
+            if (ability.NeedsTarget)
+                foreach (var target in threats.OrderBy(t => World.Distance(t.Position, me.Position)))
+                    if (world.AbilityProblem(me, ability, target) is null)
+                        return new UseAbilityAction(ability.Id, target.Id);
+        }
+        return null;
+    }
+
     private GameAction? SpendXp(World world, Actor me)
     {
         if (me.Character is not { } c)
             return null;
+        // A class's own skills come first.
+        if (c.Class is { } own)
+            foreach (var tree in world.Content.SkillTrees.Where(t => own.Trees.Contains(t.Id) && own.Starts.Any(s => world.Content.Skills[s].Tree == t.Id)))
+                foreach (var skill in tree.Skills)
+                    if (c.CheckLearn(skill.Id) is null)
+                        return new LearnSkillAction(skill.Id);
+
         for (int i = 0; i < BuildPlan.Length; i++)
         {
             var step = BuildPlan[i];
             var id = step[(step.IndexOf(':') + 1)..];
-            if (!world.Content.Skills.ContainsKey(id))
+            if (!world.Content.Skills.TryGetValue(id, out var planned) || !c.CanLearnFrom(planned.Tree))
                 continue;
             int wanted = BuildPlan.Take(i + 1).Count(s => s == step); // this entry is that skill's Nth rank
             if (c.Rank(id) >= wanted)

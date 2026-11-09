@@ -4,11 +4,14 @@ using SadConsole.Configuration;
 
 Settings.WindowTitle = "Roguelike";
 
-// Usage: Roguelike.App [--seed N] [--spectate] [--follow FILE [--surface] [--pace SECONDS]] [--dungeon]
+// Usage: Roguelike.App [--seed N] [--class soldier|ranger|rogue|mystic] [--spectate] [--follow FILE [--surface] [--pace SECONDS]] [--dungeon]
 int seedIndex = Array.IndexOf(args, "--seed");
 if (seedIndex >= 0 && seedIndex + 1 < args.Length && ulong.TryParse(args[seedIndex + 1], out var seed))
     GameScreen.StartSeed = seed;
 GameScreen.StartSpectating = args.Contains("--spectate");
+int classIndex = Array.IndexOf(args, "--class");
+if (classIndex >= 0 && classIndex + 1 < args.Length)
+    GameScreen.StartClass = args[classIndex + 1];
 int followIndex = Array.IndexOf(args, "--follow");
 if (followIndex >= 0 && followIndex + 1 < args.Length)
     GameScreen.FollowFile = Path.GetFullPath(args[followIndex + 1]);

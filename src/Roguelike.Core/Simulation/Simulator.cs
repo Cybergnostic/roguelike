@@ -39,9 +39,9 @@ public sealed record LevelArrival(int Depth, int Turn, int MaxHp, int Attack, in
 /// <summary>Runs games without a window and counts what happened. The basis for balance work.</summary>
 public static class Simulator
 {
-    public static GameResult Run(ulong seed, IPlayerBot bot, int maxTurns, bool observer = false)
+    public static GameResult Run(ulong seed, IPlayerBot bot, int maxTurns, bool observer = false, string? classId = null)
     {
-        var world = World.Create(seed);
+        var world = World.Create(seed, classId: classId);
         world.ObserverMode = observer;
 
         int squadsAtStart = world.Squads.Count;

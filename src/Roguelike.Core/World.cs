@@ -173,8 +173,9 @@ public sealed class World
     private int _nextId;
     private readonly int _width, _height;
 
-    private World(ulong seed, int width, int height, ContentDatabase content, int depth)
+    private World(ulong seed, int width, int height, ContentDatabase content, int depth, string? classId)
     {
+        _class = classId is null ? null : content.Classes.First(c => c.Id == classId);
         Seed = seed;
         Content = content;
         _playRng = new MizuchiRandom(seed);
@@ -583,8 +584,11 @@ public sealed class World
         }
     }
 
-    public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null, int depth = 1) =>
-        new(seed, width, height, content ?? ContentDatabase.Default, depth);
+    public static World Create(ulong seed, int width = 80, int height = 24, ContentDatabase? content = null, int depth = 1, string? classId = null) =>
+        new(seed, width, height, content ?? ContentDatabase.Default, depth, classId);
+
+    /// <summary>The class the player started as; null for a classless wanderer.</summary>
+    private readonly ClassDef? _class;
 
     /// <summary>How deep this level is (1 = the first). Gates which items and +X values can appear.</summary>
     public int Depth => _location.Depth;
@@ -973,7 +977,7 @@ public sealed class World
     public int HitChance(Actor attacker, Actor target, bool ranged, int accuracyBonus = 0)
     {
         var rules = Content.Combat;
-        int accuracy = attacker.Accuracy + accuracyBonus - (ranged && IsAdjacent(attacker.Position, target.Position) ? rules.PointBlankPenalty : 0);
+        int accuracy = attacker.Accuracy + accuracyBonus - (ranged && IsAdjacent(attacker.Position, target.Position) && !attacker.HasSpecial("skirmisher") ? rules.PointBlankPenalty : 0);
         if (!ranged)
             accuracy += attacker.Equipment?.Weapon?.Def.Accuracy ?? 0;
         return Math.Clamp(rules.BaseHitChance + rules.HitChancePerPoint * (accuracy - target.Evasion),
@@ -1000,6 +1004,11 @@ public sealed class World
             return;
         }
         int strength = power ?? (ranged ? attacker.RangedAttack : attacker.Attack);
+        if (!ranged && attacker.HasSpecial("backstab") && SquadOf(target) is { State: not SquadState.Engage })
+        {
+            strength *= 2;
+            Emit(new SpecialUsed(attacker.Id, "backstab", target.Id));
+        }
         int roll = Rng.NextInt(1, Math.Max(1, strength) + 1);
         int armour = target.Defense + target.BraceBonus + (ranged ? target.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0);
         if (ranged && attacker.HasSpecial("piercing"))
@@ -1027,7 +1036,7 @@ public sealed class World
         }
         // Feet set in heavy gear: the first one to come at you each turn gets hit back.
         if (target == Player && !attacker.IsDead && !target.IsDead && target.BraceBonus > 0 && _counteredOnTurn != Turn
-            && Rng.NextInt(100) < (target.Equipment?.Armor?.Def.Counter ?? 0))
+            && Rng.NextInt(100) < target.CounterChance)
         {
             _counteredOnTurn = Turn;
             Emit(new SpecialUsed(target.Id, "counter", attacker.Id));
@@ -1037,6 +1046,70 @@ public sealed class World
 
     private int _counteredOnTurn = -1;
     private int _chargeReadyOn;
+    private readonly Dictionary<string, int> _abilityReadyOn = [];
+
+    /// <summary>Turns until the player can use this skill again; 0 when ready.</summary>
+    public int CooldownLeft(AbilityDef ability) => Math.Max(0, _abilityReadyOn.GetValueOrDefault(ability.Id) - Turn);
+
+    public void StartCooldown(AbilityDef ability) => _abilityReadyOn[ability.Id] = Turn + ability.Cooldown;
+
+    /// <summary>Why the player can't use this skill on this target now, or null if they can.</summary>
+    public FailureReason? AbilityProblem(Actor actor, AbilityDef ability, Actor? target)
+    {
+        if (actor.Character?.KnowsAbility(ability.Id) != true)
+            return FailureReason.AbilityUnknown;
+        if (CooldownLeft(ability) > 0)
+            return FailureReason.AbilityNotReady;
+        if (ability.NeedsBow && actor.Equipment?.Bow is null)
+            return FailureReason.NoBow;
+        if (!ability.NeedsTarget)
+            return ability.Kind == AbilityKind.Vanish && AbilityLanding(actor, ability, null) is null ? FailureReason.NoLineOfFire : null;
+        if (target is null || target.IsDead || !CouldFight(actor, target))
+            return FailureReason.NoTarget;
+
+        int distance = Distance(actor.Position, target.Position);
+        int reach = ability.Kind == AbilityKind.Bash ? 1 : ability.NeedsBow ? actor.Range : ability.Range;
+        if (distance > reach)
+            return FailureReason.OutOfRange;
+        if (ability.Kind == AbilityKind.Charge)
+            return ChargeLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
+        return ability.Kind != AbilityKind.Bash && !HasClearShot(actor.Position, target.Position) ? FailureReason.NoLineOfFire : null;
+    }
+
+    /// <summary>Where a skill that moves its user puts them.</summary>
+    public Point? AbilityLanding(Actor actor, AbilityDef ability, Actor? target)
+    {
+        if (ability.Kind == AbilityKind.Charge && target is not null)
+            return ChargeLanding(actor, target);
+        if (ability.Kind != AbilityKind.Vanish)
+            return null;
+        var threats = _actors.Where(a => a != actor && !a.IsDead && AreHostile(a, actor) && PlayerCanSee(a)).Select(a => a.Position).ToList();
+        var spots = Map.Tiles.Positions().Where(p => IsFree(p) && Distance(p, actor.Position) <= ability.Range && Distance(p, actor.Position) >= 2 && HasLineOfSight(actor.Position, p)).ToList();
+        return spots.Count == 0 ? null : spots.MaxBy(p => threats.Count == 0 ? Distance(p, actor.Position) : threats.Min(t => Distance(p, t)));
+    }
+
+    /// <summary>Every squad near enough to hear it loses its nerve a little.</summary>
+    public void Frighten(Actor actor, AbilityDef ability)
+    {
+        foreach (var squad in _squads.Where(s => !s.IsFearless && s.Members.Any(m => !m.IsDead && AreHostile(m, actor) && Distance(m.Position, actor.Position) <= ability.Range)))
+            squad.Morale -= ability.Amount;
+    }
+
+    public void StaggerIfAlive(Actor target, Actor by)
+    {
+        if (!target.IsDead && target.Rank != Rank.Boss)
+            Stagger(target, by);
+    }
+
+    /// <summary>After a vanishing act: anyone who was fighting the player only knows where they last were.</summary>
+    public void ForgetWhereThePlayerIs()
+    {
+        foreach (var squad in _squads.Where(s => s.State == SquadState.Engage && s.TargetId == Player.Id))
+        {
+            squad.State = SquadState.Alert;
+            squad.Destination = squad.LastKnownTarget;
+        }
+    }
 
     private const int StaggeredPlayerLoses = 60;
 
@@ -1332,6 +1405,8 @@ public sealed class World
         if (target.IsDead || IsUntouchable(target))
             return false;
         int dx = observer.Position.X - target.Position.X, dy = observer.Position.Y - target.Position.Y;
+        if (target.HiddenUntil > Turn && !IsAdjacent(observer.Position, target.Position))
+            return false;
         double reach = target.Sneaking ? Math.Max(1.5, Content.Dungeon.SneakSight - target.Bonus(Stat.Stealth) * 0.5) : Math.Sqrt(SightRadiusSquared);
         return dx * dx + dy * dy <= reach * reach && HasLineOfSight(observer.Position, target.Position);
     }
@@ -1619,14 +1694,14 @@ public sealed class World
         var def = Content.Player;
         var player = AddActor(new Actor(_nextId++, "player", Content.PlayerFaction, at, def.MaxHp, def.Attack, def.Defense)
         {
-            Character = new Character(Content, def.Attributes),
+            Character = new Character(Content, _class?.Attributes ?? def.Attributes, _class),
             BaseAccuracy = def.Accuracy,
             BaseEvasion = def.Evasion,
             Inventory = new Inventory(def.InventoryCapacity),
             Equipment = new Equipment(),
-            Gold = def.Gold,
+            Gold = _class?.Gold ?? def.Gold,
         });
-        foreach (var k in def.Kit)
+        foreach (var k in _class?.Kit ?? def.Kit)
         {
             var item = player.Inventory!.Add(CreateItem(Content.Items[k.Item], k.Enchantment, k.Count));
             if (k.Equip)

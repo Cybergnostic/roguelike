@@ -275,7 +275,7 @@ public sealed partial class GameScreen
         ("g", "Pick up"), ("e", "Equip"),
         ("q", "Drink"), ("<>", "Stairs"),
         ("z", "Sneak"), ("C", "Close gate"),
-        ("v", "Charge"), ("1-3", "Answer"),
+        ("v", "Charge"), ("a", "Skills"),
     ];
 
     private void DrawKeys()
@@ -287,7 +287,7 @@ public sealed partial class GameScreen
         for (int i = 0; i < KeyGuide.Length; i++)
         {
             var (key, what) = KeyGuide[i];
-            int x = 2 + i % 2 * 17, y = 1 + i / 2;
+            int x = 2 + i % 2 * 17, y = i / 2;
             _keys.Print(x, y, key, Theme.Warning, Theme.LogBackground);
             _keys.Print(x + key.Length + 1, y, what, Theme.TextDim, Theme.LogBackground);
         }

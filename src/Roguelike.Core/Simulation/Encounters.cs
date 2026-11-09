@@ -17,7 +17,7 @@ public static class Encounters
     private const int MaxTurns = 400;
     private const int StartDistance = 8;
 
-    public static IReadOnlyList<EncounterResult> Run(int seeds, ulong start = 0)
+    public static IReadOnlyList<EncounterResult> Run(int seeds, ulong start = 0, string? classId = null)
     {
         var groups = Content.ContentDatabase.Default.Surface.Groups;
         var fights = groups.Select((g, i) => (g.Name, g.Faction, Index: i))
@@ -28,21 +28,21 @@ public static class Encounters
         if (den.Length > 1)
             fights.Add(("the whole bandit den", den));
 
-        return fights.Select(f => Play(f.Name, f.Squads, seeds, start)).ToList();
+        return fights.Select(f => Play(f.Name, f.Squads, seeds, start, classId)).ToList();
     }
 
-    private static EncounterResult Play(string name, int[] squadIndexes, int seeds, ulong start)
+    private static EncounterResult Play(string name, int[] squadIndexes, int seeds, ulong start, string? classId)
     {
         var outcomes = Enumerable.Range(0, seeds).AsParallel().AsOrdered()
-            .Select(i => PlayOne(start + (ulong)i, squadIndexes)).ToList();
+            .Select(i => PlayOne(start + (ulong)i, squadIndexes, classId)).ToList();
         var won = outcomes.Where(o => o.Won).ToList();
         return new EncounterResult(name, seeds, won.Count, outcomes.Count(o => o.Died),
             won.Count == 0 ? 0 : won.Average(o => o.HpLeft), outcomes.Average(o => o.Turns));
     }
 
-    private static (bool Won, bool Died, double HpLeft, int Turns) PlayOne(ulong seed, int[] squadIndexes)
+    private static (bool Won, bool Died, double HpLeft, int Turns) PlayOne(ulong seed, int[] squadIndexes, string? classId)
     {
-        var world = World.Create(seed, depth: World.SurfaceDepth);
+        var world = World.Create(seed, depth: World.SurfaceDepth, classId: classId);
         var enemies = squadIndexes.Select(i => world.Squads[i]).SelectMany(s => s.Members).ToList();
         foreach (var other in world.Actors.Where(a => a != world.Player && !enemies.Contains(a)))
             other.Hp = 0;
