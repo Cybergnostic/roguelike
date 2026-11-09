@@ -121,6 +121,7 @@ string? Describe(GameEvent e) => e switch
     TollPaid t => $"*** you pay {t.Price} gold: {t.Turns} turns in {t.ZoneName} ***",
     PassRunningOut r => $"a guard warns you: {r.TurnsLeft} turns of paid time left",
     PassExpired x => x.Inside ? "*** your paid time is over and you are still inside ***" : "*** your paid time is over ***",
+    LoreDiscovered d => $"*** you read a stone about the {d.Era.Kind} ***",
     TheftCommitted t => t.WitnessId is { } w ? $"*** {Name(w)} sees you steal ***" : "you steal it unseen",
     IncursionBegan i => $"*** {i.FactionId} march on {i.ZoneName} ***",
     ObjectiveCompleted o => $"*** errand done: {o.Item.Def.Name} delivered, +{o.Gold} gold, +{o.Xp} XP ***",
@@ -222,7 +223,7 @@ void Print()
             else if (fov[pt] && world.Corpses.Any(k => k.Position == pt)) ch = '%';
             else ch = map.Tiles[pt].ToString() switch
             {
-                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
+                "Wall" => '#', "Pillar" => 'O', "StairsDown" => '>', "StairsUp" => '<', "CaveMouth" => '>', "Road" => '=', "Brush" => ';', "Tree" => 'T', "Palisade" => '#', "GateOpen" => '/', "GateClosed" => '+', "Waystone" => 'W', "Inscription" => '"', "Rubble" => 'o', "LairFloor" => fov[pt] ? ',' : ';', _ => fov[pt] ? '.' : ':',
             };
             sb.Append(ch);
         }

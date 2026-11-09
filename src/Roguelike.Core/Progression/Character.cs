@@ -127,4 +127,6 @@ public sealed class Character
 
     /// <summary>Marks a first encounter ("kind:goblin_archer", "zone:the tower"). True the first time only.</summary>
     internal bool Discover(string key) => _discovered.Add(key);
+
+    public bool HasDiscovered(string key) => _discovered.Contains(key);
 }

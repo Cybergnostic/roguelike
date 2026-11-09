@@ -41,6 +41,8 @@
     "gateopen":   { "glyph": "/", "color": "#C89A5A" },
     "gateclosed": { "glyph": "+", "color": "#C89A5A" },
     "cavemouth":  { "glyph": ">", "color": "#B0A090" },
-    "waystone":   { "glyph": 239, "color": "#C8C8D2" }
+    "waystone":   { "glyph": 239, "color": "#C8C8D2" },
+    "inscription": { "glyph": 234, "color": "#D8C890" },
+    "rubble":      { "glyph": 177, "color": "#7A7468" }
   }
 }

@@ -111,7 +111,12 @@ public enum XpSource
     Zone,
     /// <summary>An errand finished; Subject is the item's id.</summary>
     Objective,
+    /// <summary>An inscribed stone read; Subject is the era.</summary>
+    Lore,
 }
+
+/// <summary>The player read an inscribed stone for the first time.</summary>
+public sealed record LoreDiscovered(History.Era Era) : GameEvent;
 
 /// <summary>Subject: the monster kind (kills, sightings) or the zone name.</summary>
 public sealed record XpGained(int ActorId, int Amount, XpSource Source, string Subject) : GameEvent;

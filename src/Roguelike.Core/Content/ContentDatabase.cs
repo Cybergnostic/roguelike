@@ -131,6 +131,20 @@ public sealed record PlaceObjective(string Item, int[] At, int[] ReturnTo, int X
 /// <summary>On turn Turn, a squad of Faction appears on the map and marches on the zone Target.</summary>
 public sealed record PlaceIncursion(int Turn, string Faction, string Target, IReadOnlyList<PlaceMember> Members);
 
+/// <summary>How the site's past is rolled (history.json); see <see cref="History.SiteHistory"/>.</summary>
+public sealed record HistoryDef(int[] MineDepth, IReadOnlyList<FallOption> Falls, int WorkingsRooms, BattlefieldDef Battlefield,
+    CollapseDef Collapse, HeirloomDef Heirloom, int LoreXp, HistoryNames Names);
+
+public sealed record FallOption(History.FallKind Kind, int Weight);
+public sealed record BattlefieldDef(IReadOnlyList<CorpseEntry> Corpses, string Squad, int Squads);
+public sealed record CollapseDef(int Rooms, int Items);
+public sealed record HeirloomChoice(string Item, int Weight);
+public sealed record HeirloomDef(IReadOnlyList<HeirloomChoice> Items, int Enchantment, int[] Affixes, bool Special);
+public sealed record HistoryNames(IReadOnlyList<string> FounderFirst, IReadOnlyList<string> FounderLast,
+    IReadOnlyList<string> ClanFirst, IReadOnlyList<string> ClanLast,
+    IReadOnlyList<string> NecromancerFirst, IReadOnlyList<string> NecromancerLast,
+    IReadOnlyList<string> HeirloomFirst, IReadOnlyList<string> HeirloomLast);
+
 /// <summary>A hand-drawn map (surface.json): terrain as rows of characters, plus who and what is on it.</summary>
 public sealed record PlaceDef(string Name, IReadOnlyDictionary<string, Map.Tile> Legend, IReadOnlyList<string> Rows, int[] Start,
     IReadOnlyList<PlaceZone> Zones, IReadOnlyList<PlaceGroup> Groups, IReadOnlyList<PlaceLoot> Loot,
@@ -169,6 +183,7 @@ public sealed class ContentDatabase
 
     /// <summary>The hand-drawn surface map (surface.json).</summary>
     public PlaceDef Surface { get; }
+    public HistoryDef History { get; }
     public IReadOnlyList<AttributeDef> Attributes { get; }
     public AttributeRaiseRules AttributeRaise { get; }
     public IReadOnlyList<SkillTreeDef> SkillTrees { get; }
@@ -201,9 +216,10 @@ public sealed class ContentDatabase
         Dictionary<string, MonsterDef> monsters, SpawnFile spawns,
         Dictionary<string, ItemDef> items, ItemFile itemFile, PlayerDef player,
         List<AttributeDef> attributes, AttributeRaiseRules raise, List<SkillTreeDef> trees, CombatRules combat,
-        DungeonDef dungeon, AffixRules affixes, PlaceDef surface)
+        DungeonDef dungeon, AffixRules affixes, PlaceDef surface, HistoryDef history)
     {
         Surface = surface;
+        History = history;
         Affixes = affixes;
         Combat = combat;
         Dungeon = dungeon;
@@ -352,9 +368,40 @@ public sealed class ContentDatabase
         var surface = Read<PlaceDef>(directory, "surface.json");
         ValidateSurface(surface, factions, monsters, itemFile);
 
+        var history = Read<HistoryDef>(directory, "history.json");
+        ValidateHistory(history, dungeon, spawnFile, monsters, items);
+
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes, surface);
+            attributes, raise, trees, combat, dungeon, affixes, surface, history);
+    }
+
+    private static void ValidateHistory(HistoryDef history, DungeonDef dungeon, SpawnFile spawnFile,
+        Dictionary<string, MonsterDef> monsters, Dictionary<string, ItemDef> items)
+    {
+        const string name = "history.json";
+        // The necromancer's stone goes one level below the mine, so the mine must end above the bottom.
+        if (history.MineDepth is not [var min, var max] || min < 2 || max < min || max + 1 > dungeon.Levels)
+            throw Error(name, $"mineDepth must be [min, max] with 2 <= min <= max and max below the last level ({dungeon.Levels})");
+        if (history.Falls.Count == 0 || history.Falls.Any(f => f.Weight <= 0))
+            throw Error(name, "falls needs at least one entry, all with positive weights");
+        if (history.WorkingsRooms < 0 || history.LoreXp < 0 || history.Collapse.Rooms < 0 || history.Collapse.Items < 0 || history.Battlefield.Squads < 0)
+            throw Error(name, "counts and xp can't be negative");
+        if (spawnFile.Squads.All(s => s.Name != history.Battlefield.Squad))
+            throw Error(name, $"battlefield squad '{history.Battlefield.Squad}' isn't a squad in spawns.json");
+        foreach (var corpse in history.Battlefield.Corpses)
+            if (!monsters.ContainsKey(corpse.Monster))
+                throw Error(name, $"battlefield corpses use unknown monster '{corpse.Monster}'");
+        if (history.Heirloom.Items.Count == 0 || history.Heirloom.Items.Any(i => i.Weight <= 0))
+            throw Error(name, "heirloom needs items, all with positive weights");
+        foreach (var choice in history.Heirloom.Items)
+            if (!items.TryGetValue(choice.Item, out var def) || !def.IsEquipment)
+                throw Error(name, $"heirloom item '{choice.Item}' must be a weapon, bow or armor");
+        if (history.Heirloom.Affixes is not [var low, var high] || low < 0 || high < low)
+            throw Error(name, "heirloom affixes must be [min, max] with 0 <= min <= max");
+        var n = history.Names;
+        if (new[] { n.FounderFirst, n.FounderLast, n.ClanFirst, n.ClanLast, n.NecromancerFirst, n.NecromancerLast, n.HeirloomFirst, n.HeirloomLast }.Any(l => l.Count == 0))
+            throw Error(name, "every name list needs at least one entry");
     }
 
     private static void ValidateSurface(PlaceDef place, Dictionary<string, Faction> factions,

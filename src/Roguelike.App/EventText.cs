@@ -47,6 +47,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         PassRunningOut p => $"A guard snarls: \"{p.TurnsLeft} turns and your time is up. Get out, or pay again at the gate.\"",
         PassExpired { Inside: true } => "\"Time's up!\" Your paid time is over, and you're still inside.",
         PassExpired => "Your paid time at the camp is over.",
+        LoreDiscovered => "Old words are carved into this stone. You stop and read them. (m: what the stones tell)",
+        XpGained { Source: XpSource.Lore } x => $"You understand this place a little better. (+{x.Amount} XP)",
         TheftCommitted { WitnessId: { } guard } => $"{Cap(Name(guard))} sees you take it!",
         TheftCommitted => "Nobody saw you take it.",
         IncursionBegan i => $"{Cap(world.Content.Factions[i.FactionId].Name)} are marching on {i.ZoneName}!",

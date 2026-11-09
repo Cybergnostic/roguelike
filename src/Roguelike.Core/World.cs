@@ -5,6 +5,7 @@ using Roguelike.Core.AI.Squads;
 using Roguelike.Core.AI.Strategy;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
+using Roguelike.Core.History;
 using Roguelike.Core.Items;
 using Roguelike.Core.Map;
 using Roguelike.Core.Progression;
@@ -50,6 +51,9 @@ public sealed class World
     public int Turn { get; private set; }
     public IReadOnlyList<Actor> Actors => _actors;
     public IReadOnlyList<Squad> Squads => _squads;
+
+    /// <summary>What happened here before the player came.</summary>
+    public SiteHistory History { get; }
 
     /// <summary>Distance map toward the player (debug heatmap, tests, bots).</summary>
     public DistanceMap TowardPlayer => _location.TowardPlayer;
@@ -160,10 +164,14 @@ public sealed class World
         Content = content;
         _playRng = new MizuchiRandom(seed);
         (_width, _height) = (width, height);
+        History = SiteHistory.Generate(content.History, new MizuchiRandom(LocationSeed(seed, HistoryStream)));
         BeginLocation(depth);
         Player = CreatePlayer(depth == SurfaceDepth ? new Point(content.Surface.Start[0], content.Surface.Start[1]) : Map.Rooms[0].Center);
         FinishLocation();
     }
+
+    /// <summary>Not a place: the "location" whose stream the site's history is rolled from.</summary>
+    private const int HistoryStream = -1;
 
     /// <summary>A map's own seed, from the world seed and where the map is (SplitMix64's mixer).</summary>
     private static ulong LocationSeed(ulong worldSeed, int depth)
@@ -197,12 +205,86 @@ public sealed class World
             PopulateSurface();
         else
         {
+            ShapeLevelFromHistory();
             SpawnSquads();
             SpawnFloorItems();
             PlaceStairs();
+            LeaveTracesOfHistory();
         }
         _generating = null;
         UpdatePerception();
+    }
+
+    /// <summary>The old mine's architecture, built before anyone is placed so nobody ends up inside a rock.</summary>
+    private void ShapeLevelFromHistory()
+    {
+        var rooms = Map.Rooms.Skip(1).OrderBy(_ => Rng.NextDouble()).ToList();
+        int workings = Depth <= History.MineDepth ? Math.Min(Content.History.WorkingsRooms, rooms.Count) : 0;
+        foreach (var room in rooms.Take(workings))
+            LairBuilder.Workings(Map, room);
+        if (Depth == History.FallDepth && History.Fall == FallKind.Collapse)
+            foreach (var room in rooms.Skip(workings).Take(Content.History.Collapse.Rooms))
+                LairBuilder.Rubble(Map, room, Rng);
+    }
+
+    /// <summary>What the past left on this level: its stone, and where the mine fell, the dead and the heirloom.</summary>
+    private void LeaveTracesOfHistory()
+    {
+        var lairRooms = _lairs.Select(l => l.Zone.Area).ToHashSet();
+        var rooms = Map.Rooms.Skip(1).Where(r => !lairRooms.Contains(r)).OrderBy(_ => Rng.NextDouble()).ToList();
+        if (rooms.Count == 0)
+            return;
+
+        if (History.Eras.Any(e => e.Depth == Depth) && QuietFloorCell(rooms) is { } stone)
+            Map.SetTile(stone, Tile.Inscription);
+        if (Depth != History.FallDepth)
+            return;
+
+        if (QuietFloorCell(rooms) is { } resting)
+            PlaceOnFloor(CreateHeirloom(), resting);
+
+        if (History.Fall == FallKind.War)
+        {
+            var field = Content.History.Battlefield;
+            foreach (var entry in field.Corpses)
+                for (int i = 0; i < entry.Count; i++)
+                    if (RandomFreeFloor(rooms[i % rooms.Count]) is { } p && !CorpsesAt(p).Any())
+                        _corpses.Add(new Corpse(_nextCorpseId++, entry.Monster, p, 0));
+            var template = Content.SquadTemplates.First(t => t.Name == field.Squad);
+            for (int i = 0; i < field.Squads; i++)
+                FillSquad(template, rooms[i % rooms.Count]);
+        }
+        else
+        {
+            for (int i = 0; i < Content.History.Collapse.Items; i++)
+                if (RollLoot("floor") is { } item && QuietFloorCell(rooms) is { } p)
+                    PlaceOnFloor(item, p);
+        }
+    }
+
+    /// <summary>A plain floor cell with nothing on it, in the first of these rooms that has one.</summary>
+    private Point? QuietFloorCell(List<Rectangle> rooms)
+    {
+        foreach (var room in rooms)
+            for (int tries = 0; tries < 20; tries++)
+                if (RandomFreeFloor(room) is { } p && Map.Tiles[p] == Tile.Floor && !ItemsAt(p).Any())
+                    return p;
+        return null;
+    }
+
+    /// <summary>The founder's own item: a named unique, the same quality in every game.</summary>
+    private Item CreateHeirloom()
+    {
+        var rules = Content.History.Heirloom;
+        var def = Content.Items[History.HeirloomItem];
+        return new(_nextItemId++, def)
+        {
+            Enchantment = rules.Enchantment,
+            Rarity = Rarity.Unique,
+            Affixes = RollAffixes(def.Category, DangerDepth, Rng.NextInt(rules.Affixes[0], rules.Affixes[1] + 1)),
+            Special = rules.Special ? Pick(Content.Affixes.Specials[def.Category]) : null,
+            NameWords = History.HeirloomWords,
+        };
     }
 
     /// <summary>The squads and loot drawn on the surface map.</summary>
@@ -367,6 +449,7 @@ public sealed class World
         }
 
         UpdatePerception();
+        ReadStoneUnderfoot();
         UpdateCamps();
         CheckObjective();
         LaunchIncursions();
@@ -515,6 +598,20 @@ public sealed class World
         Emit(new TheftCommitted(camp.Zone.Name, witness?.Id));
         if (witness is not null && !camp.Provoked)
             Alarm(camp);
+    }
+
+    private static string LoreKey(Era era) => "lore:" + era.Kind;
+
+    /// <summary>Whether the player has read the stone that tells this part of the past.</summary>
+    public bool KnowsOf(Era era) => Player.Character?.HasDiscovered(LoreKey(era)) == true;
+
+    private void ReadStoneUnderfoot()
+    {
+        if (Map.Tiles[Player.Position] != Tile.Inscription || Player.Character is not { } character
+            || History.Eras.FirstOrDefault(e => e.Depth == Depth) is not { } era || !character.Discover(LoreKey(era)))
+            return;
+        Emit(new LoreDiscovered(era));
+        GrantXp(XpSource.Lore, era.Kind.ToString(), Content.History.LoreXp);
     }
 
     /// <summary>Hands the errand's object over when the player carries it to the place it belongs.</summary>

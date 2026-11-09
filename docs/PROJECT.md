@@ -93,7 +93,8 @@ data/                        game content (JSON with comments), copied next to e
   player.json                player base stats, starting attributes, XP rules, inventory size, starting kit
   attributes.json            the six attributes: what each modifier point adds to derived stats; raise costs
   skills.json                skill trees: ranks, XP costs, prerequisites, per-rank stat bonuses, specials
-  surface.json               the hand-drawn valley: terrain rows + legend, start, zones, squads, loot
+  surface.json               the hand-drawn valley: terrain rows + legend, start, zones and tolls, squads, loot, errand, incursions
+  history.json               how the site's past is rolled: mine depth, kinds of fall, heirloom, name word lists
   looks.json                 front end only: glyph + colour per kind, item and tile
 src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   Content/ContentDatabase.cs loads + validates data/; ContentDatabase.Default reads ./data
@@ -120,6 +121,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   AI/IBrain.cs               per-actor decision interface
   AI/Squads/                 Squad (blackboard), SquadDirector (squad-level think), SquadMemberBrain (roles)
   AI/Strategy/FactionPlanner strategic layer, once per turn: lair musters and faction raids
+  History/SiteHistory.cs     the site's past as facts, rolled once per seed from its own stream; World shapes levels from it
   Simulation/                bots (AggressiveBot, IdleBot, TacticalBot), Simulator (headless games + stats),
                              CommandPlayer (scripted play), Exploration (auto-explore), ItemValue (bots' gear worth)
 src/Roguelike.App/           SadConsole front end
@@ -129,6 +131,7 @@ src/Roguelike.App/           SadConsole front end
   GameScreen.Items.cs        item commands, inventory menus, bow targeting
   GameScreen.Character.cs    character sheet (c): attributes, skill trees, derived stats; letters spend XP
   GameScreen.Examine.cs      examine mode (x) and the toll prompt (t); shows only what the player knows
+  GameScreen.Chronicle.cs    what the stones tell (m): words the site's history for the player
   ItemText.cs                item names ("+1 short sword", "keen dagger", "Grim Fang (+1 long sword)") and stat lines
   Theme.cs                   ALL visuals: glyphs, colours (swap for tiles later)
   EventText.cs               events -> log messages (unseen things become sounds)
@@ -229,7 +232,7 @@ inside rooms, monsters per level, kills split by "player" vs "others" per factio
 
 ### In-game keys
 Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stairs: `>` `<`. Gates: walk into one to open it, `C`
-closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
+closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Character sheet: `c` (letters spend XP).
 Debug: `F1` reveal map + all actors, `F2` squad overlay (tints, tinted ring = chase limit, `o` posts, `r` patrol stops, `R` rally,
@@ -352,9 +355,13 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: coins in the loot tables** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
-  - Won **35.4%**, died 61%. Coins replace "nothing" rolls and the bot ignores them, so this is noise.
+- **Current: the history generator** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
+  - Won **55.2%**, died 41%: far above the 20–30% target. Probably the guaranteed heirloom (a +2 unique on level 2–5,
+    not measured apart from the rest). Left as it is: the user will balance later.
+  - Death rate by depth: 9.5, 8.0, 3.4, 2.0, 2.3, 2.1, 4.2, 5.1, 6.7, 9.5%.
   - The bot only plays the dungeon; these numbers say nothing about the camp.
+- **Coins in the loot tables** (2026-11-09), same setup: won 35.4%, died 61%. Coins replace "nothing" rolls and the
+  bot ignores them, so this is noise.
 - **Squads search where they lost someone** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999):
   - Won **36.7%**, died 59%. Death rate by depth: 9.8, 8.7, 6.8, 3.4, 4.9, 4.5, 8.1, 10.8, 13.9, 17.7%.
 - **Honest enemy knowledge and stored levels** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999),
@@ -563,6 +570,12 @@ you, a quick way to see progression; spectating: time passes).
    - h. Human playtests against the §12 list, and balancing. **The user will do these later (2026-11-09):
      don't stop development to wait for them.**
 7. **History generator**: eras → map features → factions → artifacts
+   - ~~a. First version: `data/history.json` + `SiteHistory`, rolled per seed from its own stream: founder and clan,
+     mine depth, how and where it fell (war: the dead and skeleton patrols; collapse: fallen rock and left gear),
+     timber props on mine levels, the founder's unique heirloom, inscribed stones read by stepping on them, `m` chronicle~~
+     (done 2026-11-09)
+   - b. Later: the camp and factions vary with the history (now only the dungeon does), more kinds of fall,
+     per-level identity below the mine, factions that want the heirloom.
 8. **Crafting**: material tags + recipes + stations as places
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
 fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.

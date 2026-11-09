@@ -175,6 +175,7 @@ public sealed partial class GameScreen : ScreenObject
                 ActorAttacked a when a.TargetId == _world.Player.Id && a.Damage > 0 => Theme.Danger,
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
+                LoreDiscovered => Theme.Warning,
                 TheftCommitted { WitnessId: not null } => Theme.Danger,
                 IncursionBegan => Theme.Warning,
                 LevelEntered or GameWon or TollPaid or ObjectiveCompleted => Theme.Good,

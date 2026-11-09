@@ -1,0 +1,44 @@
+{
+  // The site's past, rolled once per seed before any map is built. It decides what the levels
+  // are like, what lies where, and what the inscribed stones tell.
+  // "mineDepth": [min, max] how many dungeon levels the dwarves dug.
+  "mineDepth": [3, 5],
+  // How the mine fell (on a level from 2 down to the bottom of the mine). "kind": war | collapse.
+  "falls": [
+    { "kind": "war",      "weight": 1 },
+    { "kind": "collapse", "weight": 1 }
+  ],
+  // Old timber props stand in this many rooms of every mine level: cover, and a sign of who dug here.
+  "workingsRooms": 2,
+  // War: the dead lie where they fell, and some of them still walk.
+  "battlefield": {
+    "corpses": [ { "monster": "skeleton_warrior", "count": 8 }, { "monster": "goblin_warrior", "count": 4 } ],
+    "squad": "skeleton patrol",
+    "squads": 2
+  },
+  // Collapse: fallen rock in this many rooms, and what the miners left behind.
+  "collapse": { "rooms": 4, "items": 3 },
+  // The founder's own item, left on the level where the mine fell: "items" by weight, always this good.
+  "heirloom": {
+    "items": [
+      { "item": "long_sword", "weight": 3 },
+      { "item": "long_bow",   "weight": 1 },
+      { "item": "chain_mail", "weight": 2 }
+    ],
+    "enchantment": 2,
+    "affixes": [2, 3],
+    "special": true
+  },
+  // XP for reading an inscribed stone.
+  "loreXp": 20,
+  "names": {
+    "founderFirst": ["Bor", "Dur", "Gar", "Hel", "Kor", "Mar", "Rag", "Tor", "Ulf", "Vor"],
+    "founderLast":  ["dan", "gun", "mek", "orn", "rak", "sten", "ulf", "var"],
+    "clanFirst":    ["Ash", "Deep", "Grey", "Iron", "Long", "Red", "Stone", "Tin"],
+    "clanLast":     ["beard", "delve", "fist", "hand", "hewer", "shaft"],
+    "necromancerFirst": ["Asha", "Ilva", "Morta", "Nessa", "Oren", "Sevra", "Tobin", "Veshna"],
+    "necromancerLast":  ["the Pale", "the Unburied", "of the Ninth Bell", "Grave-Singer", "Ash-Handed"],
+    "heirloomFirst": ["Ember", "Grudge", "Last", "Oath", "Silent", "Widow"],
+    "heirloomLast":  ["Bearer", "Keeper", "Maker", "Oath", "Song", "Word"]
+  }
+}
