@@ -108,6 +108,8 @@ public sealed class Squad
         TargetId = attacker.Id;
         LastKnownTarget = attacker.Position;
         LastSeenTurn = turn;
+        _stretch = PursuitStretch;
+        _stretchedUntil = turn + PursuitTurns;
         if (State is SquadState.Idle or SquadState.Alert)
         {
             State = SquadState.Alert;
@@ -138,6 +140,7 @@ public sealed class Squad
         LastSeenTurn = -1;
         HelpTargetSquadId = null;
         HoldTurns = 0;
+        _stretch = 0;
         CallOffRaid();
         ClearSightings();
     }
@@ -159,7 +162,20 @@ public sealed class Squad
     /// <summary>Walking distance from home (infinite where unreachable or unleashed).</summary>
     public double DistanceFromHome(Point p) => HomeDistance?[p] ?? double.MaxValue;
 
-    public bool WithinLeash(Point p) => !IsLeashed || DistanceFromHome(p) <= Leash;
+    /// <summary>How much farther than its leash a squad will go after someone who has just hurt it.</summary>
+    public const int PursuitStretch = 12;
+    private const int PursuitTurns = 25;
+
+    private int _stretch, _stretchedUntil;
+
+    public bool WithinLeash(Point p) => !IsLeashed || DistanceFromHome(p) <= Leash + _stretch;
+
+    /// <summary>Lets go of a chase that has run out of anger.</summary>
+    internal void CoolDown(int turn)
+    {
+        if (turn > _stretchedUntil)
+            _stretch = 0;
+    }
 
     /// <summary>The camp this squad defends, if any; it decides who the squad treats as an enemy.</summary>
     public Camp? Camp { get; set; }

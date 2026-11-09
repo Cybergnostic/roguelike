@@ -268,7 +268,7 @@ public class NecromancerTests
             for (int t = 0; t < 400 && !necromancer.IsDead; t++)
             {
                 world.Step(new WaitAction());
-                Assert.True(squad.WithinLeash(necromancer.Position),
+                Assert.True(squad.DistanceFromHome(necromancer.Position) <= squad.Leash + Squad.PursuitStretch,
                     $"seed {seed} turn {t}: necromancer {squad.DistanceFromHome(necromancer.Position)} steps from home");
             }
         }

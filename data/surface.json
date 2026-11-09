@@ -101,6 +101,13 @@
       { "monster": "villager", "at": [119, 23] },
       { "monster": "villager", "at": [113, 20] }
     ] },
+    { "name": "hamlet watch", "faction": "folk", "leash": 20, "home": [113, 20], "rally": [113, 21], "members": [
+      { "monster": "watchman", "at": [111, 19] },
+      { "monster": "watchman", "at": [115, 19] },
+      { "monster": "watchman", "at": [111, 21] },
+      { "monster": "hunter",   "at": [113, 22] },
+      { "monster": "hunter",   "at": [116, 21] }
+    ] },
     { "name": "wolf pack", "faction": "beasts", "leash": 36, "home": [24, 31],
       "order": "patrol", "route": [[10, 31], [38, 31], [38, 33], [26, 40], [10, 40]], "members": [
       { "monster": "wolf", "at": [10, 31] },

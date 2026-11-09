@@ -17,6 +17,13 @@
   // and a camp replaces one fallen guard per "turnsPerReplacement".
   "corpseWithersAfter": 400,
   "corpseGoneAfter": 1500,
+  // Hearing, in cells. You hear fighting within "hearRange", can tell its direction within
+  // "hearDirectionRange" and who is fighting within "hearWhoRange"; each point of Perception adds
+  // "hearPerPoint" to all three.
+  "hearRange": 32,
+  "hearDirectionRange": 20,
+  "hearWhoRange": 8,
+  "hearPerPoint": 4,
   "calmAfter": 30,
   "turnsPerHealedHp": 20,
   "turnsPerReplacement": 400

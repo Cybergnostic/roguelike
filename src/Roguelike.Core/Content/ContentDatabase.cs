@@ -15,7 +15,7 @@ public sealed record MonsterDef(
     int MaxHp, int Attack, int Defense, int Range = 0, bool Fearless = false, string? Loot = null,
     int Speed = 100, string? RisesAs = null, RaiseDef? Raise = null, int Xp = 0,
     int Accuracy = 0, int Evasion = 0, int LootDepthBonus = 0, Rank Rank = Rank.Normal,
-    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null);
+    IReadOnlyList<string>? Abilities = null, bool EndsRun = false, NpcDef? Npc = null, int AttackTime = 100);
 
 /// <summary>Someone the player can talk to. Lines: said in turn. Goods: for sale.</summary>
 public sealed record NpcDef(IReadOnlyList<string>? Lines = null, IReadOnlyList<WareDef>? Goods = null);
@@ -39,7 +39,7 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// MinDamage gets through.
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
-    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1);
+    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -104,7 +104,8 @@ public sealed record SquadTemplateDef(string Name, string Faction, int Weight, I
 /// </summary>
 public sealed record DungeonDef(int Levels = 1, double MonsterHpPerLevel = 0, double XpPerLevel = 0,
     int AttackEveryLevels = 0, int AccuracyEveryLevels = 0, double RoomOccupancyPerLevel = 0, int DefenseEveryLevels = 0,
-    int CorpseWithersAfter = 400, int CorpseGoneAfter = 1500, int CalmAfter = 30, int TurnsPerHealedHp = 20, int TurnsPerReplacement = 400)
+    int CorpseWithersAfter = 400, int CorpseGoneAfter = 1500, int CalmAfter = 30, int TurnsPerHealedHp = 20, int TurnsPerReplacement = 400,
+    int HearRange = 32, int HearDirectionRange = 20, int HearWhoRange = 8, int HearPerPoint = 4)
 {
     public int HpFor(int baseHp, int depth) => (int)Math.Round(baseHp * (1 + MonsterHpPerLevel * (depth - 1)));
     public int XpFor(int baseXp, int depth) => (int)Math.Round(baseXp * (1 + XpPerLevel * (depth - 1)));

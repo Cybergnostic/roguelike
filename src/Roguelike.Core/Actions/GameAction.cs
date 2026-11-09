@@ -14,6 +14,9 @@ public abstract record GameAction
 {
     /// <summary>Applies the action. Returns false if it did not use up the actor's turn.</summary>
     public abstract bool Perform(World world, Actor actor);
+
+    /// <summary>How long it takes, asked before it happens. 100 is one ordinary turn.</summary>
+    public virtual int TimeCost(World world, Actor actor) => 100;
 }
 
 public sealed record WaitAction : GameAction
@@ -168,6 +171,9 @@ public sealed record PayTollAction : GameAction
 /// <summary>Step in a direction; opening a closed gate or bumping a hostile actor uses the step.</summary>
 public sealed record MoveAction(Direction Direction) : GameAction
 {
+    public override int TimeCost(World world, Actor actor) =>
+        world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime : 100;
+
     public override bool Perform(World world, Actor actor)
     {
         var target = actor.Position + Direction;
@@ -216,6 +222,8 @@ public sealed record MoveAction(Direction Direction) : GameAction
 
 public sealed record AttackAction(int TargetId) : GameAction
 {
+    public override int TimeCost(World world, Actor actor) => actor.MeleeAttackTime;
+
     public override bool Perform(World world, Actor actor)
     {
         var target = world.GetActor(TargetId);
@@ -237,5 +245,10 @@ public sealed record AttackAction(int TargetId) : GameAction
     private static void Strike(World world, Actor actor, Actor target)
     {
         world.ResolveAttack(actor, target, ranged: false);
+        if (actor.Equipment?.OffHand is not null && !target.IsDead)
+        {
+            var rules = world.Content.Combat;
+            world.ResolveAttack(actor, target, ranged: false, power: actor.OffHandAttack + rules.OffHandAttack, accuracyBonus: rules.OffHandAccuracy);
+        }
     }
 }

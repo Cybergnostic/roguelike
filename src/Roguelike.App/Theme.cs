@@ -75,6 +75,7 @@ public static class Theme
 
     // Declared before Looks: LoadLooks fills it, and static fields initialise in order.
     private static readonly Dictionary<string, string> RangedVerbs = [];
+    private static readonly Dictionary<string, string> FactionSounds = [];
     private static readonly (Dictionary<string, Look> Kinds, Dictionary<string, Look> Tiles, Dictionary<string, Look> Items, int CorpseGlyph) Looks =
         LoadLooks(Path.Combine(AppContext.BaseDirectory, "data", "looks.json"));
 
@@ -91,6 +92,9 @@ public static class Theme
         Looks.Tiles.GetValueOrDefault(tile.ToString().ToLowerInvariant(), Unknown);
 
     public static Look ForKind(string kind) => Looks.Kinds.GetValueOrDefault(kind, Unknown);
+
+    /// <summary>What a faction sounds like in a fight (looks.json).</summary>
+    public static string FactionSound(string faction) => FactionSounds.GetValueOrDefault(faction, "someone fighting");
 
     /// <summary>A kind's own verb for ranged attacks ("rangedVerb" in looks.json), if it has one.</summary>
     public static string? RangedVerb(string kind) => RangedVerbs.GetValueOrDefault(kind);
@@ -158,6 +162,9 @@ public static class Theme
         using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
         var root = doc.RootElement;
         int corpseGlyph = root.TryGetProperty("corpse", out var corpse) ? ReadGlyph(corpse.GetProperty("glyph")) : '%';
+        if (root.TryGetProperty("factionSounds", out var sounds))
+            foreach (var entry in sounds.EnumerateObject())
+                FactionSounds[entry.Name] = entry.Value.GetString()!;
         return (ReadSection(root, "kinds"), ReadSection(root, "tiles"), ReadSection(root, "items"), corpseGlyph);
     }
 

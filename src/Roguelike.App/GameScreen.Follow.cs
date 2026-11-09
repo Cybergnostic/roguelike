@@ -38,10 +38,10 @@ public sealed partial class GameScreen
                 return;
             if (_following!.MoveNext())
             {
-                int turn = _world.Turn;
+                int taken = _world.ActionsTaken;
                 PlayTurn(_following.Current);
                 Draw();
-                if (_world.Turn != turn)
+                if (_world.ActionsTaken != taken)
                     return;
                 continue;
             }

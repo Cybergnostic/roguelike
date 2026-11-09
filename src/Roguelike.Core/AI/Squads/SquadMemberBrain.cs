@@ -48,6 +48,10 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     {
         var role = Squad.RoleOf(self);
 
+        // People who aren't fighters get out of the way.
+        if (role == SquadRole.Civilian && Squad.State is SquadState.Engage or SquadState.Alert or SquadState.Flee)
+            return Flee(world, self) is AttackAction ? new WaitAction() : Flee(world, self);
+
         // A runner on a mission keeps running whatever the squad is doing: fetching help
         // matters most when the squad is losing.
         if (role == SquadRole.Runner && Squad.HelpTargetSquadId is not null && Squad.State != SquadState.Idle)
@@ -155,7 +159,8 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             var away = Squad.AwayFromKnownThreats(world.Map.Passable);
             var backOff = World.EightWay
                 .Where(d => world.IsFree(self.Position + d) && Squad.WithinLeash(self.Position + d)
-                            && World.Distance(self.Position + d, target.Position) > now)
+                            && World.Distance(self.Position + d, target.Position) > now
+                            && !NextToHostile(world, self, self.Position + d))
                 .Select(d => (Direction?)d)
                 .MinBy(d => away[self.Position + d!.Value] ?? double.MaxValue);
             if (backOff is { } step)
@@ -178,7 +183,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (world.AdjacentHostile(self) is { } adjacent)
         {
             var away = world.StepDownhill(self, Squad.AwayFromKnownThreats(world.Map.Passable));
-            return away is { } a ? new MoveAction(a) : new AttackAction(adjacent.Id);
+            return away is { } a && !NextToHostile(world, self, self.Position + a) ? new MoveAction(a) : new AttackAction(adjacent.Id);
         }
 
         var target = world.NearestVisibleHostile(self);
@@ -191,7 +196,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
             foreach (var dir in World.EightWay)
             {
                 var p = self.Position + dir;
-                if (world.IsFree(p) && World.Distance(p, target.Position) > 1
+                if (world.IsFree(p) && !NextToHostile(world, self, p)
                     && world.HasClearShot(p, target.Position))
                     return new MoveAction(dir);
             }

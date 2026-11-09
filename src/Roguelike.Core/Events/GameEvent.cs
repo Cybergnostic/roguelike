@@ -64,6 +64,15 @@ public sealed record Talked(int NpcId, string? Line, bool HasGoods) : GameEvent;
 
 public sealed record ItemBought(int ActorId, Item Item, int Price) : GameEvent;
 
+public enum SoundKind { Fight, Death, Chanting, Gate }
+
+/// <summary>
+/// Something the player heard but couldn't see. From: which way it came from, if they could tell.
+/// Near: close by. FactionA/B: who was making it, if they could tell. What can be told depends on
+/// distance and Perception.
+/// </summary>
+public sealed record SoundHeard(SoundKind Kind, Direction? From, bool Near, string? FactionA, string? FactionB) : GameEvent;
+
 /// <summary>An elite or boss used a skill. TargetId: who it was aimed at, if anyone.</summary>
 public sealed record AbilityUsed(int ActorId, string AbilityId, int? TargetId) : GameEvent;
 

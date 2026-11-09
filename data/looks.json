@@ -22,11 +22,22 @@
     "bandit_chief":     { "glyph": "R", "color": "#E09050" },
     "peddler":          { "glyph": "p", "color": "#70E0C0" },
     "hermit":           { "glyph": "h", "color": "#70E0C0" },
+    "watchman":         { "glyph": "W", "color": "#70C0E0" },
+    "hunter":           { "glyph": "H", "color": "#70C0E0" },
     "villager":         { "glyph": "v", "color": "#70C0E0" },
     "bone_knight":      { "glyph": "K", "color": "#E6E2D2" },
     "wraith":           { "glyph": "W", "color": "#90A8E0", "rangedVerb": "chills" },
     "goblin_brute":     { "glyph": "G", "color": "#6EC846" },
     "goblin_warlord":   { "glyph": "G", "color": "#E0A030" }
+  },
+  // What a fight sounds like when you can tell who's in it (front end only).
+  "factionSounds": {
+    "goblins": "goblins shrieking",
+    "undead": "bones rattling",
+    "beasts": "animals snarling",
+    "bandits": "men cursing",
+    "folk": "villagers shouting",
+    "player": "someone fighting"
   },
   // Items by id; categories are the fallback for ids not listed.
   "items": {

@@ -26,4 +26,6 @@ public enum Stat
     PotionHealing,
     /// <summary>Percent more XP from every source.</summary>
     XpGain,
+    /// <summary>How much the player can make out of what they hear (see dungeon.json's hearing).</summary>
+    Perception,
 }

@@ -1,14 +1,16 @@
 {
-  // Item types. category: weapon | bow | armor | potion.
+  // Item types. category: weapon | bow | armor | potion | coins | relic.
+  // Weapons and bows: "attackTime" is how long a blow takes (100 = one ordinary turn, lower is quicker),
+  // "accuracy" adds to the chance of hitting in melee, "dualWield" lets a second one go in the off hand.
   // weapon/bow "attack" and armor "defense" are bonuses; +X enchantment adds on top.
   // "minDepth": the shallowest dungeon level where it can be generated (default 1). Good gear
   // waits deeper down; monsters with "lootDepthBonus" (bosses, old dwarven dead) drop from deeper.
   "items": [
-    { "id": "dagger",          "name": "dagger",          "category": "weapon", "attack": 3 },
-    { "id": "short_sword",     "name": "short sword",     "category": "weapon", "attack": 4 },
-    { "id": "long_sword",      "name": "long sword",      "category": "weapon", "attack": 6, "minDepth": 2 },
-    { "id": "short_bow",       "name": "short bow",       "category": "bow",    "attack": 3, "range": 6 },
-    { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8, "minDepth": 2 },
+    { "id": "dagger",          "name": "dagger",          "category": "weapon", "attack": 2, "attackTime": 75, "dualWield": true },
+    { "id": "short_sword",     "name": "short sword",     "category": "weapon", "attack": 4, "accuracy": 1 },
+    { "id": "long_sword",      "name": "long sword",      "category": "weapon", "attack": 6, "attackTime": 130, "minDepth": 2 },
+    { "id": "short_bow",       "name": "short bow",       "category": "bow",    "attack": 3, "range": 6, "attackTime": 80 },
+    { "id": "long_bow",        "name": "long bow",        "category": "bow",    "attack": 5, "range": 8, "attackTime": 130, "minDepth": 2 },
     { "id": "leather_armor",   "name": "leather armor",   "category": "armor",  "defense": 1 },
     { "id": "chain_mail",      "name": "chain mail",      "category": "armor",  "defense": 3, "minDepth": 3 },
     { "id": "healing_potion",  "name": "potion of healing", "plural": "potions of healing", "category": "potion", "heal": 15 },

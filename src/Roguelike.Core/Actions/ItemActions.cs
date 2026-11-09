@@ -121,6 +121,8 @@ public sealed record DrinkAction(int ItemId) : GameAction
 /// <summary>The player's bow shot, with explicit reasons when it can't be taken.</summary>
 public sealed record FireAction(int TargetId) : GameAction
 {
+    public override int TimeCost(World world, Actor actor) => actor.RangedAttackTime;
+
     public override bool Perform(World world, Actor actor)
     {
         if (actor.Equipment?.Bow is null)

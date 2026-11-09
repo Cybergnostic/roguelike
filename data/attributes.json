@@ -13,8 +13,8 @@
       "perModifier": { "maxHp": 3 } },
     { "id": "int", "name": "Intelligence", "description": "Learn faster: more XP from everything.",
       "perModifier": { "xpGain": 10 } },
-    { "id": "wis", "name": "Wisdom",       "description": "Recover faster, and know how to treat wounds.",
-      "perModifier": { "regen": 1, "potionHealing": 10 } },
+    { "id": "wis", "name": "Wisdom",       "description": "Recover faster, treat wounds, and tell what you hear.",
+      "perModifier": { "regen": 1, "potionHealing": 10, "perception": 1 } },
     // Nothing to persuade yet: Charisma will matter once you can talk to factions.
     { "id": "cha", "name": "Charisma",     "description": "Dealing with factions (not in the game yet)." }
   ],

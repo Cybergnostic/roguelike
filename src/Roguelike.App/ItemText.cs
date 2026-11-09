@@ -42,6 +42,7 @@ public static class ItemText
             return "";
         return item.Def.Category switch
         {
+            ItemCategory.Weapon when item == eq.OffHand => " (off hand)",
             ItemCategory.Weapon => " (wielded)",
             ItemCategory.Bow => " (readied)",
             ItemCategory.Armor => " (worn)",
@@ -57,8 +58,8 @@ public static class ItemText
     {
         var basic = item.Def.Category switch
         {
-            ItemCategory.Weapon => $"atk {item.AttackBonus}",
-            ItemCategory.Bow => $"atk {item.AttackBonus}, range {item.Def.Range}",
+            ItemCategory.Weapon => $"atk {item.AttackBonus}{Pace(item)}{(item.Def.Accuracy != 0 ? $", {item.Def.Accuracy:+0;-0} acc" : "")}{(item.Def.DualWield ? ", dual" : "")}",
+            ItemCategory.Bow => $"atk {item.AttackBonus}, range {item.Def.Range}{Pace(item)}",
             ItemCategory.Armor => $"def {item.DefenseBonus}",
             ItemCategory.Potion => $"heals {item.Def.Heal}",
             _ => "",
@@ -67,6 +68,14 @@ public static class ItemText
             basic += "; " + string.Join(", ", item.Affixes.Select(a => StatText(a.Def.Stat, a.Value)));
         return item.Special is { } special ? $"{basic}; {special}" : basic;
     }
+
+    /// <summary>", quick" or ", slow", with how long a blow takes; nothing for an ordinary weapon.</summary>
+    private static string Pace(Item item) => item.Def.AttackTime switch
+    {
+        < 100 => $", quick ({item.Def.AttackTime})",
+        > 100 => $", slow ({item.Def.AttackTime})",
+        _ => "",
+    };
 
     /// <summary>"+2 acc", "+5 hp", "+15% potions".</summary>
     public static string StatText(Stat stat, int value) => stat switch
@@ -81,6 +90,7 @@ public static class ItemText
         Stat.XpGain => $"{value:+0;-0}% xp",
         Stat.Accuracy => $"{value:+0;-0} acc",
         Stat.Evasion => $"{value:+0;-0} eva",
+        Stat.Perception => $"{value:+0;-0} perception",
         _ => $"{value:+0;-0} {stat}",
     };
 }

@@ -189,7 +189,8 @@ docs/PROJECT.md              this file
    same `Stat` list. Spending XP never uses a turn.
 9. **Content** comes from `data/*.json` through `ContentDatabase`; `World.Create(seed, w, h, content?)`
    defaults to `ContentDatabase.Default`. Reference everything by id; validate new fields in `Load`.
-10. **Turn order** in `World.Step`: player action → update FOV and maps → each squad thinks → each
+10. **Turn order** in `World.Step`: player action (its `TimeCost` goes into `_timeOwed`; the world below runs once per 100 owed, so a
+   quick action can pass with no reply and a slow one can give two) → update FOV and maps → each squad thinks → each
    non-player actor gains `Speed` energy and acts once per 100 (zombies at 50 act every other turn;
    actors created this turn wait) → remove dead → turn++ → regen → update FOV.
 11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
@@ -364,7 +365,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: seven levels with the crypt boss and elites** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **30.9%**, died 68%.
+- **Current: weapon speeds and elastic leashes** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **21.9%**, died 77%, inside the 20–30% target.
+  Death rate by depth: 6.1, 19.4, 12.2, 10.7, 9.5, 8.4, 54.0%.
+- **Seven levels with the crypt boss and elites** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **30.9%**, died 68%.
   Death rate by depth: 9.7, 17.8, 7.2, 4.8, 5.0, 5.0, 47.1% (the warlord's warren makes level 2 hard; the last level is the boss).
 - **The finished camp and time passing** (2026-11-09), same setup: won **55.7%**, died 42%.
   About 59000 turns/s. The bot rarely goes back up, so this barely tests time passing.
@@ -515,8 +518,7 @@ you, a quick way to see progression; spectating: time passes).
 - Someone seen coming over the breach gets no warning, by design: warnings are for the gate.
 - Camp squads don't answer arrows from beyond their leash, so a long bow can pick them off from outside.
 - Sight on the surface is the same radius 8 as underground, so landmarks can't be seen from afar yet.
-- Monster AI jam: a routed goblin wedged in a corridor in front of an engaged squad blocks it
-  forever (neither side passes). A leashed guard at the edge of its leash also stands still forever.
+- Squad leashes stretch by `Squad.PursuitStretch` for a while after someone hurts the squad; past that, it goes home.
 - Simulation speed is about 4800 turns/s on this desktop (4 cores, busy). A 10-level game with the
   tactical bot is about 6000 turns, so 1000 games take about 20 minutes and 10k games 3–4 hours.
   Next costs per the profile: per-faction Dijkstra and flee maps every turn, FOV, map generation.
@@ -605,6 +607,7 @@ you, a quick way to see progression; spectating: time passes).
    inspect, HP strip, log, key guide). `F4` switches to a plain look. Still from the prototype: mouse (click to inspect, walk
    here), gate talk with choices in the panel, a journal, proportional panel fonts, smoke, screen scaling.
 10. **Better sneaking**: noise and search on top of sight. Armour makes noise too (user, 2026-11-09): heavier armour is louder.
+    Hearing is in: `World.Noise`, `SoundHeard`, and `Stat.Perception` (from Wisdom for now; a Perception skill can add to the same stat).
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
 13. **Wider region**: more sites, rethink the surface map.

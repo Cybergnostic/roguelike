@@ -36,19 +36,22 @@ public sealed class Inventory(int capacity)
 public sealed class Equipment
 {
     public Item? Weapon { get; private set; }
+
+    /// <summary>A second light weapon, striking alongside the first.</summary>
+    public Item? OffHand { get; private set; }
     public Item? Bow { get; private set; }
     public Item? Armor { get; private set; }
 
-    public IEnumerable<Item> All => new[] { Weapon, Bow, Armor }.OfType<Item>();
+    public IEnumerable<Item> All => new[] { Weapon, OffHand, Bow, Armor }.OfType<Item>();
 
-    public bool IsEquipped(Item item) => item == Weapon || item == Bow || item == Armor;
+    public bool IsEquipped(Item item) => item == Weapon || item == OffHand || item == Bow || item == Armor;
 
     /// <summary>What the worn items' properties add to a stat.</summary>
     public int Bonus(Progression.Stat stat) =>
-        (Weapon?.Bonus(stat) ?? 0) + (Bow?.Bonus(stat) ?? 0) + (Armor?.Bonus(stat) ?? 0);
+        (Weapon?.Bonus(stat) ?? 0) + (OffHand?.Bonus(stat) ?? 0) + (Bow?.Bonus(stat) ?? 0) + (Armor?.Bonus(stat) ?? 0);
 
     public bool HasSpecial(string special) =>
-        Weapon?.Special == special || Bow?.Special == special || Armor?.Special == special;
+        Weapon?.Special == special || OffHand?.Special == special || Bow?.Special == special || Armor?.Special == special;
 
     /// <summary>Puts the item in its slot; returns whatever was there before.</summary>
     public Item? Equip(Item item)
@@ -56,7 +59,14 @@ public sealed class Equipment
         Item? previous;
         switch (item.Def.Category)
         {
-            case ItemCategory.Weapon: previous = Weapon; Weapon = item; break;
+            case ItemCategory.Weapon when item.Def.DualWield && Weapon is { Def.DualWield: true } && OffHand is null:
+                previous = null; OffHand = item; break; // a second dagger goes in the other hand
+            case ItemCategory.Weapon:
+                previous = Weapon;
+                Weapon = item;
+                if (!item.Def.DualWield)
+                    OffHand = null; // this takes the whole grip
+                break;
             case ItemCategory.Bow: previous = Bow; Bow = item; break;
             case ItemCategory.Armor: previous = Armor; Armor = item; break;
             default: throw new ArgumentException($"{item.Def.Id} can't be equipped.");
@@ -66,7 +76,8 @@ public sealed class Equipment
 
     public void Unequip(Item item)
     {
-        if (item == Weapon) Weapon = null;
+        if (item == Weapon) { Weapon = OffHand; OffHand = null; }
+        else if (item == OffHand) OffHand = null;
         else if (item == Bow) Bow = null;
         else if (item == Armor) Armor = null;
     }

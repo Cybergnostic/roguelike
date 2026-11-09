@@ -91,7 +91,7 @@ public sealed class CommandPlayer(World world)
         {
             if (p.IsDead) { StopReason = "you died"; yield break; }
             if (world.GetActor(id) is not { IsDead: false } target) yield break;
-            int turn = world.Turn;
+            int taken = world.ActionsTaken;
             if (p.Equipment?.Bow is not null && World.Distance(p.Position, target.Position) <= p.Range
                 && world.HasClearShot(p.Position, target.Position)
                 && !world.IsAdjacent(p.Position, target.Position))
@@ -99,7 +99,7 @@ public sealed class CommandPlayer(World world)
             else if (world.IsAdjacent(p.Position, target.Position))
                 yield return new AttackAction(id);
             else { StopReason = "no shot and not adjacent"; yield break; }
-            if (world.Turn == turn) { StopReason = "blocked"; yield break; }
+            if (world.ActionsTaken == taken) { StopReason = "blocked"; yield break; }
         }
         if (world.GetActor(id) is { IsDead: false })
             StopReason = "target still alive";
@@ -118,7 +118,7 @@ public sealed class CommandPlayer(World world)
                 if (i == 0) StopReason = "nothing to do";
                 yield break;
             }
-            int hp = world.Player.Hp, turn = world.Turn;
+            int hp = world.Player.Hp, taken = world.ActionsTaken;
             yield return action;
             if (!interruptible)
                 continue;
@@ -133,7 +133,7 @@ public sealed class CommandPlayer(World world)
                 StopReason = $"you spot an item at {item.Position.X},{item.Position.Y}";
                 yield break;
             }
-            if (world.Turn == turn) { StopReason = "blocked"; yield break; }
+            if (world.ActionsTaken == taken) { StopReason = "blocked"; yield break; }
         }
     }
 

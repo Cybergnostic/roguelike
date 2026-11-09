@@ -127,7 +127,7 @@ public class WiderValleyTests
         var world = Valley();
         var villager = One(world, "villager");
         Assert.False(world.CouldFight(world.Player, villager));
-        Assert.False(world.AreHostile(One(world, "wolf"), villager));
+        Assert.True(world.AreHostile(One(world, "wolf"), villager));
     }
 
     [Fact]

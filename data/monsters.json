@@ -44,6 +44,10 @@
       "lines": ["{founder}'s clan dug too deep. Their stones still say so.",
                 "{necromancer} sits at the bottom of the crypt, and the dead sit up for it.",
                 "There's a gap in the back of the goblins' fence, if you can time the patrol."] } },
+    { "id": "watchman", "faction": "folk", "role": "warrior", "maxHp": 16, "attack": 5, "defense": 1, "accuracy": 1, "npc": {
+      "lines": ["Keep your blade down in the hamlet.", "Bring trouble here and we'll see to it."] } },
+    { "id": "hunter", "faction": "folk", "role": "archer", "maxHp": 12, "attack": 4, "range": 6, "defense": 0, "accuracy": 1, "npc": {
+      "lines": ["Good hunting in the north, if you mind the bear."] } },
     { "id": "villager", "faction": "folk", "role": "civilian", "maxHp": 14, "attack": 1, "defense": 0, "npc": {
       "lines": ["Stay on the road after dark.", "Wolves in the Thornwood. Worse at the bandit den.", "Don't go near the bear."] } },
 

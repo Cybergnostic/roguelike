@@ -15,6 +15,7 @@ public static class SquadDirector
 
     public static void Think(World world, Squad squad)
     {
+        squad.CoolDown(world.Turn);
         UpdateMorale(world, squad);
         if (squad.IsWipedOut)
             return;
@@ -30,7 +31,7 @@ public static class SquadDirector
             if (World.Distance(member.Position, leaderAt) > Squad.ShoutRange
                 || world.NearestVisibleHostile(member) is not { } seen)
                 continue;
-            if (squad.Camp is not null && !squad.WithinLeash(seen.Position))
+            if (squad.IsLeashed && !squad.WithinLeash(seen.Position))
             {
                 seenBeyondReach = true; // too far out to be worth chasing
                 continue;
@@ -47,7 +48,7 @@ public static class SquadDirector
         }
         int sinceSeen = squad.LastSeenTurn < 0 ? int.MaxValue : world.Turn - squad.LastSeenTurn;
 
-        if (squad.Camp is not null && spotter is null && squad.State is SquadState.Engage or SquadState.Alert
+        if (squad.IsLeashed && spotter is null && squad.State is SquadState.Engage or SquadState.Alert
             && squad.TargetId == world.Player.Id)
         {
             if (!world.AreHostile(squad.Leader!, world.Player))

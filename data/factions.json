@@ -19,6 +19,9 @@
     { "a": "player", "b": "undead", "relation": "hostile" },
     { "a": "goblins", "b": "undead", "relation": "hostile" },
     { "a": "player", "b": "beasts", "relation": "hostile" },
-    { "a": "player", "b": "bandits", "relation": "hostile" }
+    { "a": "player", "b": "bandits", "relation": "hostile" },
+    { "a": "folk", "b": "bandits", "relation": "hostile" },
+    { "a": "folk", "b": "beasts", "relation": "hostile" },
+    { "a": "folk", "b": "undead", "relation": "hostile" }
   ]
 }

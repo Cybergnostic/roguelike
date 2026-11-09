@@ -6,6 +6,8 @@ namespace Roguelike.Core.Actions;
 
 public sealed record RangedAttackAction(int TargetId) : GameAction
 {
+    public override int TimeCost(World world, Actor actor) => actor.RangedAttackTime;
+
     public override bool Perform(World world, Actor actor)
     {
         var target = world.GetActor(TargetId);
@@ -41,6 +43,7 @@ public sealed record RaiseDeadAction(int CorpseId) : GameAction
         var def = world.Content.Monsters[risesAs];
         var raised = world.SpawnMonster(def.Id, corpse.Position, world.SquadOf(actor), actor.Faction);
         raised.MasterId = actor.Id;
+        world.Noise(corpse.Position, SoundKind.Chanting, actor);
         world.Emit(new CorpseRaised(actor.Id, corpse.Kind, raised.Id, raised.Kind, corpse.Position));
         return true;
     }

@@ -81,6 +81,14 @@ public sealed class Actor
     /// <summary>Melee attack: natural attack, wielded weapon (including its +X), attributes and skills.</summary>
     public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
 
+    /// <summary>How long a blow takes. 100 is one ordinary turn.</summary>
+    public int BaseAttackTime { get; init; } = 100;
+    public int MeleeAttackTime => Equipment?.Weapon?.Def.AttackTime ?? BaseAttackTime;
+    public int RangedAttackTime => Equipment?.Bow?.Def.AttackTime ?? BaseAttackTime;
+
+    /// <summary>The off-hand weapon's strength, before the off-hand penalty.</summary>
+    public int OffHandAttack => BaseAttack + (Equipment?.OffHand?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
+
     public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense);
 
     /// <summary>Ranged attack: natural plus the bow if one is equipped (monster archers have none), attributes and skills.</summary>

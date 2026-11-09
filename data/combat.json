@@ -5,6 +5,9 @@
   //    accuracy (bows are for range).
   // 2. On a hit: damage = roll 1..attack, minus a random 0..defence absorbed by armour,
   //    but at least minDamage. Armour softens blows; it never makes anyone untouchable.
+  // 3. A second weapon in the off hand strikes too, at offHandAccuracy and offHandAttack.
+  "offHandAccuracy": -4,
+  "offHandAttack": -1,
   "baseHitChance": 75,
   "hitChancePerPoint": 5,
   "minHitChance": 5,

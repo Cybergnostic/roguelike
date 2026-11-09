@@ -13,7 +13,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
     {
         // Fights the player isn't part of: describe if seen, otherwise it's a distant noise.
         ActorAttacked a when a.AttackerId != world.Player.Id && a.TargetId != world.Player.Id
-                             && !isVisible(a.AttackerId) && !isVisible(a.TargetId) => "You hear the clash of weapons.",
+                             && !isVisible(a.AttackerId) && !isVisible(a.TargetId) => null, // reported as a SoundHeard
+        SoundHeard s => Heard(s),
         ActorDied d when d.ActorId != world.Player.Id && !isVisible(d.ActorId) => null,
 
         ActorAttacked { Ranged: true, Missed: true } a => $"{Cap(Name(a.AttackerId))} {RangedVerb(a.AttackerId)} at {Name(a.TargetId)} and {Verb(a.AttackerId, "miss", "misses")}.",
@@ -35,15 +36,15 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 
         CorpseRaised r when isVisible(r.RaisedId) || isVisible(r.CasterId) =>
             $"{Cap(Name(r.CasterId))} raises the {Kind(r.CorpseKind)}'s corpse - it rises as a {Kind(r.RaisedKind)}!",
-        CorpseRaised => "You hear a low, rhythmic chanting.",
+        CorpseRaised => null, // reported as a SoundHeard
         MinionCrumbled m when isVisible(m.ActorId) => $"The {Kind(m.Kind)} crumbles to dust, its master gone.",
         MinionCrumbled => null,
 
         ZoneEntered z => $"You enter {z.ZoneName}.",
         LevelEntered { Depth: World.SurfaceDepth } => "You climb out of the cave into the open air.",
         CampAlarmed c => $"A horn sounds from {c.ZoneName}!",
-        SquadStoodDown { Reason: StandDownReason.IntruderLeft } s when s.MemberIds.Any(isVisible) => "The goblins watch you go, and turn back to their posts.",
-        SquadStoodDown s when s.MemberIds.Any(isVisible) => "The goblins break off the chase and head back to camp.",
+        SquadStoodDown { Reason: StandDownReason.IntruderLeft } s when s.MemberIds.Any(isVisible) => "They watch you go, and turn back to their posts.",
+        SquadStoodDown s when s.MemberIds.Any(isVisible) => "Your pursuers break off the chase and head for home.",
         SquadStoodDown => null,
         GateChallenged c => $"{Cap(Name(c.GuardId))} calls out: \"Halt! {c.Price} gold to come in, good for {c.Turns} turns.\" (t to pay)",
         TrespassWarned w => $"{Cap(Name(w.GuardId))} levels a weapon at you: \"Not one step further without paying!\"",
@@ -64,7 +65,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         IncursionBegan i => $"{Cap(world.Content.Factions[i.FactionId].Name)} are marching on {i.ZoneName}!",
         ObjectiveCompleted o => $"You set {ItemText.TheName(o.Item)} down at the waystone. Your errand is done. (+{o.Xp} XP{(o.Reward is { } r ? $", {ItemText.AName(r)}" : "")}{(o.Gold > 0 ? $", +{o.Gold} gold" : "")})",
         GateMoved g when g.ActorId == world.Player.Id => g.Open ? "You push the gate open." : "You pull the gate shut.",
-        GateMoved g => g.Open ? "You hear a gate creak open." : "You hear a gate slam shut.",
+        GateMoved g when isVisible(g.ActorId) => g.Open ? "A gate creaks open." : "A gate slams shut.",
+        GateMoved => null,
         LevelEntered { GoingUp: true } l => $"You climb back up to depth {l.Depth}.",
         LevelEntered l when l.Depth >= world.Content.Dungeon.Levels => $"You descend to depth {l.Depth}, the bottom of everything. The air tastes of old graves.",
         LevelEntered l => $"You descend the stairs to depth {l.Depth}.",
@@ -134,6 +136,36 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
 
         _ => null,
     };
+
+    private static string Wind(SadRogue.Primitives.Direction direction) => direction.Type switch
+    {
+        SadRogue.Primitives.Direction.Types.Up => "north",
+        SadRogue.Primitives.Direction.Types.UpRight => "north-east",
+        SadRogue.Primitives.Direction.Types.Right => "east",
+        SadRogue.Primitives.Direction.Types.DownRight => "south-east",
+        SadRogue.Primitives.Direction.Types.Down => "south",
+        SadRogue.Primitives.Direction.Types.DownLeft => "south-west",
+        SadRogue.Primitives.Direction.Types.Left => "west",
+        SadRogue.Primitives.Direction.Types.UpLeft => "north-west",
+        _ => "somewhere",
+    };
+
+    /// <summary>What the player makes of a sound: as much as their ears could tell them.</summary>
+    private static string Heard(SoundHeard s)
+    {
+        var who = s.FactionA is { } a
+            ? Theme.FactionSound(a) + (s.FactionB is { } b && b != a ? " and " + Theme.FactionSound(b) : "")
+            : null;
+        var what = s.Kind switch
+        {
+            SoundKind.Fight => who ?? "the clash of weapons",
+            SoundKind.Death => who is null ? "a scream, cut short" : $"{who}, then silence",
+            SoundKind.Chanting => "low, rhythmic chanting",
+            _ => "a heavy gate moving",
+        };
+        var where = s.From is { } from ? $"{(s.Near ? "close by to the" : "to the")} {Wind(from)}" : "somewhere far off";
+        return $"You hear {what} {where}.";
+    }
 
     /// <summary>Fills in the history's names in something written in the data.</summary>
     private string Expand(string text) => text

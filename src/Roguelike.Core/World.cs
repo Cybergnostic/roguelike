@@ -88,6 +88,9 @@ public sealed class World
 
         /// <summary>The turn the player last left, to know how much time has passed here.</summary>
         public int LeftOnTurn { get; set; }
+
+        /// <summary>When each patch of the map last made a sound the player heard, so a long fight isn't one long log.</summary>
+        public Dictionary<(int, int, SoundKind), int> LastSoundOn { get; } = [];
         public Dictionary<Faction, FactionMaps> FactionMaps { get; } = [];
         public Dictionary<int, CachedPath> Paths { get; } = [];
         public DistanceMap TowardPlayer { get; } = new(map.Walkable);
@@ -388,6 +391,7 @@ public sealed class World
     {
         Map.SetTile(at, open ? Tile.GateOpen : Tile.GateClosed);
         Emit(new GateMoved(actor.Id, at, open));
+        Noise(at, SoundKind.Gate, actor == Player ? null : actor);
     }
 
     /// <summary>
@@ -597,12 +601,15 @@ public sealed class World
 
         var zoneBefore = Map.ZoneAt(Player.Position);
         int depthBefore = Depth;
+        int timeCost = playerAction.TimeCost(this, Player);
         if (!playerAction.Perform(this, Player))
             return [.. _events];
+        ActionsTaken++;
         _bumpWarnedAbout = null;
         if (IsWon || Depth != depthBefore)
         {
             Turn++;
+            _timeOwed = 0;
             return [.. _events]; // a new level (or the way out): the monsters there haven't noticed yet
         }
         if (Map.ZoneAt(Player.Position) is { } zone && zone != zoneBefore)
@@ -616,24 +623,74 @@ public sealed class World
         ReadStoneUnderfoot();
         UpdateCamps();
         CheckObjective();
+
+        // A quick action leaves part of the turn unspent, and a slow one borrows from the next:
+        // the world moves on only when a whole turn's worth of time has gone by.
+        _timeOwed += timeCost;
+        while (_timeOwed >= 100 && !IsOver)
+        {
+            _timeOwed -= 100;
+            AdvanceWorldOneTurn();
+        }
+        RemoveTheDead();
+        UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
+        return [.. _events];
+    }
+
+    /// <summary>Time the player has spent that the world hasn't yet caught up with.</summary>
+    private int _timeOwed;
+
+    /// <summary>Counts every action the player has actually taken, including ones too quick to move the clock.</summary>
+    public int ActionsTaken { get; private set; }
+
+    private void AdvanceWorldOneTurn()
+    {
         LaunchIncursions();
         RunNonPlayerTurns();
-
-        _actors.RemoveAll(a =>
-        {
-            if (!a.IsDead || a == Player)
-                return false;
-            _paths.Remove(a.Id);
-            return true;
-        });
+        RemoveTheDead();
         Turn++;
         if (Turn % CorpseCheckEvery == 0)
             RotCorpses();
         int regen = RegenInterval;
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
-        UpdateFov(); // the player didn't move, so the Dijkstra maps are still valid
-        return [.. _events];
+    }
+
+    private void RemoveTheDead() => _actors.RemoveAll(a =>
+    {
+        if (!a.IsDead || a == Player)
+            return false;
+        _paths.Remove(a.Id);
+        return true;
+    });
+
+    // ---- What the player hears ----
+
+    private const int SoundEvery = 6;   // turns between reports from one patch of the map
+    private const int SoundPatch = 12;  // cells to a patch
+
+    /// <summary>
+    /// A noise at a place the player can't see. How far they can tell where it came from and who
+    /// made it depends on the distance and their Perception.
+    /// </summary>
+    public void Noise(Point at, SoundKind kind, Actor? a = null, Actor? b = null)
+    {
+        if (a == Player || b == Player || Map.PlayerFov.BooleanResultView[at]
+            || (a is not null && Map.PlayerFov.BooleanResultView[a.Position]))
+            return;
+        var senses = Content.Dungeon;
+        int bonus = Player.Bonus(Stat.Perception) * senses.HearPerPoint;
+        int distance = Distance(at, Player.Position);
+        if (distance > senses.HearRange + bonus)
+            return;
+        var patch = (at.X / SoundPatch, at.Y / SoundPatch, kind);
+        if (_location.LastSoundOn.TryGetValue(patch, out int last) && Turn - last < SoundEvery)
+            return;
+        _location.LastSoundOn[patch] = Turn;
+
+        Direction? from = distance <= senses.HearDirectionRange + bonus ? Direction.GetDirection(Player.Position, at) : null;
+        bool canTell = distance <= senses.HearWhoRange + bonus;
+        Emit(new SoundHeard(kind, from, distance <= senses.HearWhoRange, canTell ? a?.Faction.Id : null, canTell ? b?.Faction.Id : null));
     }
 
     private const int CorpseCheckEvery = 10;
@@ -686,8 +743,9 @@ public sealed class World
             actor.Energy += actor.Speed;
             while (actor.Energy >= 100 && !actor.IsDead && !Player.IsDead)
             {
-                actor.Energy -= 100;
-                actor.Brain.Decide(this, actor).Perform(this, actor);
+                var action = actor.Brain.Decide(this, actor);
+                actor.Energy -= action.TimeCost(this, actor);
+                action.Perform(this, actor);
             }
             if (Player.IsDead)
                 break;
@@ -869,10 +927,12 @@ public sealed class World
     // ---- Combat ----
 
     /// <summary>Chance (percent) that this attack connects, from accuracy against evasion.</summary>
-    public int HitChance(Actor attacker, Actor target, bool ranged)
+    public int HitChance(Actor attacker, Actor target, bool ranged, int accuracyBonus = 0)
     {
         var rules = Content.Combat;
-        int accuracy = attacker.Accuracy - (ranged && IsAdjacent(attacker.Position, target.Position) ? rules.PointBlankPenalty : 0);
+        int accuracy = attacker.Accuracy + accuracyBonus - (ranged && IsAdjacent(attacker.Position, target.Position) ? rules.PointBlankPenalty : 0);
+        if (!ranged)
+            accuracy += attacker.Equipment?.Weapon?.Def.Accuracy ?? 0;
         return Math.Clamp(rules.BaseHitChance + rules.HitChancePerPoint * (accuracy - target.Evasion),
             rules.MinHitChance, rules.MaxHitChance);
     }
@@ -882,21 +942,22 @@ public sealed class World
     /// random 0..defence absorbed by armour, never below the minimum damage. Armour softens hits;
     /// it can't make anyone untouchable.
     /// </summary>
-    public void ResolveAttack(Actor attacker, Actor target, bool ranged)
+    public void ResolveAttack(Actor attacker, Actor target, bool ranged, int? power = null, int accuracyBonus = 0)
     {
+        Noise(target.Position, SoundKind.Fight, attacker, target);
         if (SquadOf(target) is { } targetSquad)
         {
             targetSquad.LearnOfAttacker(attacker, Turn);
             if (attacker == Player && targetSquad.Camp is { Provoked: false } camp)
                 Alarm(camp);
         }
-        if (Rng.NextInt(100) >= HitChance(attacker, target, ranged))
+        if (Rng.NextInt(100) >= HitChance(attacker, target, ranged, accuracyBonus))
         {
             Emit(new ActorAttacked(attacker.Id, target.Id, 0, ranged, Missed: true));
             return;
         }
-        int power = ranged ? attacker.RangedAttack : attacker.Attack;
-        int roll = Rng.NextInt(1, Math.Max(1, power) + 1);
+        int strength = power ?? (ranged ? attacker.RangedAttack : attacker.Attack);
+        int roll = Rng.NextInt(1, Math.Max(1, strength) + 1);
         int armour = ranged && attacker.HasSpecial("piercing") ? target.Defense / 2 : target.Defense;
         int absorbed = Rng.NextInt(0, Math.Max(0, armour) + 1);
         int dealt = Math.Max(Content.Combat.MinDamage, roll - absorbed);
@@ -927,6 +988,7 @@ public sealed class World
             return;
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
+        Noise(target.Position, SoundKind.Death, target);
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
             GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth) * target.XpMultiplier);
         LeaveCorpse(target);
@@ -1388,6 +1450,7 @@ public sealed class World
             Fearless = def.Fearless,
             LootTable = def.Loot,
             Speed = def.Speed,
+            BaseAttackTime = def.AttackTime,
             Rank = elite is not null ? Rank.Elite : def.Rank,
             Title = elite?.Title,
             XpMultiplier = elite?.Xp ?? 1,
