@@ -13,7 +13,8 @@ public sealed partial class GameScreen
     /// <summary>Command file to follow, from --follow.</summary>
     public static string? FollowFile { get; set; }
 
-    private const double FollowSecondsPerTurn = 0.09;
+    /// <summary>How long each turn is shown, from --pace.</summary>
+    public static double FollowSecondsPerTurn { get; set; } = 0.09;
 
     private CommandPlayer? _commands;
     private IEnumerator<Roguelike.Core.Actions.GameAction>? _following;

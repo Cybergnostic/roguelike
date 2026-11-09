@@ -222,8 +222,8 @@ dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print
 dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
 **Watching an agent play:** start the window with
-`dotnet run --project src/Roguelike.App -- --seed 42 --follow moves.txt`; it plays each command
-appended to the file (same interpreter), ~11 turns/s. The agent decides with `Roguelike.Play` on the
+`dotnet run --project src/Roguelike.App -- --seed 42 --follow moves.txt [--surface] [--pace 0.25]`; it plays each command
+appended to the file (same interpreter), ~11 turns/s unless `--pace` says how many seconds a turn is shown. The agent decides with `Roguelike.Play` on the
 same seed and file. `Roguelike.Play` is for playtesting by an agent: append commands to the file (`explore`, `go X Y`,
 `n`/`se`... `fight ID`, `fire ID`, `pickup`, `equip ITEM`, `drink`, `rest`, `learn SKILL`, `raise ATTR`;
 see the header of its Program.cs) and run again. Multi-turn commands stop when a new enemy appears.
@@ -578,7 +578,8 @@ you, a quick way to see progression; spectating: time passes).
      mine fell), and plague as a third kind of fall~~ (done 2026-11-09)
    - c. Later: more kinds of fall and tribe, per-level identity below the mine, factions that want the heirloom,
      the incursion depending on the history (it's the same every run).
-8. **Crafting**: material tags + recipes + stations as places
+8. **Time passing in places the player has left**: camps and levels change while they're away, and show it on return
+9. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet
 Later: more sites and a wider region (rethink the surface layout then), a campaign chaining sites,
 fuller stealth, LLM-driven interrogation (optional), tiles/visual upgrade toward Cogmind/Qud.
 

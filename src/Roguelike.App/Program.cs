@@ -4,7 +4,7 @@ using SadConsole.Configuration;
 
 Settings.WindowTitle = "Roguelike";
 
-// Usage: Roguelike.App [--seed N] [--spectate] [--follow FILE] [--dungeon]
+// Usage: Roguelike.App [--seed N] [--spectate] [--follow FILE [--surface] [--pace SECONDS]] [--dungeon]
 int seedIndex = Array.IndexOf(args, "--seed");
 if (seedIndex >= 0 && seedIndex + 1 < args.Length && ulong.TryParse(args[seedIndex + 1], out var seed))
     GameScreen.StartSeed = seed;
@@ -12,7 +12,11 @@ GameScreen.StartSpectating = args.Contains("--spectate");
 int followIndex = Array.IndexOf(args, "--follow");
 if (followIndex >= 0 && followIndex + 1 < args.Length)
     GameScreen.FollowFile = Path.GetFullPath(args[followIndex + 1]);
-GameScreen.StartInDungeon = args.Contains("--dungeon") || GameScreen.FollowFile is not null;
+// Following starts in the dungeon unless --surface says the valley.
+GameScreen.StartInDungeon = args.Contains("--dungeon") || (GameScreen.FollowFile is not null && !args.Contains("--surface"));
+int paceIndex = Array.IndexOf(args, "--pace");
+if (paceIndex >= 0 && paceIndex + 1 < args.Length && double.TryParse(args[paceIndex + 1], System.Globalization.CultureInfo.InvariantCulture, out var pace))
+    GameScreen.FollowSecondsPerTurn = pace;
 
 var config = new Builder()
     .SetWindowSizeInCells(GameScreen.Width, GameScreen.Height, zoom: true)
