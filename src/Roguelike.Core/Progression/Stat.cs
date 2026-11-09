@@ -30,4 +30,6 @@ public enum Stat
     Perception,
     /// <summary>Quieter footsteps, and harder to spot when sneaking.</summary>
     Stealth,
+    /// <summary>Percent faster at everything: moving, attacking, drinking.</summary>
+    Speed,
 }

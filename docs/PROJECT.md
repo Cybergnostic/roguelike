@@ -193,6 +193,8 @@ docs/PROJECT.md              this file
    quick action can pass with no reply and a slow one can give two) → update FOV and maps → each squad thinks → each
    non-player actor gains `Speed` energy and acts once per 100 (zombies at 50 act every other turn;
    actors created this turn wait) → remove dead → turn++ → regen → update FOV.
+11b. **Builds:** `Stat.Speed` shortens everything the player does (Fleet Foot skill); armour's `moveTime` slows steps only. `arrowGuard` adds armour against missiles,
+   `brace` adds armour and a counter-attack when the wearer didn't step last turn (`Actor.StoodStill`), and `menace` on any gear makes squads sizing up the player less confident.
 11a. **Squads size up the player** (`SquadDirector.SizeUp`, thresholds in combat.json) from what they can see: their HP x attack against
    the player's apparent health (capped at max HP), best attack and armour. Others already at the player's throat count on their side.
    `Squad.Posture`: Bold (surround), Even, Wary (no bow: keep out of reach), Desperate (run, or charge if a bow has them close). Leashed
@@ -369,7 +371,9 @@ you, a quick way to see progression; spectating: time passes).
   - Squads are 70% idle, 17% engaged; about 2500 turns/s.
   - Target for this single level: the reckless bot (it never retreats) dies 20–35% of the time,
     and survivors get real close calls. Deeper content should push from there.
-- **Current: sneaking, hearing and rarer secrets** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **29.1%**, died 70%, inside the 20–30% target.
+- **Current: heavy armour and speed** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **57.5%**, died 42%, well above the 20–30% target.
+  Death rate by depth: 5.3, 14.6, 3.7, 1.7, 1.3, 2.1, 21.6%. The same build with `brace` removed from items.json won 32.0%, so bracing (extra armour and a free counter each turn) is what's too strong, at least for a bot that often holds still in corridors. Not retuned: the user will balance later.
+- **Sneaking, hearing and rarer secrets** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **29.1%**, died 70%, inside the 20–30% target.
   Death rate by depth: 5.9, 18.0, 9.1, 6.6, 5.5, 9.1, 47.3%. The bot never sneaks, and now also learns nothing from Stealth.
 - **Squads size up the player** (2026-11-09), tactical bot, 1000 games (seeds 1000–1999): won **25.7%**, died 74%, inside the 20–30% target.
   Death rate by depth: 4.3, 17.2, 11.4, 6.4, 7.0, 8.4, 53.2%. The bot kills anyone begging next to it.
@@ -618,6 +622,7 @@ you, a quick way to see progression; spectating: time passes).
     sneaking; calm squads that hear it go to look (`SquadHeardPlayer`). `Stat.Perception` (Wisdom, Perception skill) and `Stat.Stealth` (Dexterity, Stealth skill)
     drive what the player hears (`World.Noise`, `SoundHeard`) and how quiet they are. Athletics and other secondary skills later.
 11. **Dungeon identity**: levels below the mine get their own monsters and places.
+11a. ~~**Heavy builds and speed, first version**~~ (done 2026-11-09). Still to come from the design: weighty blows that stagger, a short charge, a speed affix.
 12. **Character depth**: identify-by-use, enchant scrolls, classes and active skills.
 13. **Wider region**: more sites, rethink the surface map.
 14. **Crafting**: material tags + recipes + stations as places. Postponed (user, 2026-11-09): not important yet

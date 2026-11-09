@@ -213,7 +213,7 @@ public sealed record MoveAction(Direction Direction) : GameAction
 {
     public override int TimeCost(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime
-        : actor.Sneaking ? world.Content.Dungeon.SneakStepTime : 100;
+        : actor.Sneaking ? world.Content.Dungeon.SneakStepTime * actor.MoveTime / 100 : actor.MoveTime;
 
     public override int NoiseMade(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? world.Content.Dungeon.FightNoise : world.FootstepNoise(actor);

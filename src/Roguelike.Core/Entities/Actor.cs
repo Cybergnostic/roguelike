@@ -78,6 +78,18 @@ public sealed class Actor
     /// <summary>Null for the player, whose actions come from input.</summary>
     public IBrain? Brain { get; set; }
 
+    /// <summary>It didn't step last turn, so it has its feet set.</summary>
+    public bool StoodStill { get; set; }
+
+    /// <summary>Extra armour it gets right now from having its feet set in heavy gear.</summary>
+    public int BraceBonus => StoodStill ? Equipment?.Armor?.Def.Brace ?? 0 : 0;
+
+    /// <summary>How long a step takes in what it's wearing. 100 is an ordinary step.</summary>
+    public int MoveTime => Equipment?.Armor?.Def.MoveTime ?? 100;
+
+    /// <summary>How much more dangerous its gear makes it look, in percent.</summary>
+    public int Menace => Equipment?.All.Sum(i => i.Def.Menace) ?? 0;
+
     /// <summary>Moving carefully: slower, quieter and harder to spot.</summary>
     public bool Sneaking { get; set; }
 

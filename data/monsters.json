@@ -38,7 +38,8 @@
         { "item": "leather_armor",  "price": 20 },
         { "item": "short_bow",      "price": 25 },
         { "item": "long_sword",     "price": 70 },
-        { "item": "chain_mail",     "price": 80 }
+        { "item": "chain_mail",     "price": 80 },
+        { "item": "plate_armor",    "price": 180 }
       ] } },
     { "id": "hermit", "faction": "folk", "role": "civilian", "maxHp": 20, "attack": 1, "defense": 0, "npc": {
       "lines": ["{founder}'s clan dug too deep. Their stones still say so.",

@@ -150,6 +150,7 @@ public static class SquadDirector
 
         attack *= 5.0 / (5 + Math.Max(0, player.Defense));
         double theirs = Math.Clamp(player.Hp, 1, player.MaxHp) * Math.Max(1, Math.Max(player.Attack, player.Equipment?.Bow is null ? 0 : player.RangedAttack));
+        theirs *= 1 + player.Menace / 100.0; // big armour and big weapons look dangerous
         double odds = hp * attack / theirs;
 
         bool hasBow = player.Equipment?.Bow is not null;

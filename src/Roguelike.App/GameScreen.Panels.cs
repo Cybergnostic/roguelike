@@ -174,6 +174,9 @@ public sealed partial class GameScreen
         if (_heatmap != 0) flags.Add($"HEAT: {HeatmapName}");
         if (_classic) flags.Add("CLASSIC");
         if (player.Sneaking) flags.Add("SNEAKING");
+        if (player.BraceBonus > 0) flags.Add("FEET SET");
+        if (player.Bonus(Roguelike.Core.Progression.Stat.Speed) is > 0 and var speed) flags.Add($"SPEED +{speed}%");
+        if (player.MoveTime > 100) flags.Add($"STEP {player.MoveTime}");
         flags.Add(_world.Depth == World.SurfaceDepth ? "Depth: surface" : $"Depth: {_world.Depth}");
         var text = string.Join("   ", flags);
         _status.Print(Width - text.Length - 2, 0, text, flags.Count > 1 ? Theme.Warning : Theme.Intent, bg);

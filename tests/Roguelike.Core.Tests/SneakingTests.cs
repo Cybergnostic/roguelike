@@ -58,13 +58,13 @@ public class SneakingTests
         Wear(world, "chain_mail");
         int loud = world.FootstepNoise(world.Player);
         var step = new MoveAction(FreeStep(world));
-        Assert.Equal(100, step.TimeCost(world, world.Player));
+        Assert.Equal(world.Player.MoveTime, step.TimeCost(world, world.Player));
 
         world.Step(new ToggleSneakAction());
 
         Assert.True(world.Player.Sneaking);
         Assert.True(world.FootstepNoise(world.Player) < loud);
-        Assert.Equal(world.Content.Dungeon.SneakStepTime, step.TimeCost(world, world.Player));
+        Assert.Equal(world.Content.Dungeon.SneakStepTime * world.Player.MoveTime / 100, step.TimeCost(world, world.Player));
     }
 
     [Fact]

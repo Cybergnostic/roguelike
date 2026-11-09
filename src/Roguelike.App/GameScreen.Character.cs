@@ -91,7 +91,7 @@ public sealed partial class GameScreen
         }
 
         var derived = $"Melee {player.Attack}  Bow {player.RangedAttack}  Def {player.Defense}  HP {player.MaxHp}  " +
-                      $"Regen 1 HP/{_world.RegenInterval} turns  Potions +{player.Bonus(Stat.PotionHealing)}%  XP +{player.Bonus(Stat.XpGain)}%";
+                      $"Regen 1 HP/{_world.RegenInterval} turns  Potions +{player.Bonus(Stat.PotionHealing)}%  XP +{player.Bonus(Stat.XpGain)}%  Speed +{player.Bonus(Stat.Speed)}%  Step {player.MoveTime}";
         _ui.Print(x0 + 2, y0 + height - 2, Truncate(derived, width - 4), Theme.Text, bg);
         _ui.Print(x0 + 2, y0 + height - 1, " letter: spend XP (free action)  Esc/c: close ", Theme.Intent, bg);
     }

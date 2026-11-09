@@ -602,10 +602,13 @@ public sealed class World
         var zoneBefore = Map.ZoneAt(Player.Position);
         int depthBefore = Depth;
         int timeCost = playerAction.TimeCost(this, Player);
+        timeCost = timeCost * 100 / Math.Max(25, 100 + Player.Bonus(Stat.Speed));
         int noiseMade = playerAction.NoiseMade(this, Player);
+        var stoodAt = Player.Position;
         if (!playerAction.Perform(this, Player))
             return [.. _events];
         ActionsTaken++;
+        Player.StoodStill = Player.Position == stoodAt;
         _bumpWarnedAbout = null;
         if (IsWon || Depth != depthBefore)
         {
@@ -987,7 +990,9 @@ public sealed class World
         }
         int strength = power ?? (ranged ? attacker.RangedAttack : attacker.Attack);
         int roll = Rng.NextInt(1, Math.Max(1, strength) + 1);
-        int armour = ranged && attacker.HasSpecial("piercing") ? target.Defense / 2 : target.Defense;
+        int armour = target.Defense + target.BraceBonus + (ranged ? target.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0);
+        if (ranged && attacker.HasSpecial("piercing"))
+            armour /= 2;
         int absorbed = Rng.NextInt(0, Math.Max(0, armour) + 1);
         int dealt = Math.Max(Content.Combat.MinDamage, roll - absorbed);
         Damage(attacker, target, dealt, ranged);
@@ -1006,7 +1011,16 @@ public sealed class World
             Emit(new SpecialUsed(target.Id, "thorns", attacker.Id));
             Damage(target, attacker, Rng.NextInt(1, 4), ranged: false);
         }
+        // Feet set in heavy gear: the first one to come at you each turn gets hit back.
+        if (target == Player && !attacker.IsDead && !target.IsDead && target.BraceBonus > 0 && _counteredOnTurn != Turn)
+        {
+            _counteredOnTurn = Turn;
+            Emit(new SpecialUsed(target.Id, "counter", attacker.Id));
+            ResolveAttack(target, attacker, ranged: false);
+        }
     }
+
+    private int _counteredOnTurn = -1;
 
     /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
     public void Damage(Actor attacker, Actor target, int damage, bool ranged)

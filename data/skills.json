@@ -29,6 +29,8 @@
         "ranks": 2, "cost": [60, 90], "perRank": { "defense": 1 } },
       { "id": "field_medicine", "name": "Field Medicine", "description": "Potions heal more.",
         "ranks": 2, "cost": [30, 45], "perRank": { "potionHealing": 25 } },
+      { "id": "fleet_foot", "name": "Fleet Foot", "description": "Everything you do takes less time.",
+        "ranks": 3, "cost": [50, 75, 100], "perRank": { "speed": 8 } },
       { "id": "second_wind", "name": "Second Wind", "description": "Recover hit points faster.",
         "ranks": 2, "cost": [40, 60], "requires": ["field_medicine"], "perRank": { "regen": 2 } }
     ]}
