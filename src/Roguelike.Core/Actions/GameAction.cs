@@ -291,12 +291,12 @@ public sealed record PayTollAction : GameAction
     }
 }
 
-/// <summary>Step in a direction; opening a closed gate or bumping a hostile actor uses the step.</summary>
-public sealed record MoveAction(Direction Direction) : GameAction
+/// <summary>Step in a direction; opening a closed gate or bumping a hostile actor uses the step. TimePercent shortens a step taken at a run.</summary>
+public sealed record MoveAction(Direction Direction, int TimePercent = 100) : GameAction
 {
     public override int TimeCost(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime
-        : actor.Sneaking ? world.Content.Dungeon.SneakStepTime * actor.MoveTime / 100 : actor.MoveTime;
+        : (actor.Sneaking ? world.Content.Dungeon.SneakStepTime * actor.MoveTime / 100 : actor.MoveTime) * TimePercent / 100;
 
     public override int NoiseMade(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? world.Content.Dungeon.FightNoise : world.FootstepNoise(actor);
@@ -384,7 +384,7 @@ public sealed record AttackAction(int TargetId) : GameAction
         if (actor.Equipment?.OffHand is not null && !target.IsDead)
         {
             var rules = world.Content.Combat;
-            world.ResolveAttack(actor, target, ranged: false, power: actor.OffHandAttack + rules.OffHandAttack, accuracyBonus: rules.OffHandAccuracy);
+            world.ResolveAttack(actor, target, ranged: false, power: actor.OffHandAttack(rules.OffHandStrength) + rules.OffHandAttack, accuracyBonus: rules.OffHandAccuracy);
         }
     }
 }

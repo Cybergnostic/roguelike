@@ -68,6 +68,31 @@
       ]
     },
     {
+      // Between the war bands and the war parties: a small squad, but it answers to someone.
+      "name": "goblin vanguard",
+      "faction": "goblins",
+      "weight": 2,
+      "minDepth": 3,
+      "maxDepth": 5,
+      "members": [
+        { "monster": "goblin_captain", "min": 1, "max": 1 },
+        { "monster": "goblin_warrior", "min": 2, "max": 3 },
+        { "monster": "goblin_archer", "min": 1, "max": 2 }
+      ]
+    },
+    {
+      "name": "skeleton file",
+      "faction": "undead",
+      "weight": 2,
+      "minDepth": 4,
+      "maxDepth": 5,
+      "members": [
+        { "monster": "bone_knight", "min": 1, "max": 1 },
+        { "monster": "skeleton_warrior", "min": 2, "max": 3 },
+        { "monster": "skeleton_archer", "min": 1, "max": 1 }
+      ]
+    },
+    {
       "name": "skeleton cohort",
       "faction": "undead",
       "weight": 2,

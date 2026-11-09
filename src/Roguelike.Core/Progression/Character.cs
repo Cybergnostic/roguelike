@@ -74,6 +74,11 @@ public sealed class Character
         return _bonuses[(int)stat];
     }
 
+    /// <summary>The part of a stat's bonus that comes from one attribute, rounded down.</summary>
+    public int BonusFrom(string attribute, Stat stat) =>
+        _content.Attributes.First(a => a.Id == attribute).PerModifier.TryGetValue(stat, out double amount)
+            ? (int)Math.Floor(amount * ModifierOf(attribute) + 1e-9) : 0;
+
     // ---- Spending ----
 
     /// <summary>XP for the next +1 to any attribute.</summary>

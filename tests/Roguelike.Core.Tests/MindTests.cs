@@ -4,6 +4,7 @@ using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Content;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
+using Roguelike.Core.Progression;
 using Roguelike.Core.Simulation;
 using SadRogue.Primitives;
 using SadRogue.Primitives.GridViews;
@@ -79,6 +80,52 @@ public class MindTests
         squad.Members.First(m => m.Commands is null).Hp = 0;
         Assert.DoesNotContain(world.Step(new WaitAction()), e => e is SquadLostCommander);
         Assert.Equal("drilled", squad.Mind.Id);
+    }
+
+    private static MoveAction? FirstMoveOf(World world, Squad squad, Actor member)
+    {
+        world.Step(new WaitAction()); // the squad notices
+        return ((SquadMemberBrain)member.Brain!).Decide(world, member) as MoveAction;
+    }
+
+    [Fact]
+    public void DrilledFightersRunAtAnArcher()
+    {
+        var world = Empty(); // the player starts with a bow
+        Assert.True(world.Player.Range > 0);
+        var squad = Spawn(world, 5, "goblin_captain", "goblin_warrior", "goblin_warrior");
+        var step = FirstMoveOf(world, squad, squad.Commander!);
+        Assert.Equal(world.Content.Minds["drilled"].UnderFireStepTime, step?.TimePercent);
+    }
+
+    [Fact]
+    public void DrilledFightersWalkAtSomeoneWhoCantShoot()
+    {
+        var world = Empty();
+        world.Step(new EquipAction(world.Player.Equipment!.Bow!.Id)); // put the bow away
+        Assert.Equal(0, world.Player.Range);
+        var squad = Spawn(world, 5, "goblin_captain", "goblin_warrior", "goblin_warrior");
+        var step = FirstMoveOf(world, squad, squad.Commander!);
+        Assert.Equal(100, step?.TimePercent ?? 100);
+    }
+
+    [Fact]
+    public void RabbleDoesntRunAtAnArcher()
+    {
+        var world = Empty();
+        var squad = Spawn(world, 5, "goblin_warrior", "goblin_warrior", "goblin_warrior");
+        var step = FirstMoveOf(world, squad, squad.Leader!);
+        Assert.Equal(100, step?.TimePercent ?? 100);
+    }
+
+    [Fact]
+    public void TheOffHandGetsHalfTheStrength()
+    {
+        var player = World.Create(1, classId: "rogue").Player;
+        int strength = player.Character!.BonusFrom("str", Stat.MeleeAttack);
+        Assert.True(strength >= 1);
+        Assert.Equal(player.Attack, player.OffHandAttack(100)); // twin daggers of the same make
+        Assert.Equal(player.Attack - (strength - strength / 2), player.OffHandAttack(50));
     }
 
     [Fact]
@@ -195,6 +242,7 @@ public class MindTests
         static int FrontRunnerDistance(string mind)
         {
             var world = Empty();
+            world.Step(new EquipAction(world.Player.Equipment!.Bow!.Id)); // nobody runs at a target that can't shoot
             var at = world.Player.Position;
             var front = world.SpawnMonster("goblin_warrior", OpenCells(world, 4).First());
             var squad = world.SquadOf(front)!;

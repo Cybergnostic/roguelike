@@ -28,7 +28,7 @@ public enum HoldsCorridors { Never, WithShooters, Always }
 /// <summary>How a squad thinks (minds.json).</summary>
 public sealed record MindDef(string Id, string Name, string Description, int ShoutRange, int Memory, int Searches, bool SizesUp,
     Surrounds Surround, HoldsCorridors HoldsCorridors, int BreaksAt, bool FocusFire = false, bool RotatesWounded = false,
-    bool ShootersKeepBack = false, int CommanderLoss = 0, bool AdvancesTogether = false, int CasualtyMorale = 25)
+    bool ShootersKeepBack = false, int CommanderLoss = 0, bool AdvancesTogether = false, int CasualtyMorale = 25, int UnderFireStepTime = 100)
 {
     /// <summary>For actors made by hand, without any content behind them.</summary>
     public static readonly MindDef Default = new("rabble", "Rabble", "", 6, 6, 20, true, Surrounds.WhenBold, HoldsCorridors.Never, 40);
@@ -63,7 +63,7 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// MinDamage gets through.
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
-    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1,
+    int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1, int OffHandStrength = 50,
     int ChargeRange = 5, int ChargeCooldown = 12, int ChargeBonus = 2, double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
@@ -467,6 +467,8 @@ public sealed class ContentDatabase
                 throw Error(name, $"duplicate mind '{mind.Id}'");
             if (mind.ShoutRange < 0 || mind.Memory < 0 || mind.Searches < 0 || mind.BreaksAt < 0 || mind.CommanderLoss < 0 || mind.CasualtyMorale < 0)
                 throw Error(name, $"mind '{mind.Id}': numbers can't be negative");
+            if (mind.UnderFireStepTime is < 1 or > 100)
+                throw Error(name, $"mind '{mind.Id}': underFireStepTime must be 1-100");
         }
         foreach (var monster in monsters.Values)
             foreach (var id in new[] { monster.Mind, monster.Commands })

@@ -8,6 +8,8 @@
   // 3. A second weapon in the off hand strikes too, at offHandAccuracy and offHandAttack.
   "offHandAccuracy": -4,
   "offHandAttack": -1,
+  // How much of the wielder's Strength bonus (percent) the off-hand blow gets; rounded down.
+  "offHandStrength": 50,
   // How a squad sizes up the player: (its total HP x total attack, softened by the player's armour) over
   // (the player's HP x best attack). Anyone else already fighting the player counts on the squad's side.
   // Above boldAbove it swarms; below waryBelow it hangs back; below terrifiedBelow it runs. If the player

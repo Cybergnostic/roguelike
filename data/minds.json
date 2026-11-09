@@ -14,6 +14,8 @@
   //   commanderLoss: morale lost when the one commanding this way falls
   //   advancesTogether: fighters wait for the line instead of arriving one at a time
   //   casualtyMorale: morale lost for each comrade who dies
+  //   underFireStepTime: closing on someone who can shoot, a step takes this percent of the usual
+  //     time, and nobody stops to wait for the line or holds a corridor mouth (100: no such drill)
   "minds": [
     { "id": "mindless", "name": "Mindless", "description": "It just comes at you.",
       "shoutRange": 2, "memory": 4, "searches": 6, "sizesUp": false, "surround": "never",
@@ -30,6 +32,6 @@
     { "id": "drilled", "name": "Drilled", "description": "Fights in order, under command.",
       "shoutRange": 12, "memory": 12, "searches": 40, "sizesUp": true, "surround": "always",
       "holdsCorridors": "withShooters", "focusFire": true, "rotatesWounded": true, "shootersKeepBack": true,
-      "breaksAt": 15, "commanderLoss": 40, "advancesTogether": true, "casualtyMorale": 10 }
+      "breaksAt": 15, "commanderLoss": 40, "advancesTogether": true, "casualtyMorale": 10, "underFireStepTime": 60 }
   ]
 }

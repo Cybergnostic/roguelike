@@ -119,8 +119,12 @@ public sealed class Actor
     public int MeleeAttackTime => Equipment?.Weapon?.Def.AttackTime ?? BaseAttackTime;
     public int RangedAttackTime => Equipment?.Bow?.Def.AttackTime ?? BaseAttackTime;
 
-    /// <summary>The off-hand weapon's strength, before the off-hand penalty.</summary>
-    public int OffHandAttack => BaseAttack + (Equipment?.OffHand?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
+    /// <summary>The off-hand weapon's strength, before the off-hand penalty. It gets only a share of a Strength bonus.</summary>
+    public int OffHandAttack(int strengthPercent)
+    {
+        int strength = Math.Max(0, Character?.BonusFrom("str", Stat.MeleeAttack) ?? 0);
+        return BaseAttack + (Equipment?.OffHand?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack) - (strength - strength * strengthPercent / 100);
+    }
 
     public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense);
 

@@ -138,6 +138,19 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     private GameAction Warrior(World world, Actor self)
     {
         var enemy = world.NearestVisibleHostile(self);
+        var action = Fight(world, self, enemy);
+        return action is MoveAction step && enemy is not null && UnderFire(self, enemy)
+               && World.Distance(self.Position + step.Direction, enemy.Position) <= World.Distance(self.Position, enemy.Position)
+            ? step with { TimePercent = Squad.Mind.UnderFireStepTime }
+            : action;
+    }
+
+    /// <summary>Drilled fighters don't stand about being shot: they run at whoever is doing it.</summary>
+    private bool UnderFire(Actor self, Actor enemy) =>
+        Squad.Mind.UnderFireStepTime < 100 && enemy.Range > 0 && World.Distance(self.Position, enemy.Position) >= 2;
+
+    private GameAction Fight(World world, Actor self, Actor? enemy)
+    {
         if (enemy is not null && StepsBack(world, self, enemy) is { } rotation)
             return rotation;
 
@@ -170,7 +183,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         // as long as someone can shoot at them in the meantime.
         bool wouldEnterChokepoint = world.IsChokepoint(self.Position + step.Value)
                                     && !world.IsChokepoint(self.Position);
-        if (wouldEnterChokepoint && Squad.IsHoldingPassage)
+        if (wouldEnterChokepoint && Squad.IsHoldingPassage && (enemy is null || !UnderFire(self, enemy)))
             return new WaitAction();
 
         return new MoveAction(step.Value);
@@ -215,7 +228,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     /// <summary>Drilled fighters arrive together: anyone out in front holds until the others come up.</summary>
     private bool WaitsForTheLine(World world, Actor self, Actor enemy)
     {
-        if (!Squad.Mind.AdvancesTogether || World.Distance(self.Position, enemy.Position) <= 2)
+        if (!Squad.Mind.AdvancesTogether || World.Distance(self.Position, enemy.Position) <= 2 || UnderFire(self, enemy))
             return false;
         var toward = Squad.TowardKnownThreats(world.Map.Passable);
         if (toward[self.Position] is not { } mine)
