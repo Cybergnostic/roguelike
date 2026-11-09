@@ -140,10 +140,19 @@ public sealed record SpareAction(int ActorId) : GameAction
             return false;
         squad.Surrendered = false;
         squad.Spared = true;
-        if (squad.OffersSecret)
-            world.TellSecret(beggar);
-        else
-            world.Emit(new BeggarSpared(beggar.Id));
+        switch (squad.Offer)
+        {
+            case AI.Squads.Ransom.Secret:
+                world.TellSecret(beggar);
+                break;
+            case AI.Squads.Ransom.Gold:
+                actor.Gold += squad.OfferedGold;
+                world.Emit(new RansomPaid(beggar.Id, squad.OfferedGold));
+                break;
+            default:
+                world.Emit(new BeggarSpared(beggar.Id));
+                break;
+        }
         return true;
     }
 }

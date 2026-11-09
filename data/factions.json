@@ -10,14 +10,16 @@
     { "id": "goblins", "name": "the goblins", "raid": { "every": 100, "against": "undead" },
       "taunts": ["Fresh meat! Spread out, boys!", "Alone down here? Bad luck, that.", "Drop your purse and we'll make it quick!"],
       "pleas": ["Wait! Wait, big one! Don't kill!", "Mercy! Please, mercy!", "No more! We go, we go!"],
-      "offers": ["We know things! Spare us and we tell you what's down here!", "Don't kill! I show you where the good things are!"] },
+      "offers": ["We know things! Spare us and we tell you what's down here!", "Don't kill! I show you where the good things are!"],
+      "ransoms": ["Shiny! Take shiny! Don't kill!", "Here, here, all we got! Let us go!"] },
     { "id": "undead", "name": "the undead" },
     // Out in the wider valley.
     { "id": "beasts", "name": "wild animals" },
     { "id": "bandits", "name": "the bandits",
       "taunts": ["Nowhere to run, friend. Surround 'em.", "Your coin or your throat."],
       "pleas": ["Enough! Enough! I've a family!", "I yield! I yield, damn you!"],
-      "offers": ["Hold! I know where the good stuff is. My life for it!"] },
+      "offers": ["Hold! I know where the good stuff is. My life for it!"],
+      "ransoms": ["Take the purse! Just let me walk!", "It's all I've got. Take it and we're square."] },
     { "id": "folk", "name": "the hamlet folk" }
   ],
   "relations": [

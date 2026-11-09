@@ -40,7 +40,7 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
     int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1,
-    double PleaChance = 0.35, double SecretChance = 0.3, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
+    double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -122,6 +122,9 @@ public sealed record AffixRules(
     IReadOnlyList<AffixDef> Pool,
     IReadOnlyDictionary<ItemCategory, IReadOnlyList<string>> Specials,
     ItemNameWords Names);
+
+/// <summary>What a surrendering squad of some rank offers. SecretShare: of its offers, how many are a secret. Gold: [min, max].</summary>
+public sealed record RansomDef(double OfferChance, double SecretShare, int[] Gold);
 
 /// <summary>A lair sends out a new squad (by template name) every Every turns, while its faction has fewer than Max roaming squads.</summary>
 public sealed record MusterDef(string Squad, int Every, int Max);
@@ -290,6 +293,9 @@ public sealed class ContentDatabase
         if (dungeon.CorpseWithersAfter <= 0 || dungeon.CorpseGoneAfter <= dungeon.CorpseWithersAfter || dungeon.CalmAfter <= 0
             || dungeon.TurnsPerHealedHp <= 0 || dungeon.TurnsPerReplacement <= 0)
             throw Error("dungeon.json", "time settings must be positive, and corpseGoneAfter more than corpseWithersAfter");
+        foreach (var (rank, ransom) in combat.Ransom ?? new Dictionary<Rank, RansomDef>())
+            if (ransom.OfferChance is < 0 or > 1 || ransom.SecretShare is < 0 or > 1 || ransom.Gold is not [var low, var high] || low < 0 || high < low)
+                throw Error("combat.json", $"ransom for {rank}: chances must be 0 to 1, and gold [min, max]");
         if (combat.MinHitChance < 0 || combat.MaxHitChance > 100 || combat.MinHitChance > combat.MaxHitChance
             || combat.HitChancePerPoint < 0 || combat.MinDamage < 0)
             throw Error("combat.json", "hit chances must satisfy 0 <= min <= max <= 100; per-point and minDamage >= 0");
@@ -329,7 +335,7 @@ public sealed class ContentDatabase
 
         var factions = new Dictionary<string, Faction>();
         foreach (var f in factionFile.Factions)
-            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid, Taunts = f.Taunts ?? [], Pleas = f.Pleas ?? [], Offers = f.Offers ?? [] }))
+            if (!factions.TryAdd(f.Id, new Faction(f.Id, f.Name) { Raid = f.Raid, Taunts = f.Taunts ?? [], Pleas = f.Pleas ?? [], Offers = f.Offers ?? [], Ransoms = f.Ransoms ?? [] }))
                 throw Error("factions.json", $"duplicate faction '{f.Id}'");
         if (!factions.ContainsKey(Faction.PlayerId))
             throw Error("factions.json", $"missing the '{Faction.PlayerId}' faction");
@@ -764,7 +770,7 @@ public sealed class ContentDatabase
     private static InvalidDataException Error(string file, string message) => new($"{file}: {message}");
 
     private sealed record FactionFile(List<FactionEntry> Factions, List<RelationEntry> Relations);
-    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null, List<string>? Taunts = null, List<string>? Pleas = null, List<string>? Offers = null);
+    private sealed record FactionEntry(string Id, string Name, RaidPlan? Raid = null, List<string>? Taunts = null, List<string>? Pleas = null, List<string>? Offers = null, List<string>? Ransoms = null);
     private sealed record RelationEntry(string A, string B, Relation Relation);
     private sealed record MonsterFile(List<MonsterDef> Monsters);
     private sealed record AbilityFile(List<AbilityDef> Abilities);

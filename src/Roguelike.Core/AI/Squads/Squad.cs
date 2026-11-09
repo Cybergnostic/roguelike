@@ -29,6 +29,9 @@ public enum Posture
     Desperate,
 }
 
+/// <summary>What a surrendering squad offers for its life.</summary>
+public enum Ransom { Nothing, Gold, Secret }
+
 public enum SquadState
 {
     /// <summary>Unaware of the player: patrols between rooms as a group.</summary>
@@ -69,8 +72,10 @@ public sealed class Squad
     /// <summary>Hands up, begging for mercy. It won't fight the player unless attacked.</summary>
     public bool Surrendered { get; set; }
 
-    /// <summary>While begging, it offered something it knows in exchange for its life.</summary>
-    public bool OffersSecret { get; set; }
+    /// <summary>What it offered when it surrendered, and how much if that was gold.</summary>
+    public Ransom Offer { get; set; }
+    public int OfferedGold { get; set; }
+    public bool OffersSecret => Offer == Ransom.Secret;
 
     /// <summary>The player let it live. It will never bother them again.</summary>
     public bool Spared { get; set; }

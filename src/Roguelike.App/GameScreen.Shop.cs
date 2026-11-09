@@ -34,8 +34,14 @@ public sealed partial class GameScreen
     private void DrawMercyPrompt()
     {
         _status.Clear();
-        var offer = _world.SquadOf(_beggar!) is { OffersSecret: true } ? "spare it and hear what it knows" : "let it go";
-        _status.Print(2, 0, $"The {_beggar!.Name} begs for its life.   s: {offer}   k: kill it   Esc: not yet", Theme.Warning, Theme.PanelBackground);
+        var squad = _world.SquadOf(_beggar!);
+        var offer = squad?.Offer switch
+        {
+            Roguelike.Core.AI.Squads.Ransom.Secret => "spare it and hear what it knows",
+            Roguelike.Core.AI.Squads.Ransom.Gold => $"spare it and take its {squad.OfferedGold} gold",
+            _ => "let it go",
+        };
+        _status.Print(2, 0, $"The {_beggar!.Name} has surrendered.   s: {offer}   k: kill it   Esc: not yet", Theme.Warning, Theme.PanelBackground);
     }
 
     private IReadOnlyList<WareDef> Wares => _world.NpcOf(_shop!)?.Goods ?? [];

@@ -209,7 +209,7 @@ public sealed partial class GameScreen : ScreenObject
                 SquadSpotted or ReinforcementsCalled or CorpseRaised or ZoneEntered or RaidLaunched or SquadMustered => Theme.Warning,
                 GateChallenged or TrespassWarned or PassRunningOut or PassExpired or CampAlarmed => Theme.Warning,
                 LoreDiscovered or SquadTaunted or SquadCowed or SquadPleaded => Theme.Warning,
-                SecretTold => Theme.Good,
+                SecretTold or RansomPaid => Theme.Good,
                 Talked or ItemBought => Theme.Intent,
                 TheftCommitted { WitnessId: not null } => Theme.Danger,
                 IncursionBegan or CampAttackedWhileAway or CampReinforced => Theme.Warning,
@@ -418,7 +418,7 @@ public sealed partial class GameScreen : ScreenObject
         if (role == SquadRole.Civilian)
             return "going about their day";
         if (squad.Surrendered)
-            return "begging for mercy";
+            return squad.Offer switch { Ransom.Secret => "offering a secret", Ransom.Gold => "offering gold", _ => "surrendering" };
         if (squad.Spared)
             return "keeping well clear of you";
         if (squad.State == SquadState.Engage && role is SquadRole.Warrior or SquadRole.Runner)

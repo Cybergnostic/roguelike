@@ -199,10 +199,34 @@ public static class SquadDirector
         squad.Surrendered = true;
         squad.State = SquadState.Idle;
         squad.Destination = null;
-        squad.OffersSecret = squad.Faction.Offers.Count > 0 && world.HasSecretToTell() && world.Rng.NextDouble() < rules.SecretChance;
-        var lines = squad.OffersSecret ? squad.Faction.Offers : squad.Faction.Pleas;
-        world.Emit(new SquadPleaded(squad.Id, mouth.Id, world.Rng.NextInt(lines.Count), squad.OffersSecret));
+        DecideRansom(world, squad);
+        var lines = squad.Offer switch
+        {
+            Ransom.Secret => squad.Faction.Offers,
+            Ransom.Gold => squad.Faction.Ransoms,
+            _ => squad.Faction.Pleas,
+        };
+        world.Emit(new SquadPleaded(squad.Id, mouth.Id, world.Rng.NextInt(lines.Count), squad.Offer));
         return true;
+    }
+
+    /// <summary>What a surrendering squad has to offer: elites usually something good, ordinary monsters rarely much.</summary>
+    private static void DecideRansom(World world, Squad squad)
+    {
+        var rank = squad.Members.Max(m => m.Rank);
+        if (world.Content.Combat.Ransom?.GetValueOrDefault(rank) is not { } terms || world.Rng.NextDouble() >= terms.OfferChance)
+            return;
+        bool canTell = squad.Faction.Offers.Count > 0 && world.HasSecretToTell();
+        if (canTell && world.Rng.NextDouble() < terms.SecretShare)
+        {
+            squad.Offer = Ransom.Secret;
+            return;
+        }
+        if (squad.Faction.Ransoms.Count > 0)
+        {
+            squad.Offer = Ransom.Gold;
+            squad.OfferedGold = world.Rng.NextInt(terms.Gold[0], terms.Gold[1] + 1);
+        }
     }
 
     /// <summary>The squad has a reason to stop: it forgets the chase and goes back to its orders.</summary>

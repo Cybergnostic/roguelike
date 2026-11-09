@@ -85,7 +85,10 @@ public sealed record SquadCowed(int SquadId, IReadOnlyList<int> MemberIds) : Gam
 public sealed record SquadTaunted(int SpeakerId, int Line) : GameEvent;
 
 /// <summary>A squad gave up and begged for its life. Line: which of its faction's pleas.</summary>
-public sealed record SquadPleaded(int SquadId, int SpeakerId, int Line, bool OffersSecret) : GameEvent;
+public sealed record SquadPleaded(int SquadId, int SpeakerId, int Line, Roguelike.Core.AI.Squads.Ransom Offer) : GameEvent;
+
+/// <summary>Someone who surrendered paid gold for their life.</summary>
+public sealed record RansomPaid(int ActorId, int Gold) : GameEvent;
 
 /// <summary>The player let a beggar go, with nothing asked or offered.</summary>
 public sealed record BeggarSpared(int ActorId) : GameEvent;

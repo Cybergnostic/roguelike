@@ -196,7 +196,7 @@ docs/PROJECT.md              this file
 11a. **Squads size up the player** (`SquadDirector.SizeUp`, thresholds in combat.json) from what they can see: their HP x attack against
    the player's apparent health (capped at max HP), best attack and armour. Others already at the player's throat count on their side.
    `Squad.Posture`: Bold (surround), Even, Wary (no bow: keep out of reach), Desperate (run, or charge if a bow has them close). Leashed
-   squads and the fearless never run from it. Factions with `pleas` may beg (`Squad.Surrendered`), and sometimes offer a secret if the level still has one (`combat.json` pleaChance, secretChance).
+   squads and the fearless never run from it. Factions with `pleas` may surrender (`Squad.Surrendered`). What they offer for their lives depends on the squad's highest rank (`combat.json` ransom): nothing, gold, or a secret if the level still has one.
 11. **Corpses** are `World.Corpses` records (kind, position, turn), left by every non-player death
    except raised dead ("the dead rise only once"). Raised actors carry `MasterId`; `World.Damage`
    crumbles them when the master dies. Spawn monsters at runtime with `World.SpawnMonster`.

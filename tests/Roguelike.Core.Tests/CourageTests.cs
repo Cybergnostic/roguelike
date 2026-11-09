@@ -158,12 +158,12 @@ public class CourageTests
     /// <summary>A goblin down on its luck, within earshot, on a seed where it begs (and offers a secret, or doesn't).</summary>
     private static (World World, Squad Squad, Actor Goblin, List<GameEvent> Events) Beggar(bool offers = false)
     {
-        for (ulong seed = 1; seed < 900; seed++)
+        for (ulong seed = 1; seed < 3000; seed++)
         {
             var (world, squad) = Encounter(1, distance: 3, seed: seed);
             world.Player.Hp = 100;
             var events = world.Step(new WaitAction()).ToList();
-            if (squad.Surrendered && squad.OffersSecret == offers)
+            if (squad.Surrendered && (offers ? squad.OffersSecret : squad.Offer == Ransom.Nothing))
                 return (world, squad, squad.Members[0], events);
         }
         throw new InvalidOperationException("nobody begged");
@@ -178,10 +178,66 @@ public class CourageTests
             var (world, squad) = Encounter(1, distance: 3, seed: seed);
             world.Step(new WaitAction());
             begged += squad.Surrendered ? 1 : 0;
-            offered += squad.OffersSecret ? 1 : 0;
+            offered += squad.Offer != Ransom.Nothing ? 1 : 0;
         }
         Assert.InRange(begged, 100, 260);
         Assert.InRange(offered, 1, begged / 2);
+    }
+
+    /// <summary>How 300 surrenders of this kind of monster go: what share offer anything, a secret, or gold.</summary>
+    private static (int Surrendered, int Offered, int Secrets, List<int> Gold) Surrenders(string kind)
+    {
+        int surrendered = 0, offered = 0, secrets = 0;
+        var gold = new List<int>();
+        for (ulong seed = 1; seed < 900; seed++)
+        {
+            var (world, squad) = Encounter(1, kind, distance: 3, seed: seed);
+            foreach (var m in squad.Members) m.Hp = 2; // hopeless, whatever its rank
+            world.Step(new WaitAction());
+            if (!squad.Surrendered)
+                continue;
+            surrendered++;
+            offered += squad.Offer != Ransom.Nothing ? 1 : 0;
+            secrets += squad.Offer == Ransom.Secret ? 1 : 0;
+            if (squad.Offer == Ransom.Gold)
+                gold.Add(squad.OfferedGold);
+        }
+        return (surrendered, offered, secrets, gold);
+    }
+
+    [Fact]
+    public void ElitesOfferMoreAndBetterThanOrdinaryMonsters()
+    {
+        var plain = Surrenders("goblin_warrior");
+        var elite = Surrenders("goblin_brute");
+
+        Assert.True(plain.Surrendered > 100, $"only {plain.Surrendered} surrendered");
+        Assert.True(plain.Offered * 2 < plain.Surrendered, "ordinary monsters should usually have nothing");
+        Assert.True(elite.Offered * 4 > elite.Surrendered * 3, "elites should usually have something");
+        Assert.True(elite.Secrets * plain.Surrendered > plain.Secrets * elite.Surrendered, "elites should know more");
+        Assert.All(plain.Gold, g => Assert.InRange(g, 2, 8));
+        Assert.All(elite.Gold, g => Assert.InRange(g, 15, 40));
+    }
+
+    [Fact]
+    public void SparingSomeoneWhoOfferedGoldPaysIt()
+    {
+        for (ulong seed = 1; seed < 900; seed++)
+        {
+            var (world, squad) = Encounter(1, "goblin_brute", distance: 3, seed: seed);
+            foreach (var m in squad.Members) m.Hp = 2;
+            world.Step(new WaitAction());
+            if (squad.Offer != Ransom.Gold)
+                continue;
+            int before = world.Player.Gold;
+
+            var events = world.Step(new SpareAction(squad.Members[0].Id));
+
+            Assert.Contains(events, e => e is RansomPaid r && r.Gold == squad.OfferedGold);
+            Assert.Equal(before + squad.OfferedGold, world.Player.Gold);
+            return;
+        }
+        Assert.Fail("nobody offered gold");
     }
 
     [Fact]
