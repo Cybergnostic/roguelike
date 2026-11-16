@@ -286,6 +286,48 @@ Existing seeded simulation and scenario testing is a strong asset. Extend it to 
 - Expanded the world vision: living camps, landmarks, vertical shortcuts, environment interactions, routines, observation, situation-driven quests, and knowledge-based progression.
 - Agreed to keep these in an independent **ideas document**, without confusing ideas with confirmed decisions or the development roadmap.
 
+### 2026-11-16 - Review of an outside research report on elite squad AI
+An external report (written without seeing the code) recommended "a shared preference, not a shared brain":
+a light squad coordinator plus ordinary per-actor AI, commanders, breaking with hysteresis, focus fire, a
+headless harness. All of that already exists (`SquadDirector` / `SquadMemberBrain`, `minds.json`, `--trials`).
+Its framing (keep the player hyper-lethal, give them windows to disrupt squads) runs against the current
+measurements, where Ranger and Rogue already walk over most fights. Three ideas from it are worth keeping:
+
+#### Invariant fuzzing of the AI
+- **Idea:** Thousands of short random fights (map shape, wall density, squad size 2-8, mind, commander
+  present / dead mid-fight, blocked exits, one-tile corridors). The oracle is not "who won" but "the rules held".
+- **Player decision:** None directly; fewer stuck or silly monsters.
+- **World/AI response:** Fail on: two living actors on one tile; an AI turn that doesn't end or returns an
+  illegal action; the world state repeating for N turns with a hostile in sight (jams, oscillation); references
+  to dead actors; replay divergence. Each failure becomes a named regression test.
+- **Feedback:** A `Roguelike.Sim --fuzz` report.
+- **Status:** Explore (first in line: no balance risk).
+- **First experiment:** Should catch two known issues: the runner that retries a blocked exit forever, and
+  `World.StepToward` giving up when its next step is blocked.
+
+#### Show what a drilled squad is doing
+- **Idea:** Intent text already covers posture (closing in, circling, charging, falling back). Extend it to the
+  drill itself: "waiting for the line", "holding the corridor", "everyone striking at you" (focus fire),
+  "archers falling back", "the wounded stepping back", "leaderless" after the commander falls.
+- **Player decision:** Break the line before it forms, pull them out of the corridor, kill the commander or not.
+- **World/AI response:** No rule changes; the squad's existing flags become visible.
+- **Feedback:** Tooltip / examine intent line, maybe a squad line in the "in sight" panel.
+- **Status:** Explore.
+- **First experiment:** Ask after a drilled goblin fight "what were they trying to do?"; aim for most answers right.
+
+#### Hits that depend on position, not luck
+- **Idea:** Instead of random criticals, extra damage from circumstance: flanked (an ally of yours, or a wall,
+  opposite), staggered, unaware (backstab already does this), from hiding. Enemies get the same rules.
+- **Player decision:** Where to stand; whether to stagger first and strike second.
+- **World/AI response:** Drilled squads surround deliberately, so flanking would give them a real way to
+  punish Rangers and Rogues caught in the open (open problem 3 in PROJECT.md §0).
+- **Feedback:** The hit-chance line in examine shows the bonus; the log names it ("from behind").
+- **Status:** Explore. A lever for the Rogue's low win rate.
+- **First experiment:** "Exposed" (+50% damage when flanked) for both sides; re-run `--trials` and the class sims.
+
+Not taken: formation slots, tile reservation, danger maps, a separate RALLYING/FORMED state machine.
+`advancesTogether` and `StepDownhill` (which prefers less crowded cells) already give most of that.
+
 ### Template for the next idea
 ```markdown
 ### YYYY-MM-DD - Idea title

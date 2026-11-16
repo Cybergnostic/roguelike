@@ -21,7 +21,16 @@ public sealed partial class GameScreen
         public int? ActorId { get; } = actorId;
         public Point At { get; set; } = at;
         public double Left { get; set; } = seconds;
+        /// <summary>Which corner its tag sits at (index into <see cref="CalloutSlots"/>), kept between frames so it doesn't jump about.</summary>
+        public int Slot { get; set; } = -1;
     }
+
+    /// <summary>
+    /// Where a tag can sit relative to whoever is speaking: a corner (left/right, above/below) and how many
+    /// cells of leader line lead to it. Earlier entries are preferred when nothing is in the way.
+    /// </summary>
+    private static readonly (int Dx, int Dy, int Reach)[] CalloutSlots =
+        [(1, -1, 1), (-1, -1, 1), (1, 1, 1), (-1, 1, 1), (1, -1, 2), (-1, -1, 2), (1, 1, 2), (-1, 1, 2)];
 
     private const double SpeechSeconds = 3.2;
     private const double GruntSeconds = 1.1;
@@ -110,6 +119,7 @@ public sealed partial class GameScreen
     {
         _float.Clear();
         var taken = new HashSet<(int Row, int Col)>();
+        var occupied = OccupiedScreenCells();
         foreach (var popup in _popups)
         {
             var anchor = popup.ActorId is { } id && _world.GetActor(id) is { IsDead: false } actor ? actor.Position : popup.At;
@@ -117,19 +127,135 @@ public sealed partial class GameScreen
             if (!OnScreen(anchor, out var cell))
                 continue;
             var lines = Wrap(popup.Text, SpeechWrap).ToList();
-            int y = Math.Max(0, cell.Y - lines.Count);
-            foreach (var line in lines)
-            {
-                int x = Math.Clamp(cell.X * 2 + 1 - line.Length / 2 - 1, 0, UiWidth - line.Length - 2);
-                while (y > 0 && Enumerable.Range(x, line.Length + 2).Any(c => taken.Contains((y, c))))
-                    y--;
-                _float.Print(x, y, $" {line} ", popup.Color, Theme.PopupBackground);
-                foreach (int c in Enumerable.Range(x, line.Length + 2))
-                    taken.Add((y, c));
-                y++;
-            }
+            if (popup.ActorId is not null && DrawCallout(popup, cell, lines, taken, occupied))
+                continue;
+            DrawFloating(popup, cell, lines, taken, occupied);
         }
         DrawTooltip();
+    }
+
+    /// <summary>
+    /// A box with no leader (a noise from somewhere off in a direction): centred on its spot, but nudged up or
+    /// down so it doesn't cover anyone, the space around the player, or another popup.
+    /// </summary>
+    private void DrawFloating(Popup popup, Point cell, List<string> lines, HashSet<(int Row, int Col)> taken, Dictionary<Point, bool> occupied)
+    {
+        int width = lines.Max(l => l.Length) + 2;
+        int x = Math.Clamp(cell.X * 2 + 1 - width / 2, 0, UiWidth - width);
+        var player = OnScreen(_world.Player.Position, out var p) ? p : new Point(-9, -9);
+        int bestTop = -1, bestScore = int.MaxValue;
+        foreach (int shift in (int[])[0, -1, 1, -2, 2, -3, 3, -4, 4])
+        {
+            int top = cell.Y - lines.Count + shift;
+            if (top < 0 || top + lines.Count > MapHeight)
+                continue;
+            int score = Math.Abs(shift);
+            for (int row = top; row < top + lines.Count; row++)
+                for (int col = x; col < x + width; col++)
+                {
+                    if (taken.Contains((row, col)))
+                        score += 1000;
+                    if (Math.Abs(col / 2 - player.X) <= 1 && Math.Abs(row - player.Y) <= 1)
+                        score += 100;
+                    if (occupied.ContainsKey(new Point(col / 2, row)))
+                        score += 60;
+                }
+            if (score < bestScore)
+                (bestTop, bestScore) = (top, score);
+        }
+        if (bestTop < 0)
+            return;
+        for (int i = 0; i < lines.Count; i++)
+        {
+            _float.Print(x, bestTop + i, $" {lines[i]} ".PadRight(width), popup.Color, Theme.PopupBackground);
+            for (int col = x; col < x + width; col++)
+                taken.Add((bestTop + i, col));
+        }
+    }
+
+    /// <summary>Map cells on screen holding someone the player can see, and whether it's the player.</summary>
+    private Dictionary<Point, bool> OccupiedScreenCells()
+    {
+        var cells = new Dictionary<Point, bool>();
+        var fov = _world.Map.PlayerFov.BooleanResultView;
+        foreach (var actor in _world.Actors)
+            if (!actor.IsDead && (fov[actor.Position] || _reveal) && OnScreen(actor.Position, out var at))
+                cells[at] = actor == _world.Player;
+        return cells;
+    }
+
+    /// <summary>
+    /// A tag off to one side of the speaker, joined to it by a short diagonal leader line, like the labels
+    /// object-recognition software puts on what it has found. The corner is chosen so the tag covers as few
+    /// creatures and other tags as possible, and is kept between frames unless something better turns up.
+    /// Returns false if no corner fits on screen.
+    /// </summary>
+    private bool DrawCallout(Popup popup, Point cell, List<string> lines, HashSet<(int Row, int Col)> taken, Dictionary<Point, bool> occupied)
+    {
+        int width = lines.Max(l => l.Length) + 2;   // the bar, the text, a space
+        int best = -1, bestScore = int.MaxValue;
+        for (int slot = 0; slot < CalloutSlots.Length; slot++)
+        {
+            var cells = CalloutCells(cell, CalloutSlots[slot], width, lines.Count, out _, out _);
+            if (cells is null)
+                continue;
+            int score = slot * 2 - (slot == popup.Slot ? 15 : 0);
+            foreach (var (col, row) in cells)
+            {
+                if (taken.Contains((row, col)))
+                    score += 1000;
+                if (occupied.TryGetValue(new Point(col / 2, row), out bool isPlayer))
+                    score += isPlayer ? 200 : 60;
+            }
+            if (score < bestScore)
+                (best, bestScore) = (slot, score);
+        }
+        if (best < 0)
+            return false;
+        popup.Slot = best;
+
+        var (dx, dy, reach) = CalloutSlots[best];
+        var all = CalloutCells(cell, CalloutSlots[best], width, lines.Count, out int labelX, out int labelTop)!;
+        foreach (var (col, row) in all)
+            taken.Add((row, col));
+
+        // The leader: '/' rises to the right and falls to the left, '\' the other way.
+        char leader = dx * dy < 0 ? '/' : '\\';
+        for (int i = 1; i <= reach; i++)
+        {
+            int col = dx > 0 ? cell.X * 2 + 1 + i : cell.X * 2 - i;
+            _float.SetGlyph(col, cell.Y + dy * i, leader, popup.Color, Color.Transparent);
+        }
+
+        // The tag: a bar in the speaker's colour on the side the leader joins, then the words.
+        for (int i = 0; i < lines.Count; i++)
+        {
+            string text = dx > 0 ? " " + lines[i].PadRight(width - 1) : lines[i].PadLeft(width - 1) + " ";
+            _float.Print(labelX, labelTop + i, text, popup.Color, Theme.PopupBackground);
+            const int LeftHalfBlock = 221, RightHalfBlock = 222;   // CP437 ▌ ▐
+            _float.SetGlyph(dx > 0 ? labelX : labelX + width - 1, labelTop + i, dx > 0 ? LeftHalfBlock : RightHalfBlock, popup.Color, Theme.PopupBackground);
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// The UI-layer cells (two per map cell across) a callout would cover in the given corner: its leader
+    /// line and its tag. Null if any of it falls off the map view.
+    /// </summary>
+    private static List<(int Col, int Row)>? CalloutCells(Point cell, (int Dx, int Dy, int Reach) slot, int width, int height, out int labelX, out int labelTop)
+    {
+        var (dx, dy, reach) = slot;
+        labelX = dx > 0 ? cell.X * 2 + 2 + reach : cell.X * 2 - reach - width;
+        labelTop = dy < 0 ? cell.Y - reach - height : cell.Y + reach + 1;
+        if (labelX < 0 || labelX + width > UiWidth || labelTop < 0 || labelTop + height > MapHeight)
+            return null;
+        var cells = new List<(int, int)>();
+        for (int i = 1; i <= reach; i++)
+            cells.Add((dx > 0 ? cell.X * 2 + 1 + i : cell.X * 2 - i, cell.Y + dy * i));
+        for (int row = labelTop; row < labelTop + height; row++)
+            for (int col = labelX; col < labelX + width; col++)
+                cells.Add((col, row));
+        return cells;
     }
 
     /// <summary>The short card under the mouse: what's there, how it's doing, what it's up to.</summary>

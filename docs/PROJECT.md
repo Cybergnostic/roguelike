@@ -17,13 +17,14 @@ Start here in a new chat. Everything below is merged to `main` and pushed. 380 t
 - Squad minds: mindless, beast, pack, rabble, drilled. A commander lifts its squad to drilled while it lives.
 - Trials that pit every class and build against every enemy, stage and mind (`--trials`).
 - Follow-ups from the trials: drilled fighters run at shooters, commanded goblin and skeleton squads on levels 3-5, half Strength on the off-hand dagger.
+- Popups as callouts (2026-11-16): speech and grunts sit diagonally off the speaker on a short leader line, on whichever corner covers the fewest creatures; noises shift off the player and other creatures.
 
 **Open, in the order I would take them**
 1. **The crypt is still a cliff.** Levels 1-6 kill at most 14%, level 7 kills 43-72%. Commanders made the middle harder, but the last level did not get gentler.
 2. **Class balance.** Rogue is 18%, under the 20-30% target. Soldier 36% and Mystic 33% are over.
 3. **Ranger and Rogue walk over most single fights**, even against drilled squads. Enemies still need more ways to punish them.
 4. **Human playtests** against [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12. The user will do these when ready; don't wait for them.
-5. **Choose what to build next** from §7 below and [IDEAS.md](IDEAS.md) (its §16 suggests an order). Nothing in IDEAS is a commitment until the user picks it.
+5. **Choose what to build next** from §7 below and [IDEAS.md](IDEAS.md) (its §16 suggests an order). IDEAS §18 (2026-11-16) holds three takeaways from an outside squad-AI report: invariant fuzzing, showing drill as intent, positional damage. Nothing in IDEAS is a commitment until the user picks it.
 
 **Documents**
 | File | What it's for |
