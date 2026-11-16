@@ -24,14 +24,25 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
 {
     public string Name => "tactical";
 
-    /// <summary>XP purchases in order ("skill:id" or "attr:id"); each is bought as soon as affordable.</summary>
-    private static readonly string[] BuildPlan =
-    [
-        "skill:toughness", "skill:weapon_training", "skill:steady_aim", "skill:field_medicine",
-        "skill:toughness", "skill:thick_skin", "skill:weapon_training", "skill:second_wind",
-        "skill:steady_aim", "skill:toughness", "skill:cleave", "skill:thick_skin", "skill:weapon_training",
-        "skill:eagle_eye", "skill:field_medicine", "skill:second_wind", "skill:steady_aim", "skill:eagle_eye",
-    ];
+    /// <summary>XP purchases in order, per class (skill ids; each entry is that skill's next rank), bought as soon as affordable.</summary>
+    private static readonly Dictionary<string, string[]> ClassPlans = new()
+    {
+        ["warrior"] = ["weapon_mastery", "combat_stances", "hold_the_line", "weapon_mastery", "toughness", "battle_momentum",
+            "hold_the_line", "combat_stances", "weapon_mastery", "breakthrough", "hold_the_line", "battle_momentum", "toughness",
+            "breakthrough", "combat_stances", "battle_momentum", "toughness", "thick_skin", "field_medicine"],
+        ["ranger"] = ["marksmanship", "pinning_shot", "skirmishing", "marksmanship", "hunters_instinct", "shooting_techniques",
+            "skirmishing", "toughness", "marksmanship", "pinning_shot", "shooting_techniques", "skirmishing", "hunters_instinct",
+            "toughness", "pinning_shot", "field_medicine", "hunters_instinct", "toughness"],
+        ["shadow"] = ["shadowcraft", "evasion", "escape_artist", "opportunist", "evasion", "toughness", "shadowcraft",
+            "escape_artist", "opportunist", "misdirection", "evasion", "toughness", "misdirection", "shadowcraft", "escape_artist",
+            "field_medicine", "toughness"],
+        ["mystic"] = ["toughness", "cinder_bolt", "mend", "field_medicine", "toughness", "life_drain", "thick_skin",
+            "second_wind", "toughness", "field_medicine", "thick_skin", "second_wind", "fleet_foot"],
+    };
+
+    /// <summary>For a character with no class: general skills only.</summary>
+    private static readonly string[] ClasslessPlan =
+        ["toughness", "field_medicine", "toughness", "thick_skin", "second_wind", "toughness", "thick_skin", "field_medicine", "second_wind"];
     private static readonly string[] AttributeCycle = ["con", "str", "dex", "con", "str", "wis"];
 
     private int _watchingTurns;
@@ -60,8 +71,14 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
             (_depth, _arrivedTurn) = (world.Depth, world.Turn);
         bool overstayed = world.Turn - _arrivedTurn > LevelTurnBudget;
 
+        if (threats.Count > 0 && Dodge(world, me) is { } dodge)
+            return dodge;
         if (threats.Count > 0 && UseSkill(world, me, threats, hp) is { } skill)
             return skill;
+        if (threats.Count > 0 && ChangeStance(world, me, threats, hp) is { } stance)
+            return stance;
+        if (Sneak(world, me, threats, hostiles) is { } sneak)
+            return sneak;
 
         // 1. Survival.
         if (threats.Count > 0 && hp < 0.5 && Potion(me) is { } potion)
@@ -280,46 +297,133 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
         return best;
     }
 
-    /// <summary>Whichever known skill is ready and worth using now.</summary>
+    /// <summary>An announced heavy blow at me from next door: shove the brute if I can, else step out of reach.</summary>
+    private static GameAction? Dodge(World world, Actor me)
+    {
+        var brute = world.Actors.FirstOrDefault(a => !a.IsDead && a.WindUp is { } w && w.TargetId == me.Id
+                                                     && world.Content.Abilities[w.AbilityId].Kind == Content.AbilityKind.Bash
+                                                     && world.IsAdjacent(a.Position, me.Position));
+        if (brute is null)
+            return null;
+        if (Usable(world, me, "shove", brute))
+            return new UseAbilityAction("shove", brute.Id);
+        var away = World.EightWay.Where(d => world.IsFree(me.Position + d) && !world.IsAdjacent(me.Position + d, brute.Position))
+            .OrderBy(d => world.Actors.Count(a => !a.IsDead && world.AreHostile(a, me) && world.IsAdjacent(a.Position, me.Position + d)))
+            .Cast<Direction?>().FirstOrDefault();
+        return away is { } dir ? new MoveAction(dir) : null;
+    }
+
+    private static bool Usable(World world, Actor me, string abilityId, Actor? target = null) =>
+        world.Content.Abilities.TryGetValue(abilityId, out var a) && world.AbilityProblem(me, a, target) is null;
+
+    /// <summary>Whichever known skill is ready and worth using now, the way its class would use it.</summary>
     private static GameAction? UseSkill(World world, Actor me, List<Actor> threats, double hp)
     {
-        if (me.Character is not { } c)
+        if (me.Character is null)
             return null;
-        foreach (var ability in c.KnownAbilities)
+        var adjacent = threats.Where(t => world.IsAdjacent(t.Position, me.Position)).ToList();
+        var byPriority = threats.OrderByDescending(t => Priority(world, t, me)).ToList();
+        var nearest = threats.OrderBy(t => World.Distance(t.Position, me.Position)).ToList();
+
+        // Mystic and general skills, as before.
+        foreach (var ability in me.Character.KnownAbilities)
         {
-            if (ability.Kind == Content.AbilityKind.Heal && hp < 0.6 && world.AbilityProblem(me, ability, null) is null)
-                return new UseAbilityAction(ability.Id);
-            if (ability.Kind == Content.AbilityKind.Frighten && threats.Count >= 2 && world.AbilityProblem(me, ability, null) is null)
-                return new UseAbilityAction(ability.Id);
-            if (ability.Kind == Content.AbilityKind.Vanish && hp < 0.3 && world.AbilityProblem(me, ability, null) is null)
-                return new UseAbilityAction(ability.Id);
-            if (ability.NeedsTarget)
-                foreach (var target in threats.OrderBy(t => World.Distance(t.Position, me.Position)))
-                    if (world.AbilityProblem(me, ability, target) is null)
-                        return new UseAbilityAction(ability.Id, target.Id);
+            bool free = world.AbilityProblem(me, ability, null) is null;
+            switch (ability.Kind)
+            {
+                case Content.AbilityKind.Heal when hp < 0.6 && free:
+                case Content.AbilityKind.Frighten when threats.Count >= 2 && free:
+                    return new UseAbilityAction(ability.Id);
+                case Content.AbilityKind.Bolt or Content.AbilityKind.Drain:
+                    foreach (var t in byPriority)
+                        if (world.AbilityProblem(me, ability, t) is null)
+                            return new UseAbilityAction(ability.Id, t.Id);
+                    break;
+            }
         }
+
+        // Warrior: shove into a wall or a comrade (it reels), or off me when hard pressed.
+        foreach (var t in adjacent)
+        {
+            var behind = t.Position + (t.Position - me.Position);
+            bool backed = !world.IsFree(behind);
+            if ((backed || adjacent.Count >= 3 || hp < 0.4) && Usable(world, me, "shove", t))
+                return new UseAbilityAction("shove", t.Id);
+        }
+
+        // Shadow: out of a ring, or out of a losing fight.
+        if (adjacent.Count >= 3 && adjacent.FirstOrDefault(t => Usable(world, me, "tumble", t)) is { } gap)
+            return new UseAbilityAction("tumble", gap.Id);
+        if (hp < 0.4 && threats.Count >= 2 && Usable(world, me, "smoke"))
+            return new UseAbilityAction("smoke");
+        if (hp < 0.3 && Usable(world, me, "vanish"))
+            return new UseAbilityAction("vanish");
+        // Back out of hiding with a blow they don't see coming.
+        if (me.HiddenUntil >= world.Turn && byPriority.FirstOrDefault(t => Usable(world, me, "shadow_strike", t)) is { } prey)
+            return new UseAbilityAction("shadow_strike", prey.Id);
+
+        // Ranger.
+        if (byPriority.FirstOrDefault(t => !t.Statuses.Any(st => st.Kind == Entities.StatusKind.Marked && st.SourceId == me.Id)
+                                           && Usable(world, me, "mark_prey", t)) is { } quarry && Priority(world, quarry, me) >= 20)
+            return new UseAbilityAction("mark_prey", quarry.Id);
+        if (adjacent.Count > 0 && me.Equipment?.Bow is not null && adjacent.FirstOrDefault(t => Usable(world, me, "disengage", t)) is { } clinging)
+            return new UseAbilityAction("disengage", clinging.Id);
+        var closing = nearest.Where(t => World.Distance(t.Position, me.Position) is >= 2 and <= 4 && t.Range == 0).ToList();
+        if (closing.Count >= 2 && Usable(world, me, "suppressive_fire", closing[0]))
+            return new UseAbilityAction("suppressive_fire", closing[0].Id);
+        if (closing.FirstOrDefault(t => !t.Has(Entities.StatusKind.Slowed) && Usable(world, me, "pinning_shot", t)) is { } runner)
+            return new UseAbilityAction("pinning_shot", runner.Id);
+        if (adjacent.Count == 0 && !nearest.Any(t => World.Distance(t.Position, me.Position) <= 3)
+            && byPriority.FirstOrDefault(t => Usable(world, me, "careful_aim", t)) is { } aimed)
+            return new UseAbilityAction("careful_aim", aimed.Id);
+        if (byPriority.FirstOrDefault(t => World.Distance(t.Position, me.Position) >= 2 && Usable(world, me, "hunters_volley", t)) is { } volleyed)
+            return new UseAbilityAction("hunters_volley", volleyed.Id);
         return null;
+    }
+
+    /// <summary>A Warrior's stance: Guarded when pressed or hurt, Aggressive in a fair fight.</summary>
+    private static GameAction? ChangeStance(World world, Actor me, List<Actor> threats, double hp)
+    {
+        if (world.StanceProblem(me, Stance.Guarded) is not null)
+            return null;
+        int adjacent = threats.Count(t => world.IsAdjacent(t.Position, me.Position));
+        var wanted = adjacent >= 2 || hp < 0.5 ? Stance.Guarded : adjacent == 1 ? Stance.Aggressive : me.Stance;
+        return wanted != me.Stance ? new StanceAction(wanted) : null;
+    }
+
+    /// <summary>
+    /// A Shadow creeps up on anyone who hasn't noticed it and stabs them; in an open fight it stops creeping.
+    /// Other classes don't sneak.
+    /// </summary>
+    private static GameAction? Sneak(World world, Actor me, List<Actor> threats, List<Actor> hostiles)
+    {
+        if (me.Character?.Has("backstab") != true)
+            return null;
+        if (threats.Any(t => world.SquadOf(t) is { State: SquadState.Engage }))
+            return me.Sneaking ? new ToggleSneakAction() : null;
+        var prey = hostiles.Where(h => world.IsUnaware(h) && World.Distance(h.Position, me.Position) <= 10)
+            .OrderBy(h => World.Distance(h.Position, me.Position)).FirstOrDefault();
+        if (prey is null)
+            return me.Sneaking ? new ToggleSneakAction() : null;
+        if (!me.Sneaking)
+            return new ToggleSneakAction();
+        if (world.IsAdjacent(prey.Position, me.Position))
+            return new AttackAction(prey.Id);
+        return world.StepToward(me, prey.Position) is { } step ? new MoveAction(step) : null;
     }
 
     private GameAction? SpendXp(World world, Actor me)
     {
         if (me.Character is not { } c)
             return null;
-        // A class's own skills come first.
-        if (c.Class is { } own)
-            foreach (var tree in world.Content.SkillTrees.Where(t => own.Trees.Contains(t.Id) && own.Starts.Any(s => world.Content.Skills[s].Tree == t.Id)))
-                foreach (var skill in tree.Skills)
-                    if (c.CheckLearn(skill.Id) is null)
-                        return new LearnSkillAction(skill.Id);
-
-        for (int i = 0; i < BuildPlan.Length; i++)
+        var plan = c.Class is { } cls && ClassPlans.TryGetValue(cls.Id, out var own) ? own : ClasslessPlan;
+        for (int i = 0; i < plan.Length; i++)
         {
-            var step = BuildPlan[i];
-            var id = step[(step.IndexOf(':') + 1)..];
+            var id = plan[i];
             if (!world.Content.Skills.TryGetValue(id, out var planned) || !c.CanLearnFrom(planned.Tree))
                 continue;
-            int wanted = BuildPlan.Take(i + 1).Count(s => s == step); // this entry is that skill's Nth rank
-            if (c.Rank(id) >= wanted)
+            int wanted = plan.Take(i + 1).Count(s => s == id) + (c.Class?.Starts.Contains(id) == true ? 1 : 0); // this entry is that skill's Nth rank
+            if (c.Rank(id) >= Math.Min(wanted, planned.Ranks))
                 continue;
             return c.CheckLearn(id) is null ? new LearnSkillAction(id) : null; // save up for it
         }

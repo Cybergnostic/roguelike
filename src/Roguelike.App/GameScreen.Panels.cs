@@ -247,6 +247,13 @@ public sealed partial class GameScreen
         if (_heatmap != 0) flags.Add($"HEAT: {HeatmapName}");
         if (_classic) flags.Add("CLASSIC");
         if (player.Sneaking) flags.Add("SNEAKING");
+        if (player.Stance != Roguelike.Core.Entities.Stance.None) flags.Add(player.Stance.ToString().ToUpperInvariant());
+        foreach (var status in player.Statuses)
+            flags.Add(status.Kind switch
+            {
+                Roguelike.Core.Entities.StatusKind.Shielded => $"WARD {status.Amount}",
+                var k => k.ToString().ToUpperInvariant(),
+            });
         if (player.BraceBonus > 0) flags.Add("FEET SET");
         if (player.Bonus(Roguelike.Core.Progression.Stat.Speed) is > 0 and var speed) flags.Add($"SPEED +{speed}%");
         if (player.MoveTime > 100) flags.Add($"STEP {player.MoveTime}");
@@ -271,10 +278,10 @@ public sealed partial class GameScreen
     [
         ("x", "Inspect"), ("i", "Inventory"),
         ("m", "Stones"), ("c", "Character"),
-        ("t", "Toll"), ("f", "Fire bow"),
+        ("w", "Stance"), ("f", "Fire bow"),
         ("g", "Pick up"), ("e", "Equip"),
         ("q", "Drink"), ("<>", "Stairs"),
-        ("z", "Sneak"), ("C", "Close gate"),
+        ("z", "Sneak"), ("t C", "Toll, gate"),
         ("v", "Charge"), ("a", "Skills"),
     ];
 

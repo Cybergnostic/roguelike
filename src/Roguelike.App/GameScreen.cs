@@ -415,7 +415,7 @@ public sealed partial class GameScreen : ScreenObject
 
         foreach (var actor in _world.Actors)
         {
-            if (actor.IsDead || !(fov[actor.Position] || _reveal) || !OnScreen(actor.Position, out var at))
+            if (actor.IsDead || !(fov[actor.Position] || _reveal || Tracked(actor)) || !OnScreen(actor.Position, out var at))
                 continue;
             var look = Theme.ForKind(actor.Kind);
             var squad = _world.SquadOf(actor);
@@ -444,6 +444,21 @@ public sealed partial class GameScreen : ScreenObject
     }
 
     /// <summary>Show intent, so the player can plan around it.</summary>
+    /// <summary>
+    /// Known though out of sight: prey the player has marked (Hunter's Instinct), and with Watchful, anyone
+    /// hunting the player who has seen them lately.
+    /// </summary>
+    private bool Tracked(Actor actor)
+    {
+        var player = _world.Player;
+        if (actor.Statuses.Any(s => s.Kind == Roguelike.Core.Entities.StatusKind.Marked && s.SourceId == player.Id))
+            return true;
+        return player.HasSpecial("watchful") && _world.SquadOf(actor) is { State: SquadState.Engage or SquadState.Alert } squad
+               && squad.TargetId == player.Id && _world.Turn - squad.LastSeenTurn <= WatchfulTurns;
+    }
+
+    private const int WatchfulTurns = 20;
+
     private string Intent(Actor actor)
     {
         if (_world.SquadOf(actor) is not { } squad)

@@ -84,7 +84,9 @@ public sealed partial class GameScreen
                 int rank = c.Rank(s.Id);
                 var cost = c.NextRankCost(s.Id) is { } n ? $"{n} XP" : "mastered";
                 var missing = s.Requires.Where(r => c.Rank(r) == 0).Select(r => content.Skills[r].Name).ToList();
-                var note = missing.Count > 0 ? $"needs {string.Join(", ", missing)}" : s.Description;
+                // What the next rank does, if the skill says; else what the skill is.
+                var next = rank < s.Ranks && rank < s.RankText.Count ? $"next: {s.RankText[rank]}" : s.Description;
+                var note = missing.Count > 0 ? $"needs {string.Join(", ", missing)}" : next;
                 var text = $"{line.Letter}) {s.Name,-16} {rank}/{s.Ranks}  {cost,-8}  {note}";
                 _ui.Print(x0 + 3, y1++, Truncate(text, width - 5), ColorOf(line, rank >= s.Ranks), bg);
             }

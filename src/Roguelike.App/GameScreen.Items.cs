@@ -64,6 +64,8 @@ public sealed partial class GameScreen
             OpenAbilities();
         else if (keyboard.IsKeyPressed(Keys.Z))
             return new ToggleSneakAction();
+        else if (keyboard.IsKeyPressed(Keys.W))
+            return NextStance();
         else if (keyboard.IsKeyPressed(Keys.M))
             _chronicleOpen = true;
         else if (keyboard.IsKeyPressed(Keys.X))
@@ -302,5 +304,18 @@ public sealed partial class GameScreen
         var here = _world.ItemsAt(_world.Player.Position).ToList();
         if (here.Count > 0)
             AddMessage($"You see here: {string.Join(", ", here.Select(ItemText.AName))}. (g to pick up)", Theme.Text);
+    }
+
+    /// <summary>w: cycle ordinary → Aggressive → Guarded → ordinary, for those who know stances.</summary>
+    private GameAction? NextStance()
+    {
+        var player = _world.Player;
+        var next = player.Stance switch
+        {
+            Roguelike.Core.Entities.Stance.None => Roguelike.Core.Entities.Stance.Aggressive,
+            Roguelike.Core.Entities.Stance.Aggressive => Roguelike.Core.Entities.Stance.Guarded,
+            _ => Roguelike.Core.Entities.Stance.None,
+        };
+        return new StanceAction(next);
     }
 }

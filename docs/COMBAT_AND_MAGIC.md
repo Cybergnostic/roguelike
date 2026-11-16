@@ -208,3 +208,23 @@ levels 4-7. Too easy overall: left for the rebalance after the class skills, as 
 - **Stances:** `StanceAction`; Aggressive (+30% damage, -2 armour), Guarded (+2 armour, the first melee
   attacker each turn is struck back). Needs the `stances` special, which the Warrior's skill will grant.
 - Not yet: the tactical bot doesn't react to wind-ups or use stances (step 3, bots that play their class).
+
+### Step 3, Warrior, Ranger and Shadow (2026-11-16)
+- The 15 skills of §3 as data (`skills.json` trees `warrior`, `ranger`, `shadow`), with per-rank `grants` and
+  `rankText` (shown on the character sheet as "next: ..."). New abilities: Shove, Careful Aim, Suppressive
+  Fire, Disengage, Mark Prey (takes no time), Tumble, Throw Stone, Smoke. Rules for them in `World.Skills.cs`.
+- Classes renamed (ids too): Warrior, Ranger, Shadow, Mystic. Each learns its tree plus the general Senses and
+  Survival trees; Toughness moved to Survival. The Mystic is unchanged until step 5.
+- Differences from §3, for simplicity: every ability aims at a creature or at yourself (no cell targeting yet):
+  Throw Stone lands beyond the creature aimed at, Smoke bursts around you, Suppressive Fire covers the ground
+  around a target. Pinning Shot rank 1 slows (50%, 2 turns) as well as staggering. Mark Prey rank 3 raises the
+  mark to +60% rather than "first hit is an opportunity".
+- Screen: `w` cycles stances; the status line shows stance and conditions; marked prey (and, with Watchful,
+  whoever is hunting you) stay drawn out of sight.
+- **The bot plays its class:** a build order per class; dodges announced heavy blows (or shoves the brute);
+  Warrior shoves into walls and switches stance; Ranger marks, pins, disengages, covers ground, aims; Shadow
+  sneaks up on the unaware to backstab, tumbles out of rings, smokes and vanishes when losing.
+
+Measured (tactical bot, 300 games per class, seeds 1000-1299): **Warrior 84%, Ranger 99.7%, Shadow 93%,
+Mystic 83%**. Every class is too strong, the Ranger most of all (no deaths below level 1). Left for the
+rebalance (step 6). Warriors die mostly on level 1 (11%), before their skills arrive.
