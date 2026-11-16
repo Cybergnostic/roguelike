@@ -1,0 +1,171 @@
+# Combat, classes and runes: proposal
+
+**Status: proposal (2026-11-16), not decided.** Built from the user's notes (lethal combat; a powerful player
+against weak individuals but dangerous groups; four classes of 3-5 strong skills; magic as runes, wards and
+sigils rather than elemental damage) and Claude's suggestions. Mark each part accepted, changed or rejected
+before it is built; then move what's decided into [PROJECT.md](PROJECT.md).
+
+Numbers below are **targets** to tune with the simulator, not final values.
+
+---
+
+## 1. Lethality
+
+### Hits to kill (level 1, starting kit)
+
+| | Player kills it in | It kills the player in |
+|---|---|---|
+| Ordinary (goblin, skeleton, wolf) | 2 hits; 1 with an opportunity | Ranger/Shadow/Mystic 8-10 hits, Warrior ~15 |
+| Elite (bone knight, brute, chief) | 4-6 hits | 4-6 hits, its big blow wound up a turn ahead |
+| Boss | many | few; a fight with a shape, not a slugfest |
+
+Group danger comes from the arithmetic: one goblin is harmless, four around a Ranger kill it in under two turns.
+
+### Rules
+1. **Damage is nearly fixed:** weapon damage x 0.8-1.2, minus armour (flat, no roll), at least 1. Today it is a
+   uniform roll from 1 to attack, which turns the same blow into 1 or 9. Hit chance stays a roll.
+2. **No random critical hits. Big hits come from opportunities** anyone can see:
+   - *unaware*: the target's squad isn't fighting, or it can't see the attacker: x2 damage
+   - *staggered*: the target is reeling: x1.5 damage, and the blow can't miss
+   Backstab today is a Rogue skill; this makes it a rule for everyone, and Shadow's skills sharpen it.
+3. **Overwhelmed:** for each enemy adjacent to a target beyond the first, attacks on it get +1 accuracy and
+   +20% damage (at most +3 / +60%). Applies to the player and monsters alike. This is what makes armour
+   matter less when surrounded, and what makes getting surrounded the thing to avoid.
+4. **Telegraphs:** an elite's heavy blow, a charge, a commander's order are announced a turn before they land
+   (shown on the map and in the log). Stepping away, shoving or staggering the attacker spoils it.
+5. **Monsters shoot only from where the player could see them** (lit, in the player's FOV rules). No arrows
+   out of the dark.
+6. **Rest between fights:** with no enemy known nearby for a while, the player recovers quickly to full.
+   Attrition comes from what a fight costs (potions, cooldowns, marks), not from HP carried across a level.
+7. **Depth changes who you meet, not their numbers.** Monster HP/attack/accuracy/defence growth per level
+   (`dungeon.json`) goes to zero. Instead depth raises: elite chance (`elites.json` variants), how many squads
+   are drilled or commanded, mixed compositions, and new kinds of creature per depth band. Ordinary monsters
+   stay the same, so a grown character really does cut through them.
+
+### Answers to the corridor
+A doorway shouldn't always win. Enemies get: shooters holding the corridor mouth (exists), routes around
+(levels with loops), spears reaching 2 cells, smoke or fear to flush the player out, and runes (§4).
+
+---
+
+## 2. Character structure
+
+| Layer | What | How it's gained |
+|---|---|---|
+| Attributes | Str, Dex, Con, Int, Wis, Cha (to be revisited) | XP |
+| Class skills | 5 per class, 3 ranks each, useful from rank 1 | XP; only your class's |
+| General skills | Perception, Stealth, Athletics, Endurance | XP; anyone |
+| Runes | Rune Lore, Inscription (general skills) + runes themselves | skills by XP; runes found in the world |
+
+A winning run should afford about 15 ranks: two or three class skills maxed and a few others, never everything.
+Classes are renamed **Warrior, Ranger, Shadow, Mystic**. Current skills fold into the new ones as noted.
+
+---
+
+## 3. Class skills
+
+### Warrior: holds ground, breaks lines
+| Skill | Kind | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|---|
+| Weapon Mastery | passive | +damage, +accuracy in melee | heavy weapons stagger more often | heavy weapons strike 15% faster |
+| Combat Stances | toggle (switching takes a turn) | Aggressive (+30% damage, -2 armour) or Guarded (+2 armour, hit back the first attacker each turn) | stances stronger | switching is free once per turn |
+| Hold the Line | passive | standing still: +armour, can't be staggered or shoved | an enemy slipping past you (adjacent to adjacent) takes a free blow | Overwhelmed doesn't apply to you |
+| Breakthrough | active | Shove: push an enemy 1 cell; into a wall or another creature, both are staggered | Charge (the current `v`) | shove 2 cells, and it carries through a line |
+| Battle Momentum | passive | a kill makes your next action quick | a kill gives +damage for 2 turns | War Cry (exists): squads around lose nerve |
+
+### Ranger: kills at range, shapes the approach
+| Skill | Kind | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|---|
+| Marksmanship | passive | +bow damage and accuracy | +range | shots ignore half of armour |
+| Shooting Techniques | actives | Rapid Shot (Volley, exists) | Careful Aim: a slower shot, +accuracy, +50% damage | Suppressive Fire: cover an area; anyone entering it is shot, squads lose nerve |
+| Skirmishing | passive + active | Disengage: step back and shoot in one action | no point-blank penalty (Skirmisher, exists) | +evasion on a turn you moved |
+| Pinning Shot | active (exists) | staggers, and slows for 2 turns | pins: the target can't move for a turn | passes through to a second target |
+| Hunter's Instinct | passive + free action | Mark Prey: +damage against it, and you always know where it is | squads that have seen you are shown | your first hit on marked prey is an opportunity |
+
+### Shadow: works the enemy's awareness
+| Skill | Kind | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|---|
+| Shadowcraft | passive | sneaking is quieter and only slightly slower | standing still in shadow or brush: unseen beyond 2 cells | move through cover at full speed while sneaking |
+| Opportunist | passive | opportunity hits x3 instead of x2 (Backstab, exists) | isolated (no ally within 2) and fleeing targets count as opportunities | opportunity hits can't miss |
+| Evasion | passive + active | +2 evasion against each adjacent enemy beyond the first | Tumble: slip past an adjacent enemy to the cell behind it | Overwhelmed doesn't apply to you |
+| Misdirection | active | throw a sound: squads that hear it go to look (uses existing hearing) | smoke: blocks sight in a small area | leave a false trail: squads' last-known position becomes wrong |
+| Escape Artist | active | Vanish (exists) | breaking line of sight makes pursuers search the wrong way | Shadow Strike (exists) from hiding counts as an opportunity |
+
+### Mystic: power over the spirit, struck at range
+Classical combat skills with an occult flavour: damage, curses, a shield, a weapon empowered. No fire, ice
+or chaos damage. The Mystic does not copy the rune skills; one skill makes it better with them.
+
+| Skill | Kind | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|---|
+| Word of Power | active, short cooldown | a spoken word strikes at range; ignores armour | staggers | double damage against the bound and the dead |
+| Hex | active | marks an enemy: it takes +25% damage from everyone, hits weaker | the hex spreads to a nearby enemy when the target dies | hexed enemies' squads lose nerve |
+| Spirit Blade | toggle or active | your melee weapon strikes the spirit: +damage, ignores armour | each hit drains a little life (Life Drain, folded in) | a kill with it heals you |
+| Aegis | active | a ward on yourself absorbs the next few points of damage | stops arrows entirely while it lasts | when it breaks, adjacent enemies are shoved back |
+| Rune-Sight | passive | carve marks twice as fast; read runes without Rune Lore | your marks are a step stronger and you keep one more active | cast Word of Power through any of your marks in sight |
+
+Mend (self-heal) becomes a rune (Berkano, §4), so the Mystic heals through the system everyone has, faster.
+
+---
+
+## 4. Runes (the universal layer)
+
+Magic is **written into the world**: runes carved on gear, on doorways and floors, on stone, on corpses,
+painted on the body. A rune is a *meaning*, not a damage type. Runes are **found** (inscriptions, tablets,
+carved items, the site's history), not bought; skills decide how well they're used.
+
+### Rules
+- **Carving takes time** and makes noise: 6 turns on a floor or door, 1 turn painted on the body (weaker, short).
+  Mystics carve twice as fast. Gear is carved while resting.
+- **Material matters:** stone holds longer than wood; ash on skin fades in a few turns.
+- **Limit:** 2 marks active at once (+1 per Inscription rank, +1 Rune-Sight); marks fade.
+- **Enemies treat marks by mind:** the mindless walk into them; beasts flinch once hurt; rabble avoid marks
+  they've seen; drilled squads go around and shoot the carver. Undead can be bound by them.
+- Marks show on the map as runic glyphs (the font can carry the Futhark).
+
+### First runes (Elder Futhark meanings)
+| Rune | Meaning | On a place | On gear | On a creature or corpse |
+|---|---|---|---|---|
+| Algiz | protection | a ward: a kind you choose (the dead, beasts) can't cross | armour turns arrows | - |
+| Thurisaz | thorn | wounds whoever crosses | weapon: +damage | - |
+| Isa | ice, stillness | slows whoever crosses | armour: can't be staggered | holds it still a turn |
+| Naudhiz | need, constraint | - | - | binds: a corpse can't rise; the bound are held |
+| Kenaz | torch | light: reveals and lights an area (hurts Stealth nearby) | - | - |
+| Berkano | birch, healing | rest there heals faster | - | heals (the old Mend) |
+
+Later: Hagalaz (breaking: shatter marks, seals, doors), Raidho (journey: step between two marks), bind-runes
+(two runes in one mark, combined by rule rather than by list), rituals.
+
+### General rune skills
+| Skill | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|
+| Rune Lore | read inscriptions and learn their runes; see marks and what they do | identify marked items; read enemy seals | break enemy marks and seals |
+| Inscription | carve runes on places and the body | carve on gear; marks last longer | one more mark active; bind-runes |
+
+### Where it meets the world
+The crypt's dead are **bound by seals**: break or read the seal and they crumble or wake. The necromancer's
+wards guard his rooms. Goblin shamans paint crude sigils. The dwarves' inscriptions (already in `SiteHistory`)
+teach runes. That gives the crypt a fix made of knowledge and preparation rather than bigger numbers.
+
+---
+
+## 5. Building it
+
+Each step leaves the game playable, is measured with the simulator, and gets a short human playtest where
+marked.
+
+| Step | Contents | Playtest |
+|---|---|---|
+| 1. Lethality | fixed damage, opportunities, Overwhelmed, flat depth scaling + composition, fast rest, retuned numbers | yes |
+| 2. Foundations | a small status system (slowed, held, hexed, shielded, marked), telegraphed wind-ups, stances | - |
+| 3. Warrior, Ranger, Shadow | the 15 skills; renamed classes; the bot learns to use them | yes |
+| 4. Runes | marks on the map, carving, the six runes, Rune Lore and Inscription, inscriptions that teach | yes |
+| 5. Mystic | the five skills on top of runes | yes |
+| 6. The crypt | seals and bound dead, then the full rebalance and trials | yes |
+
+### Risks
+- **The bot can't judge fun, and undervalues skills it doesn't use.** Every skill needs bot support or a
+  scripted trial, or the numbers lie. Human playtests decide; the simulator measures curves and catches bugs.
+- **UI cost:** aiming at cells (marks, smoke, suppression), stance and status display. Each needs screenshots.
+- **Scope:** about 25 new mechanics. Staged as above it is large but tractable; done all at once it isn't.
+- **Preparation magic can turn tedious** (warding every door). The mark limit, fading, noise and enemies that
+  notice marks are there to stop it; watch for it in playtests.

@@ -33,6 +33,7 @@ Start here in a new chat. Everything below is merged to `main` and pushed. 385 t
 | this file | Vision, decisions, architecture, current state, roadmap |
 | [HISTORY.md](HISTORY.md) | What was built when, and every past balance measurement |
 | [IDEAS.md](IDEAS.md) | The user's idea bank: possibilities, not commitments |
+| [COMBAT_AND_MAGIC.md](COMBAT_AND_MAGIC.md) | Proposal (not decided): lethal combat model, the four classes' skills, runic magic, build order |
 | [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) | Exploration and world direction |
 | [UI_DESIGN_VISION.md](UI_DESIGN_VISION.md) | Presentation direction |
 
