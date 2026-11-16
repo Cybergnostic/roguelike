@@ -91,7 +91,7 @@ loot (rarity tiers, +X gear).
 | **Content in JSON (`data/`)** | Tuning without recompiling; modding later. Validated at load with file-specific errors | Hard-coded C# templates |
 | **Factions are data, relations table** | Adding a faction = data, not code. Unlisted pairs neutral, same faction allied | Enum of factions |
 | **Six D&D attributes** (user, 2026-11-08; to be revisited) | Familiar; CHA/INT/WIS get real uses as talking, magic and factions arrive. Their effects live in `attributes.json`, so revisiting is a data edit | 4 Sil-style attributes; none (Brogue) |
-| **XP is spent on attributes and skills** (user) | Skills are data, grouped in trees; a class is the trees it can learn plus its kit. The direction is ToME: more classes and many more skills | Fixed level-ups |
+| **XP is spent on attributes and skills** (user) | Skills are data, grouped in trees; a class is the trees it can learn plus its kit. **Not** the Tales of Maj'Eyal direction (more classes, many more skills): the user dropped that on 2026-11-16 and doesn't recall choosing it. Direction under discussion: a compact system, quality over quantity (see §8 Character) | Fixed level-ups; ToME-style breadth |
 | **Rarity tier and +X are independent** (user) | A +3 white sword and a +0 orange sword are both real choices | Tiers capping +X |
 | **One derived-stat vocabulary (`Stat`)** | Attributes, skills and item affixes all add to the same stats, so content can combine freely in data | Per-system bonus fields |
 | **Generated items: tier, then affixes, all from data** (`affixes.json`) | Tiers (magic/rare/legendary) roll by depth; affixes are stat bonuses with depth growth; legendaries add a special. Core stores the name *words*; the front end builds "Grim Fang (+1 long sword)" | Hand-written item lists; names built in core |
@@ -411,7 +411,7 @@ Target: 20-30% wins, deaths rising with depth. Soldier and Mystic are on target,
    - ~~Part 2: rarity tiers and affixes, item names, loot generation by tier~~ (done 2026-11-08;
      preceded by a sim speed-up and a difficulty pass)
    - Part 3 (parked until the camp slice works): random uniques, identify-by-use, scrolls of enchanting (+X)
-   - ~~Classes, class skill trees, active skills with cooldowns~~ (done 2026-11-09). Still later (ToME direction, user):
+   - ~~Classes, class skill trees, active skills with cooldowns~~ (done 2026-11-09). Still later:
      a use for Charisma/Intelligence/Wisdom beyond the passives
 6. **Camp vertical slice** (built; human playtests still to come): one surface map, one goblin camp, one underground map, with
    several ways through (see [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12 for acceptance criteria)
@@ -498,8 +498,9 @@ The user wants Diablo-style tiers **and** classic +X items. Proposed structure:
 - Now: six D&D attributes and skills bought with XP (Sil-style spending; XP for kills, first
   sightings and new places). Implemented in step 5 part 1.
 - Four classes exist (Soldier, Ranger, Rogue, Mystic), each with its own tree and active skills.
-- Direction (user): toward **Tales of Maj'Eyal**: more classes and many more skills. The user will
-  revisit the attribute list.
+- Direction (user, 2026-11-16): a **compact** skill system where almost every skill is worth taking, not ToME-style
+  breadth. Four classes, 3-5 major class skills each, separate general skills, and magic as its own system open to
+  every class (undesigned). Details still under discussion. The user will revisit the attribute list.
 
 ### Factions planned
 - **Goblins**: numerous, fast, morale-driven, squads with roles. (Implemented)
