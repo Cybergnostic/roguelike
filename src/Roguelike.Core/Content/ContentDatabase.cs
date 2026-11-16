@@ -59,12 +59,17 @@ public sealed record EliteRules(double Chance, double ChancePerLevel, int MinDep
 /// <summary>
 /// How attacks resolve (combat.json). Hit chance = BaseHitChance + HitChancePerPoint × (accuracy −
 /// evasion), clamped to MinHitChance..MaxHitChance; ranged attacks on an adjacent target lose
-/// PointBlankPenalty accuracy. A hit rolls 1..attack, armour absorbs 0..defence, and at least
-/// MinDamage gets through.
+/// PointBlankPenalty accuracy. A hit does attack ± DamageSpread percent, times any advantage (unaware,
+/// backstab, staggered, overwhelmed: percents), minus armour, which stops at most ArmourStopsAtMostPercent of
+/// the blow, and at least MinDamage gets through.
+/// Overwhelmed: each enemy next to the target beyond the first adds OverwhelmAccuracy and OverwhelmPercent
+/// damage, counting at most OverwhelmMax of them.
 /// </summary>
 public sealed record CombatRules(int BaseHitChance = 75, int HitChancePerPoint = 5, int MinHitChance = 5,
     int MaxHitChance = 95, int PointBlankPenalty = 4, int MinDamage = 1, int OffHandAccuracy = -4, int OffHandAttack = -1, int OffHandStrength = 50,
-    int ChargeRange = 5, int ChargeCooldown = 12, int ChargeBonus = 2, double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3);
+    int ChargeRange = 5, int ChargeCooldown = 12, int ChargeBonus = 2, double PleaChance = 0.35, IReadOnlyDictionary<Rank, RansomDef>? Ransom = null, double BoldAbove = 1.2, double WaryBelow = 0.6, double TerrifiedBelow = 0.2, int AllInWithin = 3,
+    int DamageSpread = 20, int ArmourStopsAtMostPercent = 50, int UnawarePercent = 200, int BackstabPercent = 300, int StaggeredPercent = 150,
+    int OverwhelmAccuracy = 1, int OverwhelmPercent = 20, int OverwhelmMax = 3);
 
 /// <summary>A raiser's reach (with line of sight), turns between raisings, and how many it can control.</summary>
 public sealed record RaiseDef(int Range, int Cooldown, int MaxMinions);
@@ -79,11 +84,12 @@ public sealed record KitEntry(string Item, int Count = 1, bool Equip = false, in
 
 /// <summary>
 /// The player's base stats, before attributes and equipment. RegenInterval: turns per 1 HP regained
-/// (0 = no regeneration). Attributes: starting scores by id (missing ones start at 10).
+/// (0 = no regeneration). Attributes: starting scores by id (missing ones start at 10). RestAfter: turns with
+/// no enemy in sight before resting heals RestHealPercent of max HP a turn (0 = no such rest).
 /// </summary>
 public sealed record PlayerDef(int MaxHp, int Attack, int Defense, int InventoryCapacity, IReadOnlyList<KitEntry> Kit,
     int RegenInterval = 8, IReadOnlyDictionary<string, int>? Attributes = null, XpRules? Xp = null,
-    int Accuracy = 0, int Evasion = 0, int Gold = 0);
+    int Accuracy = 0, int Evasion = 0, int Gold = 0, int RestAfter = 0, int RestHealPercent = 0);
 
 /// <summary>
 /// XP besides kills: SightFraction of a monster's kill XP the first time you see its kind,

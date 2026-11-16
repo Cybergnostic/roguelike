@@ -1,16 +1,16 @@
 {
   // The dungeon: "levels" deep. The last level has no stairs down: it's where the boss lives.
   "levels": 7,
-  // How monsters grow per level below the first (generic difficulty until levels get their own
-  // content): +20% HP and +15% XP per level, +1 attack every 2 levels, +1 accuracy every 3,
-  // +1 defence every 4, and rooms are 3% more likely to hold a squad. The character grows
-  // fast with XP and gear, so the dungeon has to keep up; loot depth gating is in items.json.
-  "monsterHpPerLevel": 0.26,
-  "xpPerLevel": 0.15,
-  "attackEveryLevels": 2,
-  "accuracyEveryLevels": 3,
-  "defenseEveryLevels": 4,
-  "roomOccupancyPerLevel": 0.03,
+  // Ordinary monsters don't grow with depth (COMBAT_AND_MAGIC.md §1): a grown character should cut
+  // through them. Depth brings danger through who you meet instead: squad templates by depth
+  // (spawns.json), more elites (elites.json), more commanded squads, and rooms 5% more likely to
+  // hold a squad per level. Kills are worth the same XP at any depth, as the monsters are the same. The stat growth fields stay for tuning (0 = none).
+  "monsterHpPerLevel": 0,
+  "xpPerLevel": 0,
+  "attackEveryLevels": 0,
+  "accuracyEveryLevels": 0,
+  "defenseEveryLevels": 0,
+  "roomOccupancyPerLevel": 0.05,
   // Time. A corpse withers after "corpseWithersAfter" turns and is gone after "corpseGoneAfter"
   // (the ancient dead the history leaves don't rot further). Coming back after "calmAfter" turns,
   // everyone has settled down. While you're away monsters regain 1 HP per "turnsPerHealedHp",

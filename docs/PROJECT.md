@@ -10,7 +10,9 @@ Last updated: 2026-11-16 (fuzzing, drilled squads no longer deadlock, popups as 
 
 ## 0. Where we left off
 
-Start here in a new chat. Everything below is merged to `main` and pushed. 385 tests pass.
+Start here in a new chat. `main` is pushed up to the fuzzing work. **Work in progress is on the branch
+`combat-and-runes`** (2026-11-16): building [COMBAT_AND_MAGIC.md](COMBAT_AND_MAGIC.md) step by step; the user
+will playtest when it's all in. Step 1 (lethality) is done there; see that file's §5 for what's next.
 
 **Last finished**
 - Four classes with their own kits and skills.
@@ -215,8 +217,11 @@ docs/                        this file, HISTORY, IDEAS and the two vision docume
    F3 debug heatmaps only, like `TowardPlayer`. `StepDownhill` prefers less crowded cells, which
    makes groups surround instead of queue.
 7. **Attacks go through `world.ResolveAttack`**: hit roll (75% + 5% × (accuracy − evasion), clamped
-   5–95; −4 accuracy for shooting an adjacent target), then damage 1..attack minus a random 0..defence,
-   at least 1 (combat.json). Misses emit `ActorAttacked { Missed: true }`. `world.Damage` applies HP
+   5–95; −4 accuracy for shooting an adjacent target; a staggered target is always hit), then damage =
+   attack ±20% × advantages (`AdvantagePercent`: unaware ×2, backstab ×3, staggered ×1.5, +20% per extra
+   enemy around the target, `Overwhelmed`), minus armour, which stops at most half the blow; at least 1
+   (combat.json). No random critical hits. Monsters shoot the player only from cells in the player's FOV
+   (`FairShot`). Misses emit `ActorAttacked { Missed: true }`. `world.Damage` applies HP
    loss, death, XP and loot. Loot is rolled at `world.Depth` (+ the victim's `lootDepthBonus`): items
    and +X values deeper than that are left out. Failed player actions emit
    `ActionFailed(reason)` and return false (no turn used); the front end words the reason.

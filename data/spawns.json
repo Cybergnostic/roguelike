@@ -36,10 +36,25 @@
       "faction": "goblins",
       "weight": 3,
       "minDepth": 2,
+      "maxDepth": 4,
       "members": [
         { "monster": "goblin_warrior", "min": 2, "max": 4 },
         { "monster": "goblin_archer", "min": 0, "max": 2 },
         { "monster": "goblin_shaman", "min": 0, "max": 1, "chance": 0.3 },
+        { "monster": "goblin_runner", "min": 0, "max": 1, "chance": 0.5 }
+      ]
+    },
+    {
+      // Below the fourth level the war bands are hardened ones.
+      "name": "goblin veteran band",
+      "faction": "goblins",
+      "weight": 3,
+      "minDepth": 5,
+      "members": [
+        { "monster": "goblin_veteran", "min": 2, "max": 3 },
+        { "monster": "goblin_warrior", "min": 0, "max": 2 },
+        { "monster": "goblin_marksman", "min": 1, "max": 2 },
+        { "monster": "goblin_shaman", "min": 0, "max": 1, "chance": 0.5 },
         { "monster": "goblin_runner", "min": 0, "max": 1, "chance": 0.5 }
       ]
     },
@@ -61,8 +76,10 @@
       "members": [
         { "monster": "goblin_captain", "min": 1, "max": 1 },
         { "monster": "goblin_brute", "min": 0, "max": 1, "chance": 0.5 },
-        { "monster": "goblin_warrior", "min": 3, "max": 5 },
-        { "monster": "goblin_archer", "min": 1, "max": 3 },
+        { "monster": "goblin_veteran", "min": 1, "max": 3 },
+        { "monster": "goblin_warrior", "min": 2, "max": 3 },
+        { "monster": "goblin_archer", "min": 0, "max": 2 },
+        { "monster": "goblin_marksman", "min": 1, "max": 1 },
         { "monster": "goblin_shaman", "min": 1, "max": 1 },
         { "monster": "goblin_runner", "min": 0, "max": 1, "chance": 0.5 }
       ]
@@ -88,6 +105,7 @@
       "maxDepth": 5,
       "members": [
         { "monster": "bone_knight", "min": 1, "max": 1 },
+        { "monster": "barrow_guard", "min": 0, "max": 1, "chance": 0.5 },
         { "monster": "skeleton_warrior", "min": 2, "max": 3 },
         { "monster": "skeleton_archer", "min": 1, "max": 1 }
       ]
@@ -100,8 +118,9 @@
       "members": [
         { "monster": "bone_knight", "min": 0, "max": 1, "chance": 0.5 },
         { "monster": "wraith", "min": 0, "max": 1, "chance": 0.3 },
-        { "monster": "skeleton_warrior", "min": 3, "max": 4 },
-        { "monster": "skeleton_archer", "min": 1, "max": 2 }
+        { "monster": "barrow_guard", "min": 2, "max": 3 },
+        { "monster": "skeleton_warrior", "min": 1, "max": 2 },
+        { "monster": "barrow_archer", "min": 1, "max": 2 }
       ]
     }
   ],

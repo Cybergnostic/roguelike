@@ -3,9 +3,23 @@
   // 1. Hit chance = baseHitChance + hitChancePerPoint x (attacker accuracy - target evasion),
   //    clamped to [minHitChance, maxHitChance]. Shooting an adjacent target costs pointBlankPenalty
   //    accuracy (bows are for range).
-  // 2. On a hit: damage = roll 1..attack, minus a random 0..defence absorbed by armour,
-  //    but at least minDamage. Armour softens blows; it never makes anyone untouchable.
+  // 2. On a hit: damage = attack, give or take damageSpread percent, times any advantage below, minus
+  //    the target's armour, which stops at most armourStopsAtMostPercent of the blow; at least minDamage.
+  //    Heavy armour halves blows but never shrugs them off. No random critical hits: big blows come
+  //    from advantages anyone can see.
+  //    - unaware (its squad isn't fighting yet): unawarePercent; backstabPercent with the Backstab skill
+  //    - staggered (still reeling from a blow): staggeredPercent, and the blow can't miss
+  //    - overwhelmed: each enemy next to the target beyond the first adds overwhelmAccuracy to hit and
+  //      overwhelmPercent damage, counting at most overwhelmMax of them. Applies to everyone.
   // 3. A second weapon in the off hand strikes too, at offHandAccuracy and offHandAttack.
+  "damageSpread": 20,
+  "armourStopsAtMostPercent": 50,
+  "unawarePercent": 200,
+  "backstabPercent": 300,
+  "staggeredPercent": 150,
+  "overwhelmAccuracy": 1,
+  "overwhelmPercent": 20,
+  "overwhelmMax": 3,
   "offHandAccuracy": -4,
   "offHandAttack": -1,
   // How much of the wielder's Strength bonus (percent) the off-hand blow gets; rounded down.

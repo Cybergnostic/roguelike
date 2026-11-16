@@ -21,6 +21,15 @@ if (options.Trials)
     return 0;
 }
 
+if (options.Lethality)
+{
+    // Landed blows (and tries, with misses) each way: a fresh character of each class against one monster.
+    Console.WriteLine($"{"class",-8} {"monster",-18} {"rank",-6} {"you need",9} {"(tries)",8} {"it needs",9} {"(tries)",8}  with");
+    foreach (var r in Lethality.Table())
+        Console.WriteLine($"{r.Class,-8} {r.Monster,-18} {r.Rank,-6} {r.PlayerHits,9:0} {r.PlayerSwings,8:0.0} {r.MonsterHits,9:0} {r.MonsterSwings,8:0.0}  {r.Weapon}");
+    return 0;
+}
+
 if (options.Fuzz)
 {
     // Random fights checked for broken rules (overlaps, stale squads, divergence, slow turns, jammed monsters).
@@ -244,7 +253,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Trials = false, bool Encounters = false, string? ClassId = null, bool Fuzz = false)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Trials = false, bool Encounters = false, string? ClassId = null, bool Fuzz = false, bool Lethality = false)
 {
     public static Options? Parse(string[] args)
     {
@@ -265,6 +274,7 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--encounters": o = o with { Encounters = true }; break;
                 case "--trials": o = o with { Trials = true }; break;
                 case "--fuzz": o = o with { Fuzz = true }; break;
+                case "--lethality": o = o with { Lethality = true }; break;
                 case "--trace": o = o with { Trace = true }; break;
                 default: return null;
             }

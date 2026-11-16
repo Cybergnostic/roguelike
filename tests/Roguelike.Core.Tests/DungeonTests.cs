@@ -206,15 +206,15 @@ public class DungeonTests
     }
 
     [Fact]
-    public void MonstersGrowWithDepth()
+    public void OrdinaryMonstersDontGrowWithDepth()
     {
+        // Depth brings danger through who you meet, not bigger numbers (COMBAT_AND_MAGIC.md §1).
         var content = Roguelike.Core.Content.ContentDatabase.Default;
         var deep = World.Create(1, depth: 7);
         var warrior = content.Monsters["goblin_warrior"];
         var spawned = deep.SpawnMonster("goblin_warrior", deep.Map.Tiles.Positions().First(deep.IsFree));
-        Assert.Equal(content.Dungeon.HpFor(warrior.MaxHp, 7), spawned.MaxHp);
-        Assert.True(spawned.MaxHp > warrior.MaxHp);
-        Assert.Equal(warrior.Attack + content.Dungeon.AttackBonus(7), spawned.Attack);
+        Assert.Equal(warrior.MaxHp, spawned.MaxHp);
+        Assert.Equal(warrior.Attack, spawned.Attack);
     }
 
     [Fact]

@@ -90,6 +90,9 @@ public sealed class Actor
         }
     }
 
+    /// <summary>Reeling from a blow until the end of this turn: blows against it land harder and can't miss.</summary>
+    public int StaggeredUntil { get; set; } = -1;
+
     /// <summary>It didn't step last turn, so it has its feet set.</summary>
     public bool StoodStill { get; set; }
 

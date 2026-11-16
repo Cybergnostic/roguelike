@@ -13,7 +13,7 @@ public sealed record RangedAttackAction(int TargetId) : GameAction
         var target = world.GetActor(TargetId);
         if (target is null || target.IsDead || world.IsUntouchable(target) || actor.Range <= 0
             || World.Distance(actor.Position, target.Position) > actor.Range
-            || !world.HasClearShot(actor.Position, target.Position))
+            || !world.FairShot(actor, actor.Position, target))
             return false;
 
         world.ResolveAttack(actor, target, ranged: true);

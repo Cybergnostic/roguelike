@@ -30,7 +30,7 @@
     { "id": "pinning_shot", "kind": "pin",    "cooldown": 10, "verb": "pins", "you": "pin" },
     { "id": "vanish",       "kind": "vanish", "cooldown": 25, "range": 7, "amount": 4, "verb": "vanishes", "you": "vanish in a blink" },
     { "id": "shadow_strike","kind": "charge", "cooldown": 6, "range": 6, "verb": "strikes from the shadows at", "you": "step through the shadows at" },
-    { "id": "cinder_bolt",  "kind": "bolt",   "cooldown": 3,  "range": 7, "power": 7, "verb": "burns", "you": "hurl fire at" },
+    { "id": "cinder_bolt",  "kind": "bolt",   "cooldown": 3,  "range": 7, "power": 5, "verb": "burns", "you": "hurl fire at" },
     { "id": "mend",         "kind": "heal",   "cooldown": 30, "power": 10, "verb": "mends its wounds", "you": "mend your wounds" },
     { "id": "life_drain",   "kind": "drain",  "cooldown": 14,  "range": 6, "power": 5, "amount": 3, "verb": "drinks the life from", "you": "drink the life from" }
   ]

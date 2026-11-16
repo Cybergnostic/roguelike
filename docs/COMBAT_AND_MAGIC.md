@@ -1,6 +1,7 @@
 # Combat, classes and runes: proposal
 
-**Status: proposal (2026-11-16), not decided.** Built from the user's notes (lethal combat; a powerful player
+**Status: being built on branch `combat-and-runes` (user, 2026-11-16: "let's try and do this"); the user will
+test it when it's all in.** Step 1 done; see §5 and §6. Built from the user's notes (lethal combat; a powerful player
 against weak individuals but dangerous groups; four classes of 3-5 strong skills; magic as runes, wards and
 sigils rather than elemental damage) and Claude's suggestions. Mark each part accepted, changed or rejected
 before it is built; then move what's decided into [PROJECT.md](PROJECT.md).
@@ -169,3 +170,28 @@ marked.
 - **Scope:** about 25 new mechanics. Staged as above it is large but tractable; done all at once it isn't.
 - **Preparation magic can turn tedious** (warding every door). The mark limit, fading, noise and enemies that
   notice marks are there to stop it; watch for it in playtests.
+
+---
+
+## 6. Progress log
+
+### Step 1, lethality (2026-11-16)
+Built: steady damage (±20%), unaware ×2 / backstab ×3 / staggered ×1.5 and can't miss, overwhelmed (+1
+accuracy, +20% damage per extra enemy, up to 3), monsters shoot the player only from where it could see
+them, quick rest after 15 turns with no enemy in sight (4% of max HP a turn), no stat growth with depth,
+flat XP, elites 10% + 7% a level from level 2, rooms 5% fuller a level. `Roguelike.Sim --lethality` prints
+hits to kill each way. Starting weapons retuned to the targets: short bow 5, long bow 7, dagger 3,
+Cinder Bolt 5.
+
+Changed from the proposal, found while tuning:
+- **Armour stops at most half a blow.** Armour in full made the player's growing armour shrug off
+  everything (Soldier 98% wins). Now heavy armour halves blows but never ignores them.
+- **Deep levels need tougher kinds, not just arrangement.** With stats flat, the level-1 roster can't
+  threaten a grown character whatever the composition (rest made no difference: same win rates without it).
+  Added goblin veterans and marksmen (level 5 bands, war parties) and barrow guards and archers (cohorts,
+  skeleton files). A goblin warrior is still a goblin warrior everywhere.
+
+Measured (tactical bot, 300 games per class, seeds 1000-1299, `--turns 30000`): Soldier 88%, Ranger 96%,
+Rogue 84%, Mystic 64%. Was 30 / 18 / 16 / 26 with depth scaling. The crypt cliff is gone; deaths spread over
+levels 4-7. Too easy overall: left for the rebalance after the class skills, as agreed.
+

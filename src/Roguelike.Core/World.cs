@@ -663,7 +663,35 @@ public sealed class World
         int regen = RegenInterval;
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
+        Rest();
     }
+
+    /// <summary>The last turn an enemy was in the player's sight, for resting.</summary>
+    public int LastThreatTurn { get; private set; }
+
+    /// <summary>
+    /// Out of danger for a while, the player gets their breath back fast: a fight should cost potions
+    /// and cooldowns, not HP carried across the level.
+    /// </summary>
+    private void Rest()
+    {
+        var rules = Content.Player;
+        if (Player.IsDead || rules.RestAfter <= 0)
+            return;
+        bool threatened = _actors.Any(a => !a.IsDead && a != Player && AreHostile(a, Player) && PlayerCanSee(a)
+                                           && SquadOf(a) is not { Surrendered: true } and not { Spared: true });
+        if (threatened)
+            LastThreatTurn = Turn;
+        else if (Turn - LastThreatTurn >= rules.RestAfter && Player.Hp < Player.MaxHp)
+            Player.Hp = Math.Min(Player.MaxHp, Player.Hp + Math.Max(1, Player.MaxHp * rules.RestHealPercent / 100));
+    }
+
+    /// <summary>
+    /// A shot the shooter may take: a clear line, and, at the player, only from somewhere the player
+    /// could see. No arrows out of the dark.
+    /// </summary>
+    public bool FairShot(Actor shooter, Point from, Actor target) =>
+        HasClearShot(from, target.Position) && (target != Player || ObserverMode || Map.PlayerFov.BooleanResultView[from]);
 
     private void RemoveTheDead() => _actors.RemoveAll(a =>
     {
@@ -977,20 +1005,54 @@ public sealed class World
     public int HitChance(Actor attacker, Actor target, bool ranged, int accuracyBonus = 0)
     {
         var rules = Content.Combat;
+        if (IsStaggered(target))
+            return 100;
         int accuracy = attacker.Accuracy + accuracyBonus - (ranged && IsAdjacent(attacker.Position, target.Position) && !attacker.HasSpecial("skirmisher") ? rules.PointBlankPenalty : 0);
         if (!ranged)
             accuracy += attacker.Equipment?.Weapon?.Def.Accuracy ?? 0;
+        accuracy += rules.OverwhelmAccuracy * Overwhelmed(target);
         return Math.Clamp(rules.BaseHitChance + rules.HitChancePerPoint * (accuracy - target.Evasion),
             rules.MinHitChance, rules.MaxHitChance);
     }
 
+    public bool IsStaggered(Actor actor) => actor.StaggeredUntil >= Turn;
+
+    /// <summary>How many enemies beyond the first stand next to this actor, up to the most that count.</summary>
+    public int Overwhelmed(Actor target)
+    {
+        int around = EightWay.Count(d => ActorAt(target.Position + d) is { IsDead: false } a && AreHostile(a, target));
+        return Math.Clamp(around - 1, 0, Content.Combat.OverwhelmMax);
+    }
+
+    /// <summary>Caught unawares: a monster whose squad isn't fighting yet. The player is never caught so.</summary>
+    public bool IsUnaware(Actor target) => target != Player && SquadOf(target) is { State: not SquadState.Engage };
+
     /// <summary>
-    /// One melee blow or shot: roll to hit (accuracy vs evasion), then damage 1..attack minus a
-    /// random 0..defence absorbed by armour, never below the minimum damage. Armour softens hits;
-    /// it can't make anyone untouchable.
+    /// Percent of normal damage a blow does for the advantages the attacker has: catching the target
+    /// unawares (more with Backstab, melee only), hitting it while it reels, and others crowding it.
+    /// </summary>
+    public int AdvantagePercent(Actor attacker, Actor target, bool ranged)
+    {
+        var rules = Content.Combat;
+        double percent = 100;
+        if (IsUnaware(target))
+            percent = !ranged && attacker.HasSpecial("backstab") ? rules.BackstabPercent : rules.UnawarePercent;
+        if (IsStaggered(target))
+            percent = percent * rules.StaggeredPercent / 100;
+        percent = percent * (100 + rules.OverwhelmPercent * Overwhelmed(target)) / 100;
+        return (int)Math.Round(percent);
+    }
+
+    /// <summary>
+    /// One melee blow or shot: roll to hit (accuracy vs evasion), then the attack give or take a little,
+    /// times the attacker's advantages, minus the target's armour, never below the minimum damage.
+    /// Armour softens hits; it can't make anyone untouchable.
     /// </summary>
     public void ResolveAttack(Actor attacker, Actor target, bool ranged, int? power = null, int accuracyBonus = 0)
     {
+        // Judged before the blow lands: the blow itself wakes them up.
+        int advantage = AdvantagePercent(attacker, target, ranged);
+        bool unaware = IsUnaware(target);
         Noise(target.Position, SoundKind.Fight, attacker, target);
         if (SquadOf(target) is { } targetSquad)
         {
@@ -1003,18 +1065,17 @@ public sealed class World
             Emit(new ActorAttacked(attacker.Id, target.Id, 0, ranged, Missed: true));
             return;
         }
-        int strength = power ?? (ranged ? attacker.RangedAttack : attacker.Attack);
-        if (!ranged && attacker.HasSpecial("backstab") && SquadOf(target) is { State: not SquadState.Engage })
-        {
-            strength *= 2;
+        var rules = Content.Combat;
+        int strength = Math.Max(1, power ?? (ranged ? attacker.RangedAttack : attacker.Attack));
+        if (unaware && !ranged && attacker.HasSpecial("backstab"))
             Emit(new SpecialUsed(attacker.Id, "backstab", target.Id));
-        }
-        int roll = Rng.NextInt(1, Math.Max(1, strength) + 1);
+        int spread = Rng.NextInt(100 - rules.DamageSpread, 100 + rules.DamageSpread + 1);
         int armour = target.Defense + target.BraceBonus + (ranged ? target.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0);
         if (ranged && attacker.HasSpecial("piercing"))
             armour /= 2;
-        int absorbed = Rng.NextInt(0, Math.Max(0, armour) + 1);
-        int dealt = Math.Max(Content.Combat.MinDamage, roll - absorbed);
+        int blow = (int)Math.Round(strength * spread / 100.0 * advantage / 100.0);
+        int stopped = Math.Min(Math.Max(0, armour), blow * rules.ArmourStopsAtMostPercent / 100);
+        int dealt = Math.Max(rules.MinDamage, blow - stopped);
         Damage(attacker, target, dealt, ranged);
         if (ranged)
             return;
@@ -1115,6 +1176,7 @@ public sealed class World
 
     private void Stagger(Actor target, Actor by)
     {
+        target.StaggeredUntil = Turn + 1;
         if (target == Player)
             _timeOwed += StaggeredPlayerLoses;
         else

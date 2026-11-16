@@ -104,7 +104,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     {
         var target = world.NearestVisibleHostile(self);
         int distance = target is null ? int.MaxValue : World.Distance(self.Position, target.Position);
-        bool canShoot = target is not null && distance >= 2 && distance <= self.Range && world.HasClearShot(self.Position, target.Position);
+        bool canShoot = target is not null && distance >= 2 && distance <= self.Range && world.FairShot(self, self.Position, target);
         switch (ability.Kind)
         {
             case Content.AbilityKind.Charge when target is not null && distance >= 2 && distance <= ability.Range:
@@ -340,18 +340,20 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
         if (target is not null && World.Distance(self.Position, target.Position) <= self.Range)
         {
-            if (world.HasClearShot(self.Position, target.Position))
+            if (world.FairShot(self, self.Position, target))
                 return new RangedAttackAction(target.Id);
 
-            // An ally is in the way: shuffle sideways to a spot with a clear shot.
+            // An ally is in the way, or it's out of the target's sight: shuffle sideways to a spot with a fair shot.
             foreach (var dir in World.EightWay)
             {
                 var p = self.Position + dir;
                 if (world.IsFree(p) && !NextToHostile(world, self, p)
-                    && world.HasClearShot(p, target.Position))
+                    && world.FairShot(self, p, target))
                     return new MoveAction(dir);
             }
-            return new WaitAction();
+            if (world.HasClearShot(self.Position, target.Position))
+                return new WaitAction();
+            // Nowhere beside it will do: come closer, into the light.
         }
 
         // Close in, but never into melee reach: a shooter that can't shoot waits instead.

@@ -29,7 +29,7 @@ public class SquadTests(ITestOutputHelper output)
     /// tiles away as the room allows, and lets one turn pass. With <paramref name="openGround"/>
     /// the player never stands in a chokepoint, where they might cork the squad's only exit.
     /// </summary>
-    private static IReadOnlyList<GameEvent> RevealPlayerTo(World world, Squad squad, int distance = 3, bool openGround = false)
+    internal static IReadOnlyList<GameEvent> RevealPlayerTo(World world, Squad squad, int distance = 3, bool openGround = false)
     {
         world.Player.Hp = 10_000; // keep the test about AI, not survival
         var anchor = squad.Members.First().Position;
@@ -183,7 +183,7 @@ public class SquadTests(ITestOutputHelper output)
         static bool HasRunnerAndAllies(World w, Squad s) =>
             s.WithRole(SquadRole.Runner).Any() && w.Squads.Any(o => o != s && o.Faction == s.Faction);
 
-        // A runner can die on the way or be recalled, so this holds for most games, not every one.
+        // A runner can be recalled or boxed in, so this holds for most games, not every one.
         int games = 0, fetched = 0;
         for (ulong seed = 0; seed < 30; seed++)
         {
@@ -194,10 +194,17 @@ public class SquadTests(ITestOutputHelper output)
             RevealPlayerTo(world, squad, distance: 5, openGround: true);
             Assert.NotNull(squad.HelpTargetSquadId);
             games++;
+            world.Player.Hp = 100_000; // this is about the runner, not whether the player lives
 
+            var runner = squad.WithRole(SquadRole.Runner).First();
             ReinforcementsCalled? call = null;
             for (int turn = 0; turn < 300 && call is null; turn++)
                 call = world.Step(new WaitAction()).OfType<ReinforcementsCalled>().FirstOrDefault();
+            if (call is null && runner.IsDead)
+            {
+                games--; // caught on the way by another faction: blows are deadly, and runners are frail
+                continue;
+            }
             if (call is null)
                 continue;
             fetched++;

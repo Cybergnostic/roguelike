@@ -178,10 +178,10 @@ public class AffixTests
         {
             var world = World.Create(1);
             Wear(world, new Item(900, world.Content.Items["long_bow"]) { Enchantment = 5, Special = piercing ? "piercing" : null });
-            // A heavily armoured target standing next to the player (not added to the world; it only soaks shots).
+            // An armoured target (not more than half a blow, or the cap hides the difference) standing next to the player (not added to the world; it only soaks shots).
             var faction = world.Content.Factions["goblins"];
             var target = new Actor(999, "goblin_warrior", faction, world.Player.Position + SadRogue.Primitives.Direction.Right,
-                100_000, attack: 1, defense: 12);
+                100_000, attack: 1, defense: 5);
             int dealt = 0, hits = 0;
             for (int i = 0; i < 400; i++)
             {
