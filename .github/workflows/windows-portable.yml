@@ -1,0 +1,48 @@
+name: Windows portable build
+
+on:
+  push:
+    branches:
+      - combat-and-runes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-portable:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish portable Windows x64 game
+        shell: pwsh
+        run: |
+          dotnet publish src/Roguelike.App/Roguelike.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output dist/Roguelike-Windows-x64
+
+      - name: Verify executable and assets
+        shell: pwsh
+        run: |
+          $dir = 'dist/Roguelike-Windows-x64'
+          foreach ($file in @('Roguelike.App.exe', 'data/skills.json', 'Fonts')) {
+            if (-not (Test-Path (Join-Path $dir $file))) { throw "Missing published asset: $file" }
+          }
+
+      - name: Package portable game
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/Roguelike-Windows-x64/* -DestinationPath dist/Roguelike-Windows-x64.zip -Force
+
+      - name: Upload downloadable Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roguelike-Windows-x64
+          path: dist/Roguelike-Windows-x64.zip
+          retention-days: 30
+          if-no-files-found: error
