@@ -66,7 +66,9 @@ public sealed partial class GameScreen
             return new ToggleSneakAction();
         else if (keyboard.IsKeyPressed(Keys.W))
             return NextStance();
-        else if (keyboard.IsKeyPressed(Keys.R) && !keyboard.IsKeyDown(Keys.LeftShift) && !keyboard.IsKeyDown(Keys.RightShift))
+        else if (keyboard.IsKeyPressed(Keys.R) && (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)))
+            return new BreakMarkAction();
+        else if (keyboard.IsKeyPressed(Keys.R))
             OpenRunes();
         else if (keyboard.IsKeyPressed(Keys.M))
             _chronicleOpen = true;

@@ -229,6 +229,7 @@ public sealed partial class World
         {
             ShapeLevelFromHistory();
             SpawnSquads();
+            LayCryptSeals();
             SpawnFloorItems();
             PlaceStairs();
             LeaveTracesOfHistory();

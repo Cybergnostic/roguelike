@@ -162,6 +162,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         RuneTriggered => null,
         RuneFaded f when world.Map.PlayerFov.BooleanResultView[f.At] => $"{RuneName(f.RuneId)} fades from the ground.",
         RuneFaded => null,
+        MarkBroken { Crumbled: > 0 } b => $"The seal cracks. Somewhere on this level, {b.Crumbled} of the dead fall to dust.",
+        MarkBroken b => $"You unmake {RuneName(b.RuneId)}.",
         RuneLearned r => $"You read the stone's rune: {RuneName(r.RuneId)}, {world.Content.Runes[r.RuneId].Meaning}. (r: runes)",
         StoneThrown => "A stone clatters off in the dark.",
         CoveringFire c => $"You train your bow on the ground around there for {c.Turns} turns.",

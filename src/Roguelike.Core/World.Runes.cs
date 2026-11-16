@@ -3,6 +3,7 @@ using Roguelike.Core.Entities;
 using Roguelike.Core.Events;
 using Roguelike.Core.Map;
 using SadRogue.Primitives;
+using SadRogue.Primitives.GridViews;
 
 namespace Roguelike.Core;
 
@@ -14,6 +15,12 @@ public sealed class Mark(Point at, string runeId, int ownerId, int until, int ch
     public int OwnerId { get; } = ownerId;
     public int Until { get; set; } = until;
     public int Charges { get; set; } = charges;
+
+    /// <summary>Only those who can sense runes see it (Rune Lore 2, Rune-Sight); others find it underfoot.</summary>
+    public bool Hidden { get; init; }
+
+    /// <summary>A seal binding a squad of the dead to this level: break it and they crumble.</summary>
+    public int? SealOf { get; init; }
 }
 
 /// <summary>Runes (COMBAT_AND_MAGIC.md §4): carving, what each does where, how marks go off and fade, learning them from stones.</summary>
@@ -200,6 +207,90 @@ public sealed partial class World
         var next = Content.RuneList.OrderBy(r => StableHash($"{Seed}:{r.Id}")).FirstOrDefault(r => !c.KnowsRune(r.Id));
         if (next is not null && c.LearnRune(next.Id))
             Emit(new RuneLearned(next.Id));
+    }
+
+    // ---- The crypt: seals and the necromancer's traps ----
+
+    private const int CryptSeals = 2, CryptTraps = 4;
+    private const int SmashSealTime = 500;
+
+    /// <summary>
+    /// On the last level the necromancer has bound some of his dead with seals, set elsewhere on the level, and
+    /// hidden thorn traps in the passages round his court. Uses the level's own generation stream.
+    /// </summary>
+    private void LayCryptSeals()
+    {
+        if (Depth != Content.Dungeon.Levels || _actors.FirstOrDefault(a => a.Kind == "necromancer") is not { } necromancer)
+            return;
+        var court = SquadOf(necromancer);
+        var bound = _squads.Where(s => s != court && s.Faction.Id == "undead" && s.Members.Count > 0).ToList();
+        var rooms = Map.Rooms.Skip(1).ToList();
+        for (int i = 0; i < CryptSeals && bound.Count > 0 && rooms.Count > 0; i++)
+        {
+            var squad = bound[Rng.NextInt(bound.Count)];
+            bound.Remove(squad);
+            var leader = squad.Members[0].Position;
+            // In a room of its own, away from the squad it binds.
+            var room = rooms.Where(r => !r.Contains(leader)).OrderByDescending(r => Distance(r.Center, leader)).Take(3).ToList();
+            if (room.Count == 0)
+                break;
+            var chosen = room[Rng.NextInt(room.Count)];
+            rooms.Remove(chosen);
+            var at = chosen.Positions().Where(p => IsFree(p) && MarkAt(p) is null).OrderBy(p => Distance(p, chosen.Center)).Cast<Point?>().FirstOrDefault();
+            if (at is { } spot)
+                _location.Marks.Add(new Mark(spot, "naudhiz", necromancer.Id, int.MaxValue, 99) { SealOf = squad.Id });
+        }
+        var heart = Map.Zones.FirstOrDefault(z => z.Area.Contains(necromancer.Position))?.Heart ?? necromancer.Position;
+        var passages = Map.Tiles.Positions().Where(p => IsFree(p) && IsChokepoint(p) && MarkAt(p) is null
+                                                        && Distance(p, heart) is >= 6 and <= 16).ToList();
+        for (int i = 0; i < CryptTraps && passages.Count > 0; i++)
+        {
+            var p = passages[Rng.NextInt(passages.Count)];
+            passages.Remove(p);
+            _location.Marks.Add(new Mark(p, "thurisaz", necromancer.Id, int.MaxValue, 2) { Hidden = true });
+        }
+    }
+
+    /// <summary>Whether the player can see this mark: their own, or anyone's unless hidden from those who can't sense runes.</summary>
+    public bool PlayerSeesMark(Mark mark) =>
+        mark.OwnerId == Player.Id || !mark.Hidden || Player.HasSpecial("rune_sense");
+
+    /// <summary>
+    /// Why the player can't unmake the mark at or next to them, or null. Their own marks they can always
+    /// scratch out; a seal anyone can smash (slowly, loudly); other marks need Rune Lore 3.
+    /// </summary>
+    public FailureReason? BreakProblem(Actor actor, out Mark? mark)
+    {
+        mark = new[] { actor.Position }.Concat(EightWay.Select(d => actor.Position + d))
+            .Select(MarkAt).FirstOrDefault(m => m is not null && PlayerSeesMark(m));
+        if (mark is null)
+            return FailureReason.NoTarget;
+        if (mark.OwnerId == actor.Id || mark.SealOf is not null || actor.HasSpecial("rune_breaking"))
+            return null;
+        return FailureReason.CantCarveThere;
+    }
+
+    /// <summary>How long unmaking a mark takes: smashing a seal by hand is slow and loud; with Rune Lore 3, or your own, a moment.</summary>
+    public int BreakTime(Actor actor) =>
+        BreakProblem(actor, out var mark) is null && mark!.SealOf is not null && !actor.HasSpecial("rune_breaking") ? SmashSealTime : 100;
+
+    public void BreakMark(Actor actor)
+    {
+        if (BreakProblem(actor, out var mark) is not null)
+            return;
+        _location.Marks.Remove(mark!);
+        _paths.Clear();
+        int crumbled = 0;
+        if (mark!.SealOf is { } squadId && _squads.FirstOrDefault(s => s.Id == squadId) is { } bound)
+            foreach (var dead in bound.Members.Where(m => !m.IsDead).ToList())
+            {
+                dead.Hp = 0;
+                Emit(new MinionCrumbled(dead.Id, dead.Kind, actor.Id));
+                crumbled++;
+            }
+        Emit(new MarkBroken(mark.RuneId, mark.At, crumbled));
+        if (mark.SealOf is not null && !actor.HasSpecial("rune_breaking"))
+            Noise(mark.At, SoundKind.Fight, actor);
     }
 
     /// <summary>FNV-1a: the same on every machine and run, unlike string.GetHashCode.</summary>

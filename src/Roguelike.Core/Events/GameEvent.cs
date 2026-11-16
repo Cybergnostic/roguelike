@@ -263,6 +263,9 @@ public sealed record RuneTriggered(string RuneId, Point At, int TargetId) : Game
 /// <summary>A rune on the ground is spent, broken or worn away.</summary>
 public sealed record RuneFaded(string RuneId, Point At) : GameEvent;
 
+/// <summary>A mark unmade; for a seal, how many of the dead it bound crumbled.</summary>
+public sealed record MarkBroken(string RuneId, Point At, int Crumbled) : GameEvent;
+
 /// <summary>The player read a rune off a stone and can carve it now.</summary>
 public sealed record RuneLearned(string RuneId) : GameEvent;
 

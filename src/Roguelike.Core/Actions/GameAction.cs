@@ -520,3 +520,20 @@ public sealed record CarveAction(string RuneId, RuneSurface Surface) : GameActio
     }
 }
 
+/// <summary>Unmakes a mark at or next to the actor: their own, a seal (anyone, slowly), or any with Rune Lore 3.</summary>
+public sealed record BreakMarkAction : GameAction
+{
+    public override int TimeCost(World world, Actor actor) => world.BreakTime(actor);
+
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.BreakProblem(actor, out _) is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        world.BreakMark(actor);
+        return true;
+    }
+}
+

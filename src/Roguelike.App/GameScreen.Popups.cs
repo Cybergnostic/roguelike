@@ -295,7 +295,7 @@ public sealed partial class GameScreen
         }
         if (inView && _world.ItemsAt(p).FirstOrDefault() is { } item)
             lines.Add((Capitalize(ItemText.AName(item)), Theme.ForItem(item).Foreground));
-        if (_world.MarkAt(p) is { } mark)
+        if (_world.MarkAt(p) is { } mark && (_world.PlayerSeesMark(mark) || _reveal))
             lines.Add(($"{_world.Content.Runes[mark.RuneId].Name} ({_world.Content.Runes[mark.RuneId].Meaning})", RuneColor));
         lines.Add((TileText(_world.Map.Tiles[p]).Name, Theme.TextDim));
         return lines;

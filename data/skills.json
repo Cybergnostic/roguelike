@@ -93,15 +93,15 @@
         "rankText": ["Aegis: soaks 10 + Magic damage, 10 turns", "arrows can't touch you while it holds", "when it breaks, those next to you are thrown back"] },
       { "id": "rune_sight", "name": "Rune-Sight", "description": "Runes come easily to you.",
         "ranks": 3, "cost": [30, 60, 90], "special": "rune_reading",
-        "grants": [ { "rank": 1, "special": "quick_carving" }, { "rank": 2, "special": "strong_marks" }, { "rank": 3, "special": "word_through_marks" } ],
-        "rankText": ["read runes without Rune Lore; carve twice as fast", "your marks go off once more, hit harder, and you keep one more", "speak Word of Power through any of your marks in sight"] }
+        "grants": [ { "rank": 1, "special": "quick_carving" }, { "rank": 1, "special": "rune_sense" }, { "rank": 2, "special": "strong_marks" }, { "rank": 3, "special": "word_through_marks" } ],
+        "rankText": ["read runes and see hidden marks; carve twice as fast", "your marks go off once more, hit harder, and you keep one more", "speak Word of Power through any of your marks in sight"] }
     ]},
     // ---- General skills: anyone can learn these.
     { "id": "runes", "name": "Runes", "skills": [
       { "id": "rune_lore", "name": "Rune Lore", "description": "Read the old marks: stones teach you their runes.",
         "ranks": 3, "cost": [30, 50, 80], "special": "rune_reading",
         "grants": [ { "rank": 2, "special": "rune_sense" }, { "rank": 3, "special": "rune_breaking" } ],
-        "rankText": ["read inscriptions and learn the runes on them", "know a mark for what it is at a glance, anywhere you can see", "unmake marks: yours and others'"] },
+        "rankText": ["read inscriptions and learn the runes on them", "see hidden marks for what they are", "unmake any mark in a moment, quietly (R)"] },
       { "id": "inscription", "name": "Inscription", "description": "Carve the runes you know: on the ground, on your skin, on your gear.",
         "ranks": 3, "cost": [40, 60, 90], "special": "carving",
         "grants": [ { "rank": 2, "special": "gear_carving" }, { "rank": 3, "special": "deep_carving" } ],

@@ -28,6 +28,7 @@ public sealed partial class GameScreen
     };
 
     private static readonly Color RuneColor = new(232, 201, 139);
+    private static readonly Color EnemyRuneColor = new(214, 92, 92);
 
     private void DrawMarks()
     {
@@ -35,17 +36,24 @@ public sealed partial class GameScreen
         foreach (var mark in _world.Marks)
         {
             bool mine = mark.OwnerId == _world.Player.Id;
-            if ((!fov[mark.At] && !_reveal && !(mine && _world.Map.Explored[mark.At])) || !OnScreen(mark.At, out var at))
+            if ((!_world.PlayerSeesMark(mark) && !_reveal) || (!fov[mark.At] && !_reveal && !(mine && _world.Map.Explored[mark.At])) || !OnScreen(mark.At, out var at))
                 continue;
-            _map.SetGlyph(at.X, at.Y, RuneGlyph(mark.RuneId), fov[mark.At] ? RuneColor : Theme.Remembered(RuneColor), _map.Surface[at.X, at.Y].Background);
+            var color = mine ? RuneColor : EnemyRuneColor;
+            _map.SetGlyph(at.X, at.Y, RuneGlyph(mark.RuneId), fov[mark.At] ? color : Theme.Remembered(color), _map.Surface[at.X, at.Y].Background);
         }
     }
 
     /// <summary>What a mark is, for examine and the tooltip.</summary>
-    private string? MarkText(Point p) =>
-        _world.MarkAt(p) is { } mark && _world.Content.Runes.TryGetValue(mark.RuneId, out var rune)
-            ? $"{rune.Name} ({rune.Meaning}): {rune.Ground}.{(rune.Charges > 0 ? $" {mark.Charges} left." : "")} Fades in {Math.Max(0, mark.Until - _world.Turn)} turns."
-            : null;
+    private string? MarkText(Point p)
+    {
+        if (_world.MarkAt(p) is not { } mark || !_world.Content.Runes.TryGetValue(mark.RuneId, out var rune) || (!_world.PlayerSeesMark(mark) && !_reveal))
+            return null;
+        if (mark.SealOf is not null)
+            return $"A seal: {rune.Name}, cut deep and fed with something dark. It binds some of the dead on this level. Break it (R, next to it) and they crumble.";
+        string whose = mark.OwnerId == _world.Player.Id ? "" : "Someone else's mark. ";
+        string fades = mark.Until == int.MaxValue ? "" : $" Fades in {Math.Max(0, mark.Until - _world.Turn)} turns.";
+        return $"{whose}{rune.Name} ({rune.Meaning}): {rune.Ground}.{(rune.Charges > 0 ? $" {mark.Charges} left." : "")}{fades}";
+    }
 
     private void OpenRunes()
     {

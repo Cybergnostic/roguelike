@@ -139,6 +139,13 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
             return new WaitAction();
         if (UnreadStone(world, me) is { } stone && world.StepToward(me, stone) is { } toStone)
             return new MoveAction(toStone);
+        if (SealInSight(world) is { } seal)
+        {
+            if (World.Distance(seal, me.Position) <= 1)
+                return new BreakMarkAction();
+            if (world.StepToward(me, seal) is { } toSeal)
+                return new MoveAction(toSeal);
+        }
         if (world.ItemsAt(me.Position).Any(i => Wanted(me, i)) && me.Inventory is { IsFull: false })
             return new PickUpAction();
         var fov = world.Map.PlayerFov.BooleanResultView;
@@ -300,6 +307,13 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
                 (best, bestDist) = (p, dist);
         }
         return best;
+    }
+
+    /// <summary>A seal binding some of the dead, that I can see: worth breaking before the fight it would join.</summary>
+    private static Point? SealInSight(World world)
+    {
+        var fov = world.Map.PlayerFov.BooleanResultView;
+        return world.Marks.Where(m => m.SealOf is not null && fov[m.At] && world.PlayerSeesMark(m)).Select(m => (Point?)m.At).FirstOrDefault();
     }
 
     /// <summary>Stones I've stood on (to read their runes) in this game.</summary>
