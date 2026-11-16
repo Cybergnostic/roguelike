@@ -129,7 +129,23 @@ public sealed class Actor
         return BaseAttack + (Equipment?.OffHand?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack) - (strength - strength * strengthPercent / 100);
     }
 
-    public int Defense => BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense);
+    public int Defense => Math.Max(0, BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense) + StanceArmour);
+
+    /// <summary>Armour a stance adds or costs.</summary>
+    public int StanceArmour => Stance switch { Stance.Guarded => GuardedArmour, Stance.Aggressive => -AggressiveArmourCost, _ => 0 };
+    public const int GuardedArmour = 2, AggressiveArmourCost = 2, AggressivePercent = 130;
+
+    /// <summary>How it stands (player stances; monsters stand ordinarily).</summary>
+    public Stance Stance { get; set; }
+
+    /// <summary>A big blow it has announced and will deliver on its next action, if it still can.</summary>
+    public WindUp? WindUp { get; set; }
+
+    /// <summary>Passing conditions: slowed, held, hexed, shielded, marked (see <see cref="StatusKind"/>).</summary>
+    public List<Status> Statuses { get; } = [];
+
+    public Status? StatusOf(StatusKind kind) => Statuses.FirstOrDefault(s => s.Kind == kind);
+    public bool Has(StatusKind kind) => Statuses.Any(s => s.Kind == kind);
 
     /// <summary>Ranged attack: natural plus the bow if one is equipped (monster archers have none), attributes and skills.</summary>
     public int RangedAttack => BaseAttack + (Equipment?.Bow?.AttackBonus ?? 0) + Bonus(Stat.RangedAttack);

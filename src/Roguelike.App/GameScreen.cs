@@ -449,6 +449,10 @@ public sealed partial class GameScreen : ScreenObject
         if (_world.SquadOf(actor) is not { } squad)
             return "";
         var role = squad.RoleOf(actor);
+        if (actor.WindUp is { } windUp)
+            return _world.Content.Abilities[windUp.AbilityId].Kind == Roguelike.Core.Content.AbilityKind.Charge
+                ? $"about to charge {(windUp.TargetId == _world.Player.Id ? "you" : "someone")}"
+                : $"about to strike {(windUp.TargetId == _world.Player.Id ? "you" : "someone")} hard";
         if (role == SquadRole.Civilian)
             return "going about their day";
         if (squad.Surrendered)

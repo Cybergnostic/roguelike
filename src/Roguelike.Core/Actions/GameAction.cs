@@ -318,6 +318,11 @@ public sealed record MoveAction(Direction Direction, int TimePercent = 100) : Ga
         }
 
         var other = world.ActorAt(target);
+        if (other is null && actor.Has(Entities.StatusKind.Held))
+        {
+            world.Emit(new ActionFailed(actor.Id, FailureReason.Held));
+            return false;
+        }
         if (other is not null)
         {
             if (world.AreHostile(actor, other))
@@ -388,3 +393,34 @@ public sealed record AttackAction(int TargetId) : GameAction
         }
     }
 }
+
+/// <summary>The player takes up a stance (or drops it). It takes a moment; a skill must teach it.</summary>
+public sealed record StanceAction(Entities.Stance Stance) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (actor.Stance == Stance)
+            return false;
+        if (world.StanceProblem(actor, Stance) is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        actor.Stance = Stance;
+        world.Emit(new StanceChanged(actor.Id, Stance));
+        return true;
+    }
+}
+
+/// <summary>A monster announces a big blow at someone: it lands on its next action, if it still can.</summary>
+public sealed record WindUpAction(AbilityDef Ability, int TargetId) : GameAction
+{
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.GetActor(TargetId) is not { IsDead: false } target)
+            return false;
+        world.WindUpBlow(actor, Ability, target);
+        return true;
+    }
+}
+

@@ -1,3 +1,4 @@
+using Roguelike.Core.Entities;
 using Roguelike.Core.Items;
 using SadRogue.Primitives;
 
@@ -218,7 +219,29 @@ public enum FailureReason
     AbilityNotReady,
     NoTarget,
     ChargeNotReady,
+    /// <summary>Held fast: can't take a step.</summary>
+    Held,
+    /// <summary>Doesn't know how to fight that way.</summary>
+    StanceUnknown,
 }
+
+/// <summary>A passing condition took hold (or was renewed) on an actor.</summary>
+public sealed record StatusGained(int ActorId, StatusKind Kind, int Turns, int Amount, int SourceId) : GameEvent;
+
+/// <summary>A passing condition wore off or was used up.</summary>
+public sealed record StatusEnded(int ActorId, StatusKind Kind) : GameEvent;
+
+/// <summary>A shield took the force of a blow.</summary>
+public sealed record ShieldAbsorbed(int ActorId, int Amount, bool Broke) : GameEvent;
+
+/// <summary>Someone announces a big blow at a target: it lands on their next action unless spoiled.</summary>
+public sealed record WindingUp(int ActorId, string AbilityId, int TargetId) : GameEvent;
+
+/// <summary>An announced blow came to nothing: the target got away, or the attacker was staggered.</summary>
+public sealed record WindUpSpoiled(int ActorId, string AbilityId) : GameEvent;
+
+/// <summary>The player took up a stance (or dropped it).</summary>
+public sealed record StanceChanged(int ActorId, Stance Stance) : GameEvent;
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>
 public sealed record ActionFailed(int ActorId, FailureReason Reason) : GameEvent;

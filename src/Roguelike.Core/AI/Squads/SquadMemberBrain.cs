@@ -105,8 +105,21 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         var target = world.NearestVisibleHostile(self);
         int distance = target is null ? int.MaxValue : World.Distance(self.Position, target.Position);
         bool canShoot = target is not null && distance >= 2 && distance <= self.Range && world.FairShot(self, self.Position, target);
+        // A big blow is announced first; World delivers it on the next action if it still can.
+        if (ability.WindUp && target is not null)
+        {
+            bool ready = ability.Kind switch
+            {
+                Content.AbilityKind.Charge => distance >= 2 && distance <= ability.Range && world.ChargeLandingFor(self, target) is not null,
+                Content.AbilityKind.Bash => distance == 1,
+                _ => false,
+            };
+            return ready ? new WindUpAction(ability, target.Id) : null;
+        }
         switch (ability.Kind)
         {
+            case Content.AbilityKind.Bash when target is not null && distance == 1:
+                return new AbilityAction(ability, target.Id);
             case Content.AbilityKind.Charge when target is not null && distance >= 2 && distance <= ability.Range:
                 var landing = World.EightWay.Select(d => target.Position + d)
                     .Where(p => world.IsFree(p) && Squad.WithinLeash(p) && world.HasClearShot(self.Position, p))

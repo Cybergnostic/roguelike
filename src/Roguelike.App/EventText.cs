@@ -36,6 +36,23 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         AbilityUsed a when isVisible(a.ActorId) => $"{Cap(Name(a.ActorId))} {world.Content.Abilities[a.AbilityId].Verb}!",
         AbilityUsed => null,
 
+        WindingUp w when w.TargetId == world.Player.Id || isVisible(w.ActorId) =>
+            $"{Cap(Name(w.ActorId))} {world.Content.Abilities[w.AbilityId].Warning ?? "gathers itself"}{(w.TargetId == world.Player.Id ? " - at you!" : $" at {Name(w.TargetId)}.")}",
+        WindingUp => null,
+        WindUpSpoiled w when isVisible(w.ActorId) => $"{Cap(Name(w.ActorId))}'s blow comes to nothing.",
+        WindUpSpoiled => null,
+        StatusGained g when g.ActorId == world.Player.Id || isVisible(g.ActorId) => StatusWords(g),
+        StatusGained => null,
+        StatusEnded { Kind: Roguelike.Core.Entities.StatusKind.Shielded } x when x.ActorId == world.Player.Id => "Your ward fades.",
+        StatusEnded x when x.ActorId == world.Player.Id => $"You are no longer {StatusName(x.Kind)}.",
+        StatusEnded => null,
+        ShieldAbsorbed { Broke: true } a when a.ActorId == world.Player.Id => $"Your ward takes {a.Amount} and breaks.",
+        ShieldAbsorbed a when a.ActorId == world.Player.Id => $"Your ward takes {a.Amount}.",
+        ShieldAbsorbed => null,
+        StanceChanged { Stance: Roguelike.Core.Entities.Stance.Aggressive } => "You throw caution aside and go for the kill.",
+        StanceChanged { Stance: Roguelike.Core.Entities.Stance.Guarded } => "You set your guard.",
+        StanceChanged => "You fight as you always have.",
+
         CorpseRaised r when isVisible(r.RaisedId) || isVisible(r.CasterId) =>
             $"{Cap(Name(r.CasterId))} raises the {Kind(r.CorpseKind)}'s corpse - it rises as a {Kind(r.RaisedKind)}!",
         CorpseRaised => null, // reported as a SoundHeard
@@ -162,6 +179,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.NoTarget => "There's nothing there to aim at.",
             FailureReason.TooLightToCharge => "Charging needs the weight of heavy armour behind it.",
             FailureReason.ChargeNotReady => "You haven't got your breath back for another charge.",
+            FailureReason.Held => "You are held fast and can't take a step.",
+            FailureReason.StanceUnknown => "You haven't learned to fight that way.",
             _ => null,
         },
 
@@ -260,4 +279,25 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
     private static string Kind(string kind) => kind.Replace('_', ' ');
 
     private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static string StatusName(Roguelike.Core.Entities.StatusKind kind) => kind switch
+    {
+        Roguelike.Core.Entities.StatusKind.Slowed => "slowed",
+        Roguelike.Core.Entities.StatusKind.Held => "held fast",
+        Roguelike.Core.Entities.StatusKind.Hexed => "hexed",
+        Roguelike.Core.Entities.StatusKind.Shielded => "warded",
+        _ => "marked",
+    };
+
+    private string StatusWords(StatusGained g)
+    {
+        bool you = g.ActorId == world.Player.Id;
+        string who = Cap(Name(g.ActorId));
+        return g.Kind switch
+        {
+            Roguelike.Core.Entities.StatusKind.Shielded => you ? $"A ward closes around you ({g.Amount})." : $"A ward closes around {Name(g.ActorId)}.",
+            Roguelike.Core.Entities.StatusKind.Marked => you ? "You are marked." : $"{who} is marked.",
+            _ => you ? $"You are {StatusName(g.Kind)}!" : $"{who} is {StatusName(g.Kind)}.",
+        };
+    }
 }

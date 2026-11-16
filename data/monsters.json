@@ -33,7 +33,7 @@
     // Bandits, who work the road from their den.
     { "id": "bandit",        "faction": "bandits", "role": "warrior", "maxHp": 11, "attack": 5, "defense": 1, "xp": 12, "loot": "bandit" },
     { "id": "bandit_archer", "faction": "bandits", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 0, "xp": 12, "range": 6, "loot": "bandit" },
-    { "id": "bandit_chief", "commands": "drilled", "stagger": 15,  "faction": "bandits", "role": "warrior", "rank": "elite", "maxHp": 24, "attack": 7, "defense": 2, "accuracy": 1, "xp": 40, "lootDepthBonus": 1, "loot": "bandit", "abilities": ["warcry", "charge"] },
+    { "id": "bandit_chief", "commands": "drilled", "stagger": 15,  "faction": "bandits", "role": "warrior", "rank": "elite", "maxHp": 24, "attack": 7, "defense": 2, "accuracy": 1, "xp": 40, "lootDepthBonus": 1, "loot": "bandit", "abilities": ["warcry", "charge", "heavy_blow"] },
 
     // People. "civilian" stands where it's put and talks when you walk into it.
     { "id": "peddler", "faction": "folk", "role": "civilian", "maxHp": 20, "attack": 1, "defense": 0, "npc": {
@@ -66,12 +66,12 @@
     { "id": "barrow_archer", "mind": "mindless", "faction": "undead", "role": "archer", "maxHp": 12, "attack": 6, "defense": 2, "accuracy": 1, "xp": 20, "lootDepthBonus": 1, "range": 6, "fearless": true, "loot": "skeleton", "risesAs": "barrow_archer" },
     { "id": "goblin_zombie", "mind": "mindless",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "accuracy": -1, "evasion": -3, "speed": 50, "fearless": true },
 
-    { "id": "bone_knight", "commands": "drilled", "mind": "mindless", "stagger": 20, "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge"] },
+    { "id": "bone_knight", "commands": "drilled", "mind": "mindless", "stagger": 20, "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge", "heavy_blow"] },
     { "id": "wraith", "mind": "mindless", "faction": "undead", "role": "archer", "rank": "elite", "maxHp": 14, "attack": 5, "defense": 0, "xp": 35, "range": 6, "evasion": 3, "speed": 120, "fearless": true, "abilities": ["soul_drain"] },
 
     // Goblins' big ones.
-    { "id": "goblin_brute", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 7, "defense": 2, "xp": 30, "lootDepthBonus": 1, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["charge"] },
-    { "id": "goblin_warlord", "commands": "drilled", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 26, "attack": 7, "defense": 3, "accuracy": 1, "xp": 50, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry", "charge"] },
+    { "id": "goblin_brute", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 7, "defense": 2, "xp": 30, "lootDepthBonus": 1, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["charge", "heavy_blow"] },
+    { "id": "goblin_warlord", "commands": "drilled", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 26, "attack": 7, "defense": 3, "accuracy": 1, "xp": 50, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry", "charge", "heavy_blow"] },
     { "id": "goblin_captain", "commands": "drilled", "stagger": 20, "faction": "goblins", "role": "warrior", "rank": "elite", "maxHp": 20, "attack": 6, "defense": 2, "accuracy": 1, "xp": 40, "lootDepthBonus": 2, "loot": "goblin", "risesAs": "goblin_zombie", "abilities": ["warcry"] },
 
     // An acolyte: stays in its shrine, raises the dead, casts bolts from behind its guards.

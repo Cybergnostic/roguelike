@@ -607,6 +607,8 @@ public sealed class World
         int depthBefore = Depth;
         int timeCost = playerAction.TimeCost(this, Player);
         timeCost = timeCost * 100 / Math.Max(25, 100 + Player.Bonus(Stat.Speed));
+        if (Player.StatusOf(StatusKind.Slowed) is { } slowed)
+            timeCost = timeCost * 100 / Math.Max(10, 100 - slowed.Amount);
         int noiseMade = playerAction.NoiseMade(this, Player);
         var stoodAt = Player.Position;
         if (!playerAction.Perform(this, Player))
@@ -664,7 +666,78 @@ public sealed class World
         if (regen > 0 && Turn % regen == 0 && !Player.IsDead && Player.Hp < Player.MaxHp)
             Player.Hp++;
         Rest();
+        ExpireStatuses();
     }
+
+    // ---- Passing conditions, wind-ups, stances ----
+
+    /// <summary>Puts a condition on an actor for some turns (renewing one of the same kind and source).</summary>
+    public void AddStatus(Actor target, StatusKind kind, int turns, int amount, Actor? source = null)
+    {
+        int sourceId = source?.Id ?? -1;
+        target.Statuses.RemoveAll(s => s.Kind == kind && (kind != StatusKind.Marked || s.SourceId == sourceId));
+        target.Statuses.Add(new Status(kind, Turn + turns, amount, sourceId));
+        Emit(new StatusGained(target.Id, kind, turns, amount, sourceId));
+    }
+
+    public void RemoveStatus(Actor target, StatusKind kind)
+    {
+        if (target.Statuses.RemoveAll(s => s.Kind == kind) > 0)
+            Emit(new StatusEnded(target.Id, kind));
+    }
+
+    private void ExpireStatuses()
+    {
+        foreach (var actor in _actors)
+            foreach (var ended in actor.Statuses.Where(s => s.Until < Turn).ToList())
+            {
+                actor.Statuses.Remove(ended);
+                if (!actor.IsDead)
+                    Emit(new StatusEnded(actor.Id, ended.Kind));
+            }
+    }
+
+    /// <summary>
+    /// Announces a big blow instead of striking now: it lands on the actor's next action, if the target is
+    /// still there to be struck. Monsters use this for abilities marked "windUp".
+    /// </summary>
+    public void WindUpBlow(Actor actor, AbilityDef ability, Actor target)
+    {
+        actor.WindUp = new WindUp(ability.Id, target.Id, Turn);
+        Emit(new WindingUp(actor.Id, ability.Id, target.Id));
+    }
+
+    /// <summary>The blow it announced, if it can still deliver it; otherwise the wind-up is spoiled. Null if none was pending.</summary>
+    private GameAction? DeliverWindUp(Actor actor)
+    {
+        if (actor.WindUp is not { } windUp)
+            return null;
+        actor.WindUp = null;
+        var ability = Content.Abilities[windUp.AbilityId];
+        if (GetActor(windUp.TargetId) is { IsDead: false } target && AreHostile(actor, target))
+        {
+            switch (ability.Kind)
+            {
+                case AbilityKind.Bash when IsAdjacent(actor.Position, target.Position):
+                    return new AbilityAction(ability, target.Id);
+                case AbilityKind.Charge when Distance(actor.Position, target.Position) is >= 2 and var d && d <= ability.Range
+                                             && ChargeLandingFor(actor, target) is { } landing:
+                    return new AbilityAction(ability, target.Id, landing);
+            }
+        }
+        Emit(new WindUpSpoiled(actor.Id, ability.Id));
+        return new WaitAction();
+    }
+
+    /// <summary>A free cell beside the target the actor can rush to in a straight run.</summary>
+    public Point? ChargeLandingFor(Actor actor, Actor target) =>
+        EightWay.Select(d => target.Position + d)
+            .Where(p => IsFree(p) && (SquadOf(actor) is not { IsLeashed: true } squad || squad.WithinLeash(p)) && HasClearShot(actor.Position, p))
+            .OrderBy(p => Distance(p, actor.Position)).Cast<Point?>().FirstOrDefault();
+
+    /// <summary>The player takes up a stance their skills allow, or drops it (Stance.None).</summary>
+    public FailureReason? StanceProblem(Actor actor, Stance stance) =>
+        stance == Stance.None || actor.HasSpecial("stances") ? null : FailureReason.StanceUnknown;
 
     /// <summary>The last turn an enemy was in the player's sight, for resting.</summary>
     public int LastThreatTurn { get; private set; }
@@ -804,10 +877,12 @@ public sealed class World
         {
             if (actor.IsDead || actor.Brain is null)
                 continue;
-            actor.Energy += actor.Speed;
+            actor.Energy += actor.StatusOf(StatusKind.Slowed) is { } slowed ? actor.Speed * Math.Max(0, 100 - slowed.Amount) / 100 : actor.Speed;
             while (actor.Energy >= 100 && !actor.IsDead && !Player.IsDead)
             {
-                var action = actor.Brain.Decide(this, actor);
+                var action = DeliverWindUp(actor) ?? actor.Brain.Decide(this, actor);
+                if (action is MoveAction held && actor.Has(StatusKind.Held) && ActorAt(actor.Position + held.Direction) is not { } _)
+                    action = new WaitAction();
                 actor.Energy -= action.TimeCost(this, actor);
                 action.Perform(this, actor);
             }
@@ -1040,6 +1115,14 @@ public sealed class World
         if (IsStaggered(target))
             percent = percent * rules.StaggeredPercent / 100;
         percent = percent * (100 + rules.OverwhelmPercent * Overwhelmed(target)) / 100;
+        if (target.StatusOf(StatusKind.Hexed) is { } hexed)
+            percent = percent * (100 + hexed.Amount) / 100;
+        if (attacker.StatusOf(StatusKind.Hexed) is { } weakened)
+            percent = percent * Math.Max(0, 100 - weakened.Amount) / 100;
+        if (target.Statuses.FirstOrDefault(s => s.Kind == StatusKind.Marked && s.SourceId == attacker.Id) is { } marked)
+            percent = percent * (100 + marked.Amount) / 100;
+        if (attacker.Stance == Stance.Aggressive)
+            percent = percent * Actor.AggressivePercent / 100;
         return (int)Math.Round(percent);
     }
 
@@ -1095,9 +1178,9 @@ public sealed class World
             Emit(new SpecialUsed(target.Id, "thorns", attacker.Id));
             Damage(target, attacker, Rng.NextInt(1, 4), ranged: false);
         }
-        // Feet set in heavy gear: the first one to come at you each turn gets hit back.
-        if (target == Player && !attacker.IsDead && !target.IsDead && target.BraceBonus > 0 && _counteredOnTurn != Turn
-            && Rng.NextInt(100) < target.CounterChance)
+        // Feet set in heavy gear, or on guard: the first one to come at you each turn gets hit back.
+        if (target == Player && !ranged && !attacker.IsDead && !target.IsDead && _counteredOnTurn != Turn
+            && (target.Stance == Stance.Guarded || (target.BraceBonus > 0 && Rng.NextInt(100) < target.CounterChance)))
         {
             _counteredOnTurn = Turn;
             Emit(new SpecialUsed(target.Id, "counter", attacker.Id));
@@ -1177,6 +1260,11 @@ public sealed class World
     private void Stagger(Actor target, Actor by)
     {
         target.StaggeredUntil = Turn + 1;
+        if (target.WindUp is { } spoiled)
+        {
+            target.WindUp = null;
+            Emit(new WindUpSpoiled(target.Id, spoiled.AbilityId));
+        }
         if (target == Player)
             _timeOwed += StaggeredPlayerLoses;
         else
@@ -1221,6 +1309,15 @@ public sealed class World
     /// <summary>Applies damage and handles death: the event, and loot dropped where the actor fell.</summary>
     public void Damage(Actor attacker, Actor target, int damage, bool ranged)
     {
+        if (target.StatusOf(StatusKind.Shielded) is { } shield && damage > 0)
+        {
+            int soaked = Math.Min(shield.Amount, damage);
+            shield.Amount -= soaked;
+            damage -= soaked;
+            Emit(new ShieldAbsorbed(target.Id, soaked, shield.Amount == 0));
+            if (shield.Amount == 0)
+                RemoveStatus(target, StatusKind.Shielded);
+        }
         target.Hp -= damage;
         Emit(new ActorAttacked(attacker.Id, target.Id, damage, ranged));
         if (!target.IsDead)

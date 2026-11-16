@@ -80,6 +80,9 @@ public sealed partial class GameScreen
                 case ActorAttacked { Ranged: false } a when _world.GetActor(a.AttackerId) is { } attacker:
                     Grunt(attacker.Id, attacker.Faction.Id, "attack");
                     break;
+                case WindingUp w when isVisible(w.ActorId):
+                    Say(w.ActorId, Where(w.ActorId), "!! " + (_world.Content.Abilities[w.AbilityId].Kind == Roguelike.Core.Content.AbilityKind.Charge ? "charge" : "heavy blow"), Theme.Danger, SpeechSeconds);
+                    break;
                 case ActorStaggered s when isVisible(s.ActorId):
                     Say(s.ActorId, Where(s.ActorId), "*staggers*", Theme.Warning, GruntSeconds);
                     break;

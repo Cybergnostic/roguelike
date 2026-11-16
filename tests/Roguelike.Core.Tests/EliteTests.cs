@@ -90,6 +90,9 @@ public class EliteTests
     {
         var (world, brute) = Duel("goblin_brute", 3);
 
+        // Announced first, delivered on its next action.
+        var warning = world.Step(new WaitAction());
+        Assert.Contains(warning, e => e is WindingUp { AbilityId: "charge" } w && w.ActorId == brute.Id);
         var events = world.Step(new WaitAction());
 
         Assert.Contains(events, e => e is AbilityUsed { AbilityId: "charge" } a && a.ActorId == brute.Id);
@@ -102,12 +105,13 @@ public class EliteTests
     {
         var (world, brute) = Duel("goblin_brute", 3);
         world.Step(new WaitAction());
+        world.Step(new WaitAction());
         var cooldown = brute.Abilities.Single(a => a.Id == "charge").Cooldown;
 
         world.Player.Position = OpenSpotNear(world, brute, 3);
         var again = world.Step(new WaitAction());
 
-        Assert.DoesNotContain(again, e => e is AbilityUsed);
+        Assert.DoesNotContain(again, e => e is AbilityUsed { AbilityId: "charge" } or WindingUp { AbilityId: "charge" });
         Assert.True(cooldown > 1);
     }
 

@@ -195,3 +195,16 @@ Measured (tactical bot, 300 games per class, seeds 1000-1299, `--turns 30000`): 
 Rogue 84%, Mystic 64%. Was 30 / 18 / 16 / 26 with depth scaling. The crypt cliff is gone; deaths spread over
 levels 4-7. Too easy overall: left for the rebalance after the class skills, as agreed.
 
+
+### Step 2, foundations (2026-11-16)
+- **Statuses** (`Entities/Status.cs`, `World.AddStatus`): slowed (percent less energy, or more time for the
+  player), held (can't step, can still strike), hexed (+percent damage taken, -percent dealt), shielded (soaks
+  points of damage, `ShieldAbsorbed`), marked (+percent damage from whoever marked it). They expire at the end
+  of their last turn (`StatusEnded`).
+- **Wind-ups:** abilities with `"windUp": true` are announced (`WindingUp`, a "!!" callout, the intent line says
+  "about to charge you") and delivered on the monster's next action only if still possible; stepping out of
+  reach or a stagger spoils them (`WindUpSpoiled`). The monster charge is now wound up, and a new **heavy
+  blow** (+4, always staggers) went to the bone knight, goblin brute, warlord and bandit chief.
+- **Stances:** `StanceAction`; Aggressive (+30% damage, -2 armour), Guarded (+2 armour, the first melee
+  attacker each turn is struck back). Needs the `stances` special, which the Warrior's skill will grant.
+- Not yet: the tactical bot doesn't react to wind-ups or use stances (step 3, bots that play their class).

@@ -41,7 +41,8 @@ public sealed record ClassDef(string Id, string Name, string Description, IReadO
     IReadOnlyList<KitEntry> Kit, IReadOnlyList<string> Trees, IReadOnlyList<string> Starts);
 
 /// <summary>A skill (abilities.json); which fields matter depends on Kind. Verb: its log wording.</summary>
-public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null, int Power = 0, string? You = null)
+public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null, int Power = 0, string? You = null,
+    bool WindUp = false, string? Warning = null)
 {
     /// <summary>Whether using it means picking someone to aim it at.</summary>
     public bool NeedsTarget => Kind is AbilityKind.Charge or AbilityKind.Volley or AbilityKind.Drain or AbilityKind.Bash or AbilityKind.Pin or AbilityKind.Bolt;

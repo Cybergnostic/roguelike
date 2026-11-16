@@ -15,8 +15,11 @@
   //   heal    restore "power" hit points
   // "power" and healing grow with the Magic stat. "you" is the player's own wording.
   // "verb" finishes the sentence "The bone knight ... you!" in the log.
+  // "windUp" (monsters): announced a turn ahead ("warning" finishes "The bear ..."), and delivered on its
+  // next action only if it still can: step out of reach, or stagger it, and the blow is spoiled.
   "abilities": [
-    { "id": "charge",       "kind": "charge", "cooldown": 6,  "range": 4, "verb": "charges" },
+    { "id": "charge",       "kind": "charge", "cooldown": 6,  "range": 4, "verb": "charges", "windUp": true, "warning": "lowers its head to charge" },
+    { "id": "heavy_blow",   "kind": "bash",   "cooldown": 5,  "amount": 4, "verb": "brings a crushing blow down on", "windUp": true, "warning": "raises its weapon high" },
     { "id": "warcry",       "kind": "warcry", "cooldown": 12, "amount": 30, "verb": "bellows a war cry" },
     { "id": "volley",       "kind": "volley", "cooldown": 5,  "count": 2, "verb": "looses a volley at" },
     { "id": "blink",        "kind": "blink",  "cooldown": 6,  "range": 7, "verb": "vanishes in a twist of shadow" },
