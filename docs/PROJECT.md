@@ -10,7 +10,7 @@ Last updated: 2026-11-16 (fuzzing, drilled squads no longer deadlock, popups as 
 
 ## 0. Where we left off
 
-Start here in a new chat. Everything below is merged to `main` and pushed. 387 tests pass.
+Start here in a new chat. Everything below is merged to `main` and pushed. 385 tests pass.
 
 **Last finished**
 - Four classes with their own kits and skills.
