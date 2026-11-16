@@ -301,7 +301,7 @@ measurements, where Ranger and Rogue already walk over most fights. Three ideas 
   illegal action; the world state repeating for N turns with a hostile in sight (jams, oscillation); references
   to dead actors; replay divergence. Each failure becomes a named regression test.
 - **Feedback:** A `Roguelike.Sim --fuzz` report.
-- **Status:** Explore (first in line: no balance risk).
+- **Status:** Existing (2026-11-16): `Roguelike.Sim --fuzz`, `FuzzTests`. Found and fixed the drilled line deadlock; it did change balance after all (PROJECT §6).
 - **First experiment:** Should catch two known issues: the runner that retries a blocked exit forever, and
   `World.StepToward` giving up when its next step is blocked.
 

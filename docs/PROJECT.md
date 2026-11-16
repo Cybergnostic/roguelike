@@ -4,25 +4,26 @@ Everything needed to pick this project up cold: vision, decisions, architecture,
 current state and roadmap. **Keep it current**: update it whenever a decision, milestone or known
 issue changes.
 
-Last updated: 2026-11-09 (classes, squad minds, trials, and the fixes they led to)
+Last updated: 2026-11-16 (fuzzing, drilled squads no longer deadlock, popups as callouts)
 
 ---
 
 ## 0. Where we left off
 
-Start here in a new chat. Everything below is merged to `main` and pushed. 380 tests pass.
+Start here in a new chat. Everything below is merged to `main` and pushed. 387 tests pass.
 
 **Last finished**
 - Four classes with their own kits and skills.
 - Squad minds: mindless, beast, pack, rabble, drilled. A commander lifts its squad to drilled while it lives.
 - Trials that pit every class and build against every enemy, stage and mind (`--trials`).
 - Follow-ups from the trials: drilled fighters run at shooters, commanded goblin and skeleton squads on levels 3-5, half Strength on the off-hand dagger.
+- Fuzzing (2026-11-16): `Roguelike.Sim --fuzz` plays thousands of random fights and checks rules rather than winners. It found drilled squads deadlocking while waiting for the line in corridors (54 of 5000 fights); fixed, which made every class's game harder (see §6).
 - Popups as callouts (2026-11-16): speech and grunts sit diagonally off the speaker on a short leader line, on whichever corner covers the fewest creatures; noises shift off the player and other creatures.
 
 **Open, in the order I would take them**
-1. **The crypt is still a cliff.** Levels 1-6 kill at most 14%, level 7 kills 43-72%. Commanders made the middle harder, but the last level did not get gentler.
-2. **Class balance.** Rogue is 18%, under the 20-30% target. Soldier 36% and Mystic 33% are over.
-3. **Ranger and Rogue walk over most single fights**, even against drilled squads. Enemies still need more ways to punish them.
+1. **The crypt is still a cliff, and steeper.** Levels 1-6 kill at most 13%, level 7 kills 54-75%, mostly skeleton warriors.
+2. **Class balance.** Since the deadlock fix: Soldier 30%, Mystic 26%, Ranger 18%, Rogue 16%. Ranger and Rogue are now under the 20-30% target.
+3. **Ranger and Rogue walk over most single fights** (trials not yet re-run since the deadlock fix). Enemies still need more ways to punish them, but in their whole games they now die more in the crypt than anywhere.
 4. **Human playtests** against [WORLD_DESIGN_VISION.md](WORLD_DESIGN_VISION.md) §12. The user will do these when ready; don't wait for them.
 5. **Choose what to build next** from §7 below and [IDEAS.md](IDEAS.md) (its §16 suggests an order). IDEAS §18 (2026-11-16) holds three takeaways from an outside squad-AI report: invariant fuzzing, showing drill as intent, positional damage. Nothing in IDEAS is a commitment until the user picks it.
 
@@ -161,7 +162,7 @@ src/Roguelike.Core/          the simulation (GoRogue only; no SadConsole)
   History/SiteHistory.cs     the site's past as facts, rolled once per seed from its own stream; World shapes levels from it
   Simulation/                bots (AggressiveBot, IdleBot, TacticalBot), Simulator (headless games + stats),
                              CommandPlayer (scripted play), Exploration (auto-explore), ItemValue (bots' gear worth),
-                             Trials (class, build, stage and mind matchups)
+                             Trials (class, build, stage and mind matchups), Fuzz (random fights checked for broken rules)
 src/Roguelike.App/           SadConsole front end
   Program.cs                 startup, --seed N, --spectate
   GameScreen.cs              map/sidebar/status/log, input, turn loop
@@ -271,6 +272,8 @@ dotnet run --project tools/Roguelike.Sim -c Release -- --seeds 50 [--turns 1000]
 dotnet run --project tools/Roguelike.Sim -c Release -- --map --start 7   # print seed 7's level as text
 dotnet run --project tools/Roguelike.Sim -c Release -- --encounters --seeds 300   # each valley fight, bot with the starting kit
 dotnet run --project tools/Roguelike.Sim -c Release -- --trials --seeds 200   # every class, build, stage and enemy, and each squad mind compared (~2 min)
+dotnet run --project tools/Roguelike.Sim -c Release -- --fuzz --seeds 5000     # random fights checked for broken rules (~10 s); exit code 2 on failures
+FUZZ_FROM=20 FUZZ_TO=25 dotnet run --project tools/Roguelike.Sim -c Release -- --fuzz --trace --start 1039   # draw one fuzzed fight, turn by turn
 dotnet run --project tools/Roguelike.Play -c Release -- --seed 42 --commands moves.txt [--full] [--log 20]
 ```
 **Watching an agent play:** start the window with
@@ -332,16 +335,16 @@ It runs slowly there: hold keys and buttons about 0.2 s (xdotool keydown/mousedo
 
 Older build notes and every past measurement are in [HISTORY.md](HISTORY.md).
 
-**Current balance** (2026-11-09, commit "Drilled squads run at shooters"). Tactical bot, 500 games per class, seeds 1000-1499:
+**Current balance** (2026-11-16, after the line-deadlock fix). Tactical bot, 500 games per class, seeds 1000-1499, `--turns 30000`:
 
 | Class | Won | Died | Death rate on levels 1-7 (%) |
 |---|---|---|---|
-| Soldier | 36.2% | 63% | 6.4, 6.7, 6.2, 5.4, 6.7, 9.7, 43.4 |
-| Ranger | 26.6% | 73% | 0.2, 1.4, 2.8, 4.8, 7.3, 12.6, 63.7 |
-| Rogue | 18.4% | 81% | 0.0, 2.4, 3.5, 7.9, 13.4, 10.4, 72.3 |
-| Mystic | 32.6% | 67% | 6.2, 2.8, 3.7, 8.2, 10.7, 8.3, 49.7 |
+| Soldier | 30.4% | 69% | 5.8, 8.7, 4.4, 5.1, 6.9, 6.4, 54.3 |
+| Ranger | 17.6% | 82% | 0.6, 0.8, 3.7, 5.7, 11.0, 12.8, 74.6 |
+| Rogue | 16.0% | 83% | 0.0, 1.4, 5.5, 10.3, 10.3, 9.9, 74.6 |
+| Mystic | 26.0% | 72% | 6.4, 3.2, 2.0, 11.5, 9.4, 8.4, 57.7 |
 
-Target: 20-30% wins, deaths rising with depth. Ranger is on target, Rogue just under, Soldier and Mystic over.
+Target: 20-30% wins, deaths rising with depth. Soldier and Mystic are on target, Ranger and Rogue under. Before the fix (same command): 36.6, 26.6, 18.4, 32.8.
 
 **What the trials say** (`--trials --seeds 200 --start 1000`; one fight, nothing else on the level):
 - Thinking matters to characters who get reached. Six wolves in a room, seasoned: Soldier beast 96%, pack 56%; Mystic 71%, 15%. Goblin force: Soldier rabble 90%, drilled 75%; Mystic 74%, 52%.
@@ -355,7 +358,7 @@ Target: 20-30% wins, deaths rising with depth. Ranger is on target, Rogue just u
 **Known issues / tech debt**
 - Places the player has left catch up in outline when they return (`World.CatchUp`), not turn by turn: only corpses,
   healing, calming down, replacing guards and a due incursion. Raids and musters don't run while away.
-- The crypt is a wall: 43-72% of those who reach level 7 die there, against 14% at most on any other level.
+- The crypt is a wall: 54-75% of those who reach level 7 die there, against 13% at most on any other level.
 - Monsters don't follow on the stairs, so stairs are a perfect escape for now.
 - Dungeon goblins are still hostile on sight: only squads with a `Camp` tolerate the player.
 - A theft nobody saw is never discovered: guards don't notice missing goods.
@@ -369,7 +372,8 @@ Target: 20-30% wins, deaths rising with depth. Ranger is on target, Rogue just u
 - Squad leashes stretch by `Squad.PursuitStretch` for a while after someone hurts the squad; past that, it goes home.
 - 500 tactical games per class, plus the valley fights, take about 2-3 minutes on this 12-thread machine. The largest costs were per-faction Dijkstra and flee maps, FOV and map generation.
 - A runner whose only exit is blocked (e.g. by the player standing in it) keeps trying forever;
-  it should look for another route or another squad.
+  it should look for another route or another squad. `--fuzz` doesn't reach this yet: it removes every other
+  squad, so runners have nobody to fetch. Nor does it cover idle patrols or the surface.
 - Levels are generic: the same factions and lairs on every level, only stronger. Deep levels need
   their own content (new monsters, places) rather than ever bigger numbers.
 - Arrows are infinite; monsters don't pick up or use items; floor items aren't remembered once

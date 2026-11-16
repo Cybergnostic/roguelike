@@ -11,7 +11,7 @@ using Roguelike.Core.Simulation;
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle|tactical] [--observer] [--games] [--map]");
+    Console.Error.WriteLine("usage: Roguelike.Sim [--seeds N] [--start S] [--turns T] [--bot aggressive|idle|tactical] [--observer] [--games] [--map] [--trials] [--encounters] [--fuzz]");
     return 1;
 }
 
@@ -19,6 +19,56 @@ if (options.Trials)
 {
     TrialReport.Print(options.Seeds, options.Start);
     return 0;
+}
+
+if (options.Fuzz)
+{
+    // Random fights checked for broken rules (overlaps, stale squads, divergence, slow turns, jammed monsters).
+    if (options.Trace)
+    {
+        // One fight (seed --start), drawn every turn from FUZZ_FROM (default 0) to FUZZ_TO.
+        int from = int.TryParse(Environment.GetEnvironmentVariable("FUZZ_FROM"), out var ff) ? ff : 0;
+        int to = int.TryParse(Environment.GetEnvironmentVariable("FUZZ_TO"), out var ft) ? ft : from;
+        var scenario = Fuzz.Roll(options.Start);
+        Console.WriteLine(scenario with { Group = [] });
+        Console.WriteLine("group: " + string.Join(", ", scenario.Group));
+        var result = Fuzz.Play(scenario, (w, turn) =>
+        {
+            if (turn < from || turn > to)
+                return;
+            var squad = w.Squads.FirstOrDefault(q => q.Members.Any(m => m.Faction != w.Player.Faction));
+            Console.WriteLine($"-- turn {turn}: squad {squad?.State} {squad?.Posture} mind {squad?.Mind.Id} morale {squad?.Morale} hold {squad?.HoldTurns} target {squad?.LastKnownTarget} leashed {squad?.IsLeashed}");
+            int x0 = Math.Max(0, w.Player.Position.X - 20), y0 = Math.Max(0, w.Player.Position.Y - 9);
+            for (int y = y0; y < Math.Min(w.Map.Height, y0 + 19); y++)
+            {
+                var line = new System.Text.StringBuilder();
+                for (int x = x0; x < Math.Min(w.Map.Width, x0 + 41); x++)
+                {
+                    var p = new SadRogue.Primitives.Point(x, y);
+                    var a = w.ActorAt(p);
+                    line.Append(a == w.Player ? '@' : a is not null ? (char)('0' + a.Id % 10) : w.Map.Walkable[p] ? '.' : w.Map.Passable[p] ? '+' : '#');
+                }
+                Console.WriteLine(line);
+            }
+            foreach (var a in w.Actors.Where(a => !a.IsDead && a != w.Player))
+                Console.WriteLine($"   {a.Id % 10}={a.Kind}#{a.Id} {a.Position} hp {a.Hp} role {w.SquadOf(a)?.RoleOf(a)} energy {a.Energy}");
+        });
+        foreach (var f in result.Failures)
+            Console.WriteLine($"{f.Problem} turn {f.Turn}: {f.Detail}");
+        return 0;
+    }
+    var fuzzClock = Stopwatch.StartNew();
+    var report = Fuzz.Run(options.Seeds, options.Start);
+    Console.WriteLine($"{report.Games} fights, {report.Turns} turns, slowest turn {report.SlowestStepMs:0.0} ms, {fuzzClock.Elapsed.TotalSeconds:0.0} s");
+    foreach (var group in report.Failures.GroupBy(f => f.Problem))
+    {
+        Console.WriteLine($"{group.Key}: {group.Count()} (in {group.Select(f => f.Seed).Distinct().Count()} fights)");
+        foreach (var f in group.Take(12))
+            Console.WriteLine($"  seed {f.Seed} turn {f.Turn}: {f.Detail}");
+    }
+    if (report.Failures.Count == 0)
+        Console.WriteLine("No rule broken.");
+    return report.Failures.Count == 0 ? 0 : 2;
 }
 
 if (options.Encounters)
@@ -194,7 +244,7 @@ Console.WriteLine();
 Console.WriteLine($"Ran {totalTurns:0} turns in {clock.Elapsed.TotalSeconds:0.0}s ({totalTurns / clock.Elapsed.TotalSeconds:0} turns/s)");
 return 0;
 
-internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Trials = false, bool Encounters = false, string? ClassId = null)
+internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bool Observer, bool PerGame, bool ShowMap = false, bool Trace = false, bool Trials = false, bool Encounters = false, string? ClassId = null, bool Fuzz = false)
 {
     public static Options? Parse(string[] args)
     {
@@ -214,6 +264,7 @@ internal sealed record Options(int Seeds, ulong Start, int Turns, string Bot, bo
                 case "--class" when Next() is { } c: o = o with { ClassId = c }; break;
                 case "--encounters": o = o with { Encounters = true }; break;
                 case "--trials": o = o with { Trials = true }; break;
+                case "--fuzz": o = o with { Fuzz = true }; break;
                 case "--trace": o = o with { Trace = true }; break;
                 default: return null;
             }

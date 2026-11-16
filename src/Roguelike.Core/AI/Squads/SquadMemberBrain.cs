@@ -154,8 +154,12 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         if (enemy is not null && StepsBack(world, self, enemy) is { } rotation)
             return rotation;
 
-        if (enemy is not null && WaitsForTheLine(world, self, enemy))
+        if (enemy is not null && WaitsForTheLine(world, self, enemy) && _waitedForLine < MaxLineWait)
+        {
+            _waitedForLine++;
             return new WaitAction();
+        }
+        _waitedForLine = 0;
 
         bool surrounds = Squad.Mind.Surround switch
         {
@@ -177,7 +181,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
 
         var step = world.StepDownhill(self, Squad.TowardKnownThreats(world.Map.Passable));
         if (step is null)
-            return new WaitAction();
+            return SwapPastNonFighter(world, self) is { } swap ? new MoveAction(swap) : new WaitAction();
 
         // Don't file into the enemy's corridor one at a time; wait at the mouth for a while,
         // as long as someone can shoot at them in the meantime.
@@ -225,17 +229,43 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
     /// <summary>How far ahead of the rearmost fighter a drilled soldier will get before waiting for the line.</summary>
     private const int LineSlack = 2;
 
-    /// <summary>Drilled fighters arrive together: anyone out in front holds until the others come up.</summary>
+    /// <summary>Turns in a row a fighter will hold for the line before giving up on it and going in.</summary>
+    private const int MaxLineWait = 5;
+    private int _waitedForLine;
+
+    /// <summary>
+    /// Drilled fighters arrive together: anyone out in front holds until the others come up. Not in a
+    /// corridor, though, where holding only blocks those behind.
+    /// </summary>
     private bool WaitsForTheLine(World world, Actor self, Actor enemy)
     {
-        if (!Squad.Mind.AdvancesTogether || World.Distance(self.Position, enemy.Position) <= 2 || UnderFire(self, enemy))
+        if (!Squad.Mind.AdvancesTogether || World.Distance(self.Position, enemy.Position) <= 2 || UnderFire(self, enemy)
+            || world.IsChokepoint(self.Position))
             return false;
         var toward = Squad.TowardKnownThreats(world.Map.Passable);
         if (toward[self.Position] is not { } mine)
             return false;
-        var rear = Squad.Members.Where(m => m != self && Squad.RoleOf(m) == SquadRole.Warrior)
+        // Only those who can come up count: someone stuck behind this one in a corridor never will.
+        var rear = Squad.Members.Where(m => m != self && Squad.RoleOf(m) == SquadRole.Warrior && world.StepDownhill(m, toward) is not null)
             .Select(m => toward[m.Position]).Where(d => d is not null).Max();
         return rear is { } behind && behind > mine + LineSlack;
+    }
+
+    /// <summary>
+    /// A fighter with no way forward trades places with a comrade who doesn't fight hand to hand (a shaman,
+    /// an archer) standing on its way, so a non-fighter can't plug the only way in. Null if there is none.
+    /// </summary>
+    private Direction? SwapPastNonFighter(World world, Actor self)
+    {
+        var toward = Squad.TowardKnownThreats(world.Map.Passable);
+        if (toward[self.Position] is not { } here)
+            return null;
+        return World.EightWay
+            .Where(d => world.ActorAt(self.Position + d) is { } other && Squad.Members.Contains(other)
+                        && Squad.RoleOf(other) is not (SquadRole.Warrior or SquadRole.Runner)
+                        && toward[other.Position] < here && world.CanSwap(self, other))
+            .Select(d => (Direction?)d)
+            .MinBy(d => toward[self.Position + d!.Value]);
     }
 
     /// <summary>The target the squad has settled on, if it fights that way and this member can see it.</summary>
