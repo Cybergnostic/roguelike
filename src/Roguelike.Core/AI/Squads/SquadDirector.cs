@@ -70,7 +70,7 @@ public static class SquadDirector
                 DispatchRunner(world, squad);
                 break;
 
-            case SquadState.Engage when sinceSeen > mind.Memory:
+            case SquadState.Engage when sinceSeen > (squad.TargetId == world.Player.Id && world.Player.HasSpecial("slip_away") ? mind.Memory / 2 : mind.Memory):
                 squad.State = SquadState.Alert;
                 squad.Destination = squad.LastKnownTarget;
                 break;

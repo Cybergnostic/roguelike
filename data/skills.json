@@ -1,53 +1,78 @@
 {
-  // Skills bought with XP, grouped in trees. Later, classes will decide which trees you can learn.
+  // Skills bought with XP, grouped in trees. A class learns its own tree plus the general ones (classes.json).
   // "cost": XP per rank (one entry per rank). "requires": skills you need at least rank 1 in first.
   // "perRank": derived stat bonuses per rank (same stat names as attributes.json).
   // "special": a named ability implemented in the rules ("cleave"). "ability": an active skill it grants
   // (abilities.json). Which trees a character can learn from is set by its class (classes.json).
   "trees": [
-    { "id": "warfare", "name": "Warfare", "skills": [
-      { "id": "weapon_training", "name": "Weapon Training", "description": "Hit harder in melee.",
-        "ranks": 3, "cost": [40, 60, 80], "perRank": { "meleeAttack": 1 } },
-      { "id": "toughness", "name": "Toughness", "description": "More hit points.",
-        "ranks": 3, "cost": [30, 45, 60], "perRank": { "maxHp": 5 } },
-      { "id": "cleave", "name": "Cleave", "description": "Kills carry on into the next foe.",
-        "ranks": 1, "cost": [90], "requires": ["weapon_training"], "special": "cleave" }
+    // ---- Class skills (COMBAT_AND_MAGIC.md §3): five per class, three ranks, each worth having from rank 1.
+    // "grants": what a later rank unlocks ({ "rank": 2, "special": "..." } or "ability"). "rankText": the
+    // character sheet's words for each rank.
+    { "id": "warrior", "name": "Warrior", "skills": [
+      { "id": "weapon_mastery", "name": "Weapon Mastery", "description": "Hit harder and surer in melee; heavy blades stagger and swing faster.",
+        "ranks": 3, "cost": [40, 70, 100], "perRank": { "meleeAttack": 1, "accuracy": 1 },
+        "grants": [ { "rank": 2, "special": "heavy_hands" }, { "rank": 3, "special": "swift_heavy" } ],
+        "rankText": ["+1 damage and accuracy in melee", "heavy weapons stagger more often", "heavy weapons strike 15% faster"] },
+      { "id": "combat_stances", "name": "Combat Stances", "description": "Fight Aggressive (harder blows, less guard) or Guarded (more armour, strike back). w changes stance.",
+        "ranks": 3, "cost": [40, 60, 90], "special": "stances",
+        "grants": [ { "rank": 2, "special": "stances_2" }, { "rank": 3, "special": "stance_free" } ],
+        "rankText": ["Aggressive +30% damage, -2 armour; Guarded +2 armour, strike back the first attacker", "Aggressive +40%; Guarded +3 armour", "changing stance takes no time"] },
+      { "id": "hold_the_line", "name": "Hold the Line", "description": "Stand your ground: armour, a steady footing, and blows for those slipping past.",
+        "ranks": 3, "cost": [50, 70, 100], "special": "hold_line",
+        "grants": [ { "rank": 2, "special": "intercept" }, { "rank": 3, "special": "unyielding" } ],
+        "rankText": ["standing still: +1 armour, strike back more, can't be staggered", "an enemy slipping past you takes a blow", "being surrounded gives them no edge"] },
+      { "id": "breakthrough", "name": "Breakthrough", "description": "Shove an enemy back; into a wall or another, both reel.",
+        "ranks": 3, "cost": [40, 70, 100], "ability": "shove",
+        "grants": [ { "rank": 2, "special": "shove_far" }, { "rank": 3, "special": "shove_through" } ],
+        "rankText": ["Shove: push one back a cell", "two cells, and it always reels", "whoever it's driven into is knocked back too"] },
+      { "id": "battle_momentum", "name": "Battle Momentum", "description": "Each kill drives you on.",
+        "ranks": 3, "cost": [50, 70, 90], "special": "momentum",
+        "grants": [ { "rank": 2, "special": "bloodlust" }, { "rank": 3, "ability": "war_cry" } ],
+        "rankText": ["a kill makes your next action quick", "a kill: +25% damage for 2 turns", "War Cry: every squad nearby loses nerve"] }
     ]},
-    { "id": "archery", "name": "Archery", "skills": [
-      { "id": "steady_aim", "name": "Steady Aim", "description": "Bow shots hit harder.",
-        "ranks": 3, "cost": [40, 60, 80], "perRank": { "rangedAttack": 1 } },
-      { "id": "eagle_eye", "name": "Eagle Eye", "description": "Shoot farther.",
-        "ranks": 2, "cost": [35, 55], "requires": ["steady_aim"], "perRank": { "range": 1 } }
-    ]},
-    { "id": "senses", "name": "Senses", "skills": [
-      { "id": "perception", "name": "Perception", "description": "Tell more of what you hear, from farther off.",
-        "ranks": 3, "cost": [30, 45, 60], "perRank": { "perception": 1 } },
-      { "id": "stealth", "name": "Stealth", "description": "Quieter footsteps; harder to spot when sneaking.",
-        "ranks": 3, "cost": [30, 45, 60], "perRank": { "stealth": 1 } }
-    ]},
-    { "id": "arms", "name": "Arms", "skills": [
-      { "id": "war_cry", "name": "War Cry", "description": "Shake the nerve of every squad nearby.",
-        "ranks": 1, "cost": [40], "ability": "war_cry" },
-      { "id": "crushing_blow", "name": "Crushing Blow", "description": "A heavy hit that always staggers.",
-        "ranks": 1, "cost": [60], "ability": "crushing_blow" },
-      { "id": "hold_the_line", "name": "Hold the Line", "description": "Stand still: more armour, and hit back more often, in any gear.",
-        "ranks": 1, "cost": [70], "special": "hold_line" }
-    ]},
-    { "id": "hunt", "name": "The Hunt", "skills": [
-      { "id": "volley", "name": "Volley", "description": "Two arrows at once.",
-        "ranks": 1, "cost": [40], "ability": "hunters_volley" },
+    { "id": "ranger", "name": "Ranger", "skills": [
+      { "id": "marksmanship", "name": "Marksmanship", "description": "Better shots: harder, surer, farther, through armour.",
+        "ranks": 3, "cost": [40, 70, 100], "perRank": { "rangedAttack": 1, "accuracy": 1 },
+        "grants": [ { "rank": 3, "special": "piercing" } ],
+        "rankText": ["+1 bow damage and accuracy", "+1 more", "shots ignore half of armour"] },
+      { "id": "shooting_techniques", "name": "Shooting Techniques", "description": "Rapid Shot, then Careful Aim, then Suppressive Fire.",
+        "ranks": 3, "cost": [40, 70, 100], "ability": "hunters_volley",
+        "grants": [ { "rank": 2, "ability": "careful_aim" }, { "rank": 3, "ability": "suppressive_fire" } ],
+        "rankText": ["Rapid Shot: two arrows at once", "Careful Aim: a slow shot, surer and half again as hard", "Suppressive Fire: shoot whoever steps into the ground you cover"] },
+      { "id": "skirmishing", "name": "Skirmishing", "description": "Fight on the move: step back and shoot, shoot up close, be hard to pin down.",
+        "ranks": 3, "cost": [40, 60, 90], "ability": "disengage",
+        "grants": [ { "rank": 2, "special": "skirmisher" }, { "rank": 3, "special": "elusive" } ],
+        "rankText": ["Disengage: step back and shoot in one action", "no penalty for shooting at close quarters", "+2 evasion on a turn you moved"] },
       { "id": "pinning_shot", "name": "Pinning Shot", "description": "An arrow that stops them in their tracks.",
-        "ranks": 1, "cost": [50], "ability": "pinning_shot" },
-      { "id": "skirmisher", "name": "Skirmisher", "description": "No penalty for shooting at close quarters.",
-        "ranks": 1, "cost": [60], "special": "skirmisher" }
+        "ranks": 3, "cost": [40, 70, 90], "ability": "pinning_shot",
+        "grants": [ { "rank": 2, "special": "pin_hold" }, { "rank": 3, "special": "pin_through" } ],
+        "rankText": ["staggers, and slows for 2 turns", "it can't take a step for a turn", "the arrow goes on into the next one behind"] },
+      { "id": "hunters_instinct", "name": "Hunter's Instinct", "description": "Mark your prey and never lose it.",
+        "ranks": 3, "cost": [30, 60, 90], "ability": "mark_prey",
+        "grants": [ { "rank": 2, "special": "watchful" }, { "rank": 3, "special": "keen_hunter" } ],
+        "rankText": ["Mark Prey (no time): +25% damage on it, and you always see where it is", "you see those hunting you, even out of sight", "marked prey takes +60%"] }
     ]},
     { "id": "shadow", "name": "Shadow", "skills": [
-      { "id": "backstab", "name": "Backstab", "description": "Double damage on anyone not yet fighting you.",
-        "ranks": 1, "cost": [40], "special": "backstab" },
-      { "id": "vanish_skill", "name": "Vanish", "description": "Jump away and go unseen for a few turns.",
-        "ranks": 1, "cost": [50], "ability": "vanish" },
-      { "id": "shadow_strike", "name": "Shadow Strike", "description": "Cross the gap in a blink and strike.",
-        "ranks": 1, "cost": [70], "ability": "shadow_strike" }
+      { "id": "shadowcraft", "name": "Shadowcraft", "description": "Move unseen: quicker sneaking, stillness in the dark.",
+        "ranks": 3, "cost": [40, 60, 90], "perRank": { "stealth": 1 }, "special": "light_step",
+        "grants": [ { "rank": 2, "special": "stillness" }, { "rank": 3, "special": "shadow_runner" } ],
+        "rankText": ["quieter, and sneaking is barely slower", "keeping still while sneaking: unseen beyond 2 cells", "sneak at full speed"] },
+      { "id": "opportunist", "name": "Opportunist", "description": "Strike when they aren't ready.",
+        "ranks": 3, "cost": [40, 70, 100], "special": "backstab",
+        "grants": [ { "rank": 2, "special": "cutthroat" }, { "rank": 3, "special": "sure_strike" } ],
+        "rankText": ["Backstab: x3 on anyone caught unawares", "the fleeing and the isolated count as unaware", "such blows never miss"] },
+      { "id": "evasion", "name": "Evasion", "description": "Hard to corner.",
+        "ranks": 3, "cost": [40, 60, 90], "special": "slippery",
+        "grants": [ { "rank": 2, "ability": "tumble" }, { "rank": 3, "special": "unyielding" } ],
+        "rankText": ["+2 evasion for each enemy around you beyond the first", "Tumble: slip past an enemy to the far side", "being surrounded gives them no edge"] },
+      { "id": "misdirection", "name": "Misdirection", "description": "Make them look the wrong way.",
+        "ranks": 3, "cost": [30, 60, 90], "ability": "throw_stone",
+        "grants": [ { "rank": 2, "ability": "smoke" }, { "rank": 3, "special": "decoy" } ],
+        "rankText": ["Throw Stone: a clatter beyond someone draws calm squads to look", "Smoke: a cloud around you nobody sees through", "the stone fools squads hunting you who can't see you"] },
+      { "id": "escape_artist", "name": "Escape Artist", "description": "Gone before they know it.",
+        "ranks": 3, "cost": [40, 70, 100], "ability": "vanish",
+        "grants": [ { "rank": 2, "special": "slip_away" }, { "rank": 3, "ability": "shadow_strike" }, { "rank": 3, "special": "from_shadows" } ],
+        "rankText": ["Vanish: jump away and go unseen for a few turns", "those who lose sight of you give up sooner", "Shadow Strike; blows from hiding catch them unaware"] }
     ]},
     { "id": "rites", "name": "Old Rites", "skills": [
       { "id": "cinder_bolt", "name": "Cinder Bolt", "description": "Burn someone from afar. Each rank adds to your Magic.",
@@ -57,7 +82,16 @@
       { "id": "life_drain", "name": "Life Drain", "description": "Take their strength for your own.",
         "ranks": 1, "cost": [70], "ability": "life_drain" }
     ]},
+    // ---- General skills: anyone can learn these.
+    { "id": "senses", "name": "Senses", "skills": [
+      { "id": "perception", "name": "Perception", "description": "Tell more of what you hear, from farther off.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "perception": 1 } },
+      { "id": "stealth", "name": "Stealth", "description": "Quieter footsteps; harder to spot when sneaking.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "stealth": 1 } }
+    ]},
     { "id": "survival", "name": "Survival", "skills": [
+      { "id": "toughness", "name": "Toughness", "description": "More hit points.",
+        "ranks": 3, "cost": [30, 45, 60], "perRank": { "maxHp": 5 } },
       { "id": "thick_skin", "name": "Thick Skin", "description": "Shrug off part of every hit.",
         "ranks": 2, "cost": [60, 90], "perRank": { "defense": 1 } },
       { "id": "field_medicine", "name": "Field Medicine", "description": "Potions heal more.",

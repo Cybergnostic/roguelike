@@ -92,6 +92,9 @@ public sealed record UseAbilityAction(string AbilityId, int? TargetId = null) : 
 {
     public override int NoiseMade(World world, Actor actor) => world.Content.Dungeon.FightNoise;
 
+    public override int TimeCost(World world, Actor actor) =>
+        world.Content.Abilities.TryGetValue(AbilityId, out var ability) ? ability.Time : 100;
+
     public override bool Perform(World world, Actor actor)
     {
         if (!world.Content.Abilities.TryGetValue(AbilityId, out var ability))
@@ -160,9 +163,58 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
             case AbilityKind.Pin:
                 if (target is { IsDead: false })
                 {
-                    world.ResolveAttack(actor, target, ranged: true);
-                    world.StaggerIfAlive(target, actor);
+                    var behind = actor.HasSpecial("pin_through") ? world.BehindInLine(actor, target) : null;
+                    foreach (var pinned in new[] { target, behind }.OfType<Actor>())
+                    {
+                        world.ResolveAttack(actor, pinned, ranged: true);
+                        if (pinned.IsDead)
+                            continue;
+                        world.StaggerIfAlive(pinned, actor);
+                        world.AddStatus(pinned, StatusKind.Slowed, Math.Max(1, Ability.Turns), Math.Max(1, Ability.Amount), actor);
+                        if (actor.HasSpecial("pin_hold"))
+                            world.AddStatus(pinned, StatusKind.Held, 1, 0, actor);
+                    }
                 }
+                break;
+            case AbilityKind.Shove:
+                if (target is { IsDead: false })
+                    world.Shove(actor, target);
+                break;
+            case AbilityKind.AimedShot:
+                if (target is { IsDead: false })
+                    world.ResolveAttack(actor, target, ranged: true, power: actor.RangedAttack * (100 + Ability.Amount) / 100, accuracyBonus: Ability.Power);
+                break;
+            case AbilityKind.Suppress:
+                if (target is { IsDead: false })
+                    world.Suppress(actor, target, Ability);
+                break;
+            case AbilityKind.Disengage:
+                if (target is { IsDead: false } && At is { } back)
+                {
+                    var from = actor.Position;
+                    actor.Position = back;
+                    world.Emit(new ActorMoved(actor.Id, from, back));
+                    world.ResolveAttack(actor, target, ranged: true);
+                }
+                break;
+            case AbilityKind.MarkPrey:
+                if (target is { IsDead: false })
+                    world.AddStatus(target, StatusKind.Marked, Math.Max(1, Ability.Turns), actor.HasSpecial("keen_hunter") ? Ability.Power : Ability.Amount, actor);
+                break;
+            case AbilityKind.Tumble:
+                if (At is { } past)
+                {
+                    var from = actor.Position;
+                    actor.Position = past;
+                    world.Emit(new ActorMoved(actor.Id, from, past));
+                }
+                break;
+            case AbilityKind.Distract:
+                if (At is { } landing)
+                    world.Distract(actor, landing);
+                break;
+            case AbilityKind.Smoke:
+                world.MakeSmoke(actor.Position, Math.Max(1, Ability.Range), Math.Max(1, Ability.Turns));
                 break;
             case AbilityKind.Vanish:
                 actor.Position = At!.Value;
@@ -296,7 +348,11 @@ public sealed record MoveAction(Direction Direction, int TimePercent = 100) : Ga
 {
     public override int TimeCost(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? actor.MeleeAttackTime
-        : (actor.Sneaking ? world.Content.Dungeon.SneakStepTime * actor.MoveTime / 100 : actor.MoveTime) * TimePercent / 100;
+        : (actor.Sneaking ? SneakStepTime(world, actor) * actor.MoveTime / 100 : actor.MoveTime) * TimePercent / 100;
+
+    /// <summary>How slow sneaking is: Shadowcraft makes it quicker, then full speed.</summary>
+    private static int SneakStepTime(World world, Actor actor) =>
+        actor.HasSpecial("shadow_runner") ? 100 : actor.HasSpecial("light_step") ? 115 : world.Content.Dungeon.SneakStepTime;
 
     public override int NoiseMade(World world, Actor actor) =>
         world.ActorAt(actor.Position + Direction) is { } other && world.CouldFight(actor, other) ? world.Content.Dungeon.FightNoise : world.FootstepNoise(actor);
@@ -355,6 +411,8 @@ public sealed record MoveAction(Direction Direction, int TimePercent = 100) : Ga
         world.Emit(new ActorMoved(actor.Id, from, target));
         if (actor != world.Player && world.CouldFight(world.Player, actor))
             world.Noise(target, Events.SoundKind.Footsteps, actor);
+        if (actor != world.Player)
+            world.AfterStep(actor, from);
         return true;
     }
 }
@@ -397,6 +455,8 @@ public sealed record AttackAction(int TargetId) : GameAction
 /// <summary>The player takes up a stance (or drops it). It takes a moment; a skill must teach it.</summary>
 public sealed record StanceAction(Entities.Stance Stance) : GameAction
 {
+    public override int TimeCost(World world, Actor actor) => actor.HasSpecial("stance_free") ? 0 : 100;
+
     public override bool Perform(World world, Actor actor)
     {
         if (actor.Stance == Stance)

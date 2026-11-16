@@ -66,7 +66,11 @@ public sealed partial class GameScreen
         _ui.Print(Left, row, "Press a letter to begin.  Esc: quit", Theme.Warning, bg);
     }
 
-    private List<SkillDef> KnownActives => _world.Player.Character?.ActiveSkills.ToList() ?? [];
+    private List<AbilityDef> KnownActives => _world.Player.Character?.KnownAbilities.ToList() ?? [];
+
+    /// <summary>The skill that teaches an ability, for its name and description when the ability has none of its own.</summary>
+    private SkillDef? TeacherOf(AbilityDef ability) =>
+        _world.Content.SkillTrees.SelectMany(t => t.Skills).FirstOrDefault(s => s.Grants.Any(g => g.Ability == ability.Id));
 
     private void OpenAbilities()
     {
@@ -86,7 +90,7 @@ public sealed partial class GameScreen
             if (!keyboard.IsKeyPressed(Keys.A + i))
                 continue;
             _abilityMenu = false;
-            var ability = _world.Content.Abilities[skills[i].Ability!];
+            var ability = skills[i];
             if (!ability.NeedsTarget)
                 return new UseAbilityAction(ability.Id);
             var player = _world.Player;
@@ -118,10 +122,12 @@ public sealed partial class GameScreen
         _ui.Print(x0 + 2, y0 + 1, "Skills", Theme.Warning, bg);
         for (int i = 0; i < skills.Count; i++)
         {
-            var ability = _world.Content.Abilities[skills[i].Ability!];
+            var ability = skills[i];
             int wait = _world.CooldownLeft(ability);
             var state = wait > 0 ? $"{wait} turns" : "ready";
-            _ui.Print(x0 + 2, y0 + 2 + i, Truncate($"{(char)('a' + i)}) {skills[i].Name,-16} {state,-9} {skills[i].Description}", Width - 4), wait > 0 ? Theme.Intent : Theme.Text, bg);
+            string name = ability.Name ?? TeacherOf(ability)?.Name ?? ability.Id;
+            string text = ability.Description ?? TeacherOf(ability)?.Description ?? "";
+            _ui.Print(x0 + 2, y0 + 2 + i, Truncate($"{(char)('a' + i)}) {name,-16} {state,-9} {text}", Width - 4), wait > 0 ? Theme.Intent : Theme.Text, bg);
         }
         _ui.Print(x0 + 2, y0 + height - 1, " letter: use  Esc: cancel ", Theme.Intent, bg);
     }

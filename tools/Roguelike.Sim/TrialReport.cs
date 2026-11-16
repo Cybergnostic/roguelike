@@ -19,10 +19,10 @@ internal static class TrialReport
 
     private static void Minds(int seeds, ulong start)
     {
-        string[] classes = ["soldier", "ranger", "rogue", "mystic"];
+        string[] classes = ["warrior", "ranger", "shadow", "mystic"];
         var level = Trials.Level(Trials.Seasoned);
         Console.WriteLine($"HOW MUCH THINKING MATTERS  (same bodies, seasoned characters, {seeds} games per class; columns: player win % per class)");
-        Console.WriteLine($"{"enemy",-16}{"arena",-10}{"mind",-10}{"soldier",8}{"ranger",8}{"rogue",8}{"mystic",8} |{"died",6}{"close",7}{"ring",6}{"turns",7}{"broke",7}{"stale",7}");
+        Console.WriteLine($"{"enemy",-16}{"arena",-10}{"mind",-10}{"warrior",8}{"ranger",8}{"shadow",8}{"mystic",8} |{"died",6}{"close",7}{"ring",6}{"turns",7}{"broke",7}{"stale",7}");
         foreach (var subject in Trials.MindSubjects)
             foreach (var arena in Enum.GetValues<TrialArena>())
                 foreach (var mind in Trials.MindOrder)

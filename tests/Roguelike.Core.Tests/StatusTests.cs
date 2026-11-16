@@ -214,7 +214,7 @@ public class StatusTests
         Assert.Equal(armour + Actor.GuardedArmour, player.Defense);
         player.Stance = Stance.Aggressive;
         Assert.Equal(Math.Max(0, armour - Actor.AggressiveArmourCost), player.Defense);
-        Assert.Equal(Actor.AggressivePercent, world.AdvantagePercent(player, goblin, ranged: false));
+        Assert.Equal(player.AggressivePercent, world.AdvantagePercent(player, goblin, ranged: false));
     }
 
     [Fact]

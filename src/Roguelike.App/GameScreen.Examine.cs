@@ -206,6 +206,7 @@ public sealed partial class GameScreen
         Tile.Rubble => ("Fallen rock", "The roof came down here."),
         Tile.Water => ("Water", "Too deep to wade."),
         Tile.Fire => ("Cookfire", "Throws light over everything near it."),
+        Tile.Smoke => ("Smoke", "Nobody can see through it. It will thin out soon."),
         Tile.GateBroken => ("Broken gate", "Smashed open. It won't shut again."),
         _ => (tile.ToString(), ""),
     };

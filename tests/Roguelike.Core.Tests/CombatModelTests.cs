@@ -92,7 +92,7 @@ public class CombatModelTests
     [Fact]
     public void BackstabMakesItTriple()
     {
-        var world = World.Create(1, classId: "rogue");
+        var world = World.Create(1, classId: "shadow");
         foreach (var other in world.Actors.Where(a => a != world.Player))
             other.Hp = 0;
         world.Step(new WaitAction());

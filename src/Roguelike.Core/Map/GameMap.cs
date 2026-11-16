@@ -40,6 +40,8 @@ public enum Tile : byte
     Water,
     /// <summary>A cookfire: can't be walked through, can be seen past, and lights up its surroundings.</summary>
     Fire,
+    /// <summary>A cloud of smoke for a few turns: walk through it, but nobody sees through it.</summary>
+    Smoke,
 }
 
 /// <summary>
@@ -80,10 +82,10 @@ public sealed class GameMap
 
     public Zone? ZoneAt(Point p) => Zones.FirstOrDefault(z => z.Area.Contains(p));
 
-    public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.StairsDown or Tile.StairsUp
+    public static bool IsWalkable(Tile tile) => tile is Tile.Floor or Tile.LairFloor or Tile.Smoke or Tile.StairsDown or Tile.StairsUp
         or Tile.Grass or Tile.Road or Tile.Brush or Tile.GateOpen or Tile.CaveMouth or Tile.Waystone or Tile.Inscription or Tile.GateBroken;
 
-    public static bool IsTransparent(Tile tile) => (IsWalkable(tile) && tile != Tile.Brush) || tile is Tile.Water or Tile.Fire;
+    public static bool IsTransparent(Tile tile) => (IsWalkable(tile) && tile is not (Tile.Brush or Tile.Smoke)) || tile is Tile.Water or Tile.Fire;
 
     public static bool IsPassable(Tile tile) => IsWalkable(tile) || tile == Tile.GateClosed;
 

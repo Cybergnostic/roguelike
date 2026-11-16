@@ -131,13 +131,14 @@ public class CharacterTests
         var c = CharacterOf(world);
         c.Gain(10_000);
 
-        Assert.Contains(world.Step(new LearnSkillAction("cleave")), e => e is ActionFailed { Reason: FailureReason.MissingPrerequisite });
-        int attack = world.Player.Attack;
+        Assert.Contains(world.Step(new LearnSkillAction("second_wind")), e => e is ActionFailed { Reason: FailureReason.MissingPrerequisite });
+        int hp = world.Player.MaxHp;
         for (int i = 0; i < 3; i++)
-            Assert.Contains(world.Step(new LearnSkillAction("weapon_training")), e => e is SkillLearned { NewRank: var r } && r == i + 1);
-        Assert.Equal(attack + 3, world.Player.Attack);
-        Assert.Contains(world.Step(new LearnSkillAction("weapon_training")), e => e is ActionFailed { Reason: FailureReason.SkillMastered });
-        Assert.Contains(world.Step(new LearnSkillAction("cleave")), e => e is SkillLearned { SkillId: "cleave" });
+            Assert.Contains(world.Step(new LearnSkillAction("toughness")), e => e is SkillLearned { NewRank: var r } && r == i + 1);
+        Assert.Equal(hp + 15, world.Player.MaxHp);
+        Assert.Contains(world.Step(new LearnSkillAction("toughness")), e => e is ActionFailed { Reason: FailureReason.SkillMastered });
+        world.Step(new LearnSkillAction("field_medicine"));
+        Assert.Contains(world.Step(new LearnSkillAction("second_wind")), e => e is SkillLearned { SkillId: "second_wind" });
     }
 
     [Fact]
@@ -169,9 +170,11 @@ public class CharacterTests
     public void CleaveCarriesAKillingBlowIntoTheNextFoe()
     {
         var world = World.Create(1);
-        world.Player.Character!.Gain(10_000);
-        world.Step(new LearnSkillAction("weapon_training"));
-        world.Step(new LearnSkillAction("cleave"));
+        // Cleave is a legendary's special now: put it on the sword.
+        var gear = world.Player.Equipment!;
+        var sword = gear.Weapon!;
+        gear.Unequip(sword);
+        gear.Equip(world.Player.Inventory!.Add(new Roguelike.Core.Items.Item(900, sword.Def) { Special = "cleave" }));
         var spots = World.EightWay.Select(d => world.Player.Position + d).Where(world.IsFree).Take(2).ToList();
         var doomed = world.SpawnMonster("goblin_runner", spots[0]);
         var next = world.SpawnMonster("goblin_warrior", spots[1]);
@@ -191,7 +194,7 @@ public class CharacterTests
 
     [Fact]
     public void ASkillGrantingAnUnknownSpecialIsAContentError() =>
-        AssertContentError("skills.json", "\"special\": \"cleave\"", "\"special\": \"whirlwind\"", "whirlwind");
+        AssertContentError("skills.json", "\"special\": \"backstab\"", "\"special\": \"whirlwind\"", "whirlwind");
 
     [Fact]
     public void AnUnknownStatIsAContentError() =>
@@ -199,7 +202,7 @@ public class CharacterTests
 
     [Fact]
     public void ASkillRequiringAnUnknownSkillIsAContentError() =>
-        AssertContentError("skills.json", "\"requires\": [\"steady_aim\"]", "\"requires\": [\"steady_aim2\"]", "steady_aim2");
+        AssertContentError("skills.json", "\"requires\": [\"field_medicine\"]", "\"requires\": [\"field_medicin\"]", "field_medicin");
 
     private static void AssertContentError(string file, string find, string replace, string expected)
     {

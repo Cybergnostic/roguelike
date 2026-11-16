@@ -39,7 +39,7 @@ public class ClassTests
         Assert.True(world.Player.Character!.Rank(skill) > 0, $"couldn't learn {skill}");
     }
 
-    public static TheoryData<string> AllClasses => new() { "soldier", "ranger", "rogue", "mystic" };
+    public static TheoryData<string> AllClasses => new() { "warrior", "ranger", "shadow", "mystic" };
 
     [Theory, MemberData(nameof(AllClasses))]
     public void EachClassStartsWithItsOwnKitAndKnowledge(string id)
@@ -61,9 +61,9 @@ public class ClassTests
     [Fact]
     public void TheClassesReallyDiffer()
     {
-        var soldier = World.Create(1, classId: "soldier").Player;
+        var soldier = World.Create(1, classId: "warrior").Player;
         var ranger = World.Create(1, classId: "ranger").Player;
-        var rogue = World.Create(1, classId: "rogue").Player;
+        var rogue = World.Create(1, classId: "shadow").Player;
         var mystic = World.Create(1, classId: "mystic").Player;
 
         Assert.True(soldier.MaxHp > mystic.MaxHp);
@@ -77,13 +77,13 @@ public class ClassTests
     [Fact]
     public void AClassCantLearnAnotherClassesSkills()
     {
-        var world = Started("soldier");
+        var world = Started("warrior");
         world.GrantXp(XpSource.Kill, "test", 2000);
 
-        var events = world.Step(new LearnSkillAction("vanish_skill"));
+        var events = world.Step(new LearnSkillAction("escape_artist"));
 
         Assert.Contains(events, e => e is ActionFailed { Reason: FailureReason.NotYourClass });
-        Assert.Equal(0, world.Player.Character!.Rank("vanish_skill"));
+        Assert.Equal(0, world.Player.Character!.Rank("escape_artist"));
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class ClassTests
     [Fact]
     public void YouCantUseWhatYouDontKnow()
     {
-        var world = Started("soldier");
+        var world = Started("warrior");
         var foe = FoeAt(world, 3);
         Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt", foe.Id)), e => e is ActionFailed { Reason: FailureReason.AbilityUnknown });
     }
@@ -173,7 +173,7 @@ public class ClassTests
     [Fact]
     public void BackstabDoublesDamageOnTheUnaware()
     {
-        var world = Started("rogue");
+        var world = Started("shadow");
         var foe = FoeAt(world, 1);
         world.SquadOf(foe)!.State = SquadState.Idle;
 
@@ -185,7 +185,7 @@ public class ClassTests
     [Fact]
     public void NoBackstabOnSomeoneAlreadyFighting()
     {
-        var world = Started("rogue");
+        var world = Started("shadow");
         var foe = FoeAt(world, 1);
         world.SquadOf(foe)!.State = SquadState.Engage;
         Assert.DoesNotContain(world.Step(new AttackAction(foe.Id)), e => e is SpecialUsed { Special: "backstab" });
@@ -194,8 +194,8 @@ public class ClassTests
     [Fact]
     public void VanishingGetsYouOutOfSight()
     {
-        var world = Started("rogue");
-        Learn(world, "vanish_skill");
+        var world = Started("shadow");
+        Learn(world, "escape_artist");
         var foe = FoeAt(world, 2);
         var squad = world.SquadOf(foe)!;
         world.Step(new WaitAction());
@@ -213,7 +213,10 @@ public class ClassTests
     [Fact]
     public void AWarCryShakesNearbySquads()
     {
-        var world = Started("soldier");
+        var world = Started("warrior");
+        world.GrantXp(XpSource.Kill, "test", 2000);
+        for (int i = 0; i < 3; i++)
+            world.Step(new LearnSkillAction("battle_momentum")); // War Cry comes at rank 3
         var foe = FoeAt(world, 4);
         var squad = world.SquadOf(foe)!;
         int morale = squad.Morale;
@@ -224,18 +227,41 @@ public class ClassTests
     }
 
     [Fact]
-    public void ACrushingBlowAlwaysStaggers()
+    public void AShoveIntoAWallStaggers()
     {
-        var world = Started("soldier");
-        Learn(world, "crushing_blow");
-        var foe = FoeAt(world, 1);
-        Assert.Contains(world.Step(new UseAbilityAction("crushing_blow", foe.Id)), e => e is ActorStaggered s && s.ActorId == foe.Id);
+        var world = Started("warrior");
+        var player = world.Player;
+        // Stand with a wall right behind the foe.
+        var (spot, dir) = world.Map.Tiles.Positions().Where(world.IsFree)
+            .SelectMany(p => World.EightWay.Select(d => (p, d)))
+            .First(x => world.IsFree(x.p + x.d) && world.Map.InBounds(x.p + x.d + x.d) && !world.Map.Walkable[x.p + x.d + x.d]);
+        player.Position = spot;
+        var foe = world.SpawnMonster("goblin_warrior", spot + dir);
+        foe.Hp = 100_000;
+        Assert.Contains(world.Step(new UseAbilityAction("shove", foe.Id)), e => e is ActorStaggered s && s.ActorId == foe.Id);
+        Assert.Equal(spot + dir, foe.Position);
+    }
+
+    [Fact]
+    public void AShoveIntoTheOpenPushesThemBack()
+    {
+        var world = Started("warrior");
+        var player = world.Player;
+        var (spot, dir) = world.Map.Tiles.Positions().Where(world.IsFree)
+            .SelectMany(p => World.EightWay.Select(d => (p, d)))
+            .First(x => world.IsFree(x.p + x.d) && world.IsFree(x.p + x.d + x.d) && world.IsFree(x.p + x.d + x.d + x.d));
+        player.Position = spot;
+        var foe = world.SpawnMonster("goblin_warrior", spot + dir);
+        foe.Hp = 100_000;
+        var events = world.Step(new UseAbilityAction("shove", foe.Id));
+        // (It may come straight back in on its own turn.)
+        Assert.Contains(events, e => e is ActorMoved m && m.ActorId == foe.Id && m.From == spot + dir && m.To == spot + dir + dir);
     }
 
     [Fact]
     public void HoldTheLineBracesInAnyArmour()
     {
-        var world = Started("soldier");
+        var world = Started("warrior");
         Learn(world, "hold_the_line");
         world.Step(new WaitAction());
         Assert.True(world.Player.BraceBonus >= 1);
@@ -248,7 +274,8 @@ public class ClassTests
         var world = Started("ranger");
         var foe = FoeAt(world, 1);
         int before = world.HitChance(world.Player, foe, ranged: true);
-        Learn(world, "skirmisher");
+        Learn(world, "skirmishing");
+        Learn(world, "skirmishing"); // rank 2
         Assert.True(world.HitChance(world.Player, foe, ranged: true) > before);
     }
 
@@ -275,8 +302,8 @@ public class ClassTests
     }
 
     [Theory]
-    [InlineData("\"trees\": [\"warfare\", \"survival\", \"arms\"]", "\"trees\": [\"warfare\", \"nonsense\", \"arms\"]", "nonsense")]
-    [InlineData("\"starts\": [\"war_cry\"]", "\"starts\": [\"mend\"]", "mend")]
+    [InlineData("\"trees\": [\"warrior\", \"survival\", \"senses\"]", "\"trees\": [\"warrior\", \"nonsense\", \"senses\"]", "nonsense")]
+    [InlineData("\"starts\": [\"breakthrough\"]", "\"starts\": [\"mend\"]", "mend")]
     [InlineData("{ \"item\": \"robes\",", "{ \"item\": \"nothing\",", "nothing")]
     public void ABrokenClassIsAContentError(string find, string replace, string expected)
     {

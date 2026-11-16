@@ -73,12 +73,12 @@ public static class Trials
 
     public static readonly TrialBuild[] Builds =
     [
-        new("soldier", "bruiser", ["skill:weapon_training", "skill:crushing_blow", "skill:weapon_training", "skill:cleave", "skill:toughness"], ["str", "con"]),
-        new("soldier", "bulwark", ["skill:toughness", "skill:hold_the_line", "skill:thick_skin", "skill:toughness", "skill:crushing_blow", "skill:thick_skin"], ["con", "str"]),
-        new("ranger", "sharpshooter", ["skill:steady_aim", "skill:eagle_eye", "skill:steady_aim", "skill:pinning_shot", "skill:eagle_eye", "skill:steady_aim"], ["dex", "con"]),
-        new("ranger", "skirmisher", ["skill:skirmisher", "skill:steady_aim", "skill:fleet_foot", "skill:pinning_shot", "skill:fleet_foot"], ["dex", "wis"]),
-        new("rogue", "duelist", ["skill:thick_skin", "skill:fleet_foot", "skill:vanish_skill", "skill:fleet_foot", "skill:thick_skin"], ["dex", "str"]),
-        new("rogue", "survivor", ["skill:vanish_skill", "skill:field_medicine", "skill:thick_skin", "skill:second_wind", "skill:field_medicine"], ["con", "dex"]),
+        new("warrior", "bruiser", ["skill:weapon_mastery", "skill:combat_stances", "skill:weapon_mastery", "skill:battle_momentum", "skill:breakthrough", "skill:weapon_mastery"], ["str", "con"]),
+        new("warrior", "bulwark", ["skill:hold_the_line", "skill:combat_stances", "skill:toughness", "skill:hold_the_line", "skill:breakthrough", "skill:hold_the_line"], ["con", "str"]),
+        new("ranger", "sharpshooter", ["skill:marksmanship", "skill:pinning_shot", "skill:marksmanship", "skill:shooting_techniques", "skill:hunters_instinct", "skill:marksmanship"], ["dex", "con"]),
+        new("ranger", "skirmisher", ["skill:skirmishing", "skill:marksmanship", "skill:skirmishing", "skill:pinning_shot", "skill:skirmishing"], ["dex", "wis"]),
+        new("shadow", "duelist", ["skill:evasion", "skill:opportunist", "skill:evasion", "skill:escape_artist", "skill:opportunist"], ["dex", "str"]),
+        new("shadow", "survivor", ["skill:escape_artist", "skill:misdirection", "skill:shadowcraft", "skill:escape_artist", "skill:evasion"], ["con", "dex"]),
         new("mystic", "pyromancer", ["skill:cinder_bolt", "skill:life_drain", "skill:mend", "skill:fleet_foot"], ["int", "con"]),
         new("mystic", "mender", ["skill:mend", "skill:cinder_bolt", "skill:field_medicine", "skill:second_wind", "skill:thick_skin", "skill:life_drain"], ["wis", "con"]),
     ];

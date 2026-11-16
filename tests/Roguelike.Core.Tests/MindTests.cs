@@ -121,7 +121,7 @@ public class MindTests
     [Fact]
     public void TheOffHandGetsHalfTheStrength()
     {
-        var player = World.Create(1, classId: "rogue").Player;
+        var player = World.Create(1, classId: "shadow").Player;
         int strength = player.Character!.BonusFrom("str", Stat.MeleeAttack);
         Assert.True(strength >= 1);
         Assert.Equal(player.Attack, player.OffHandAttack(100)); // twin daggers of the same make
@@ -343,7 +343,7 @@ public class MindTests
     [Fact]
     public void TrialsReportSensibleShares()
     {
-        var stats = Trials.Run(Trials.BuildFor("soldier"), Trials.Level(Trials.Fresh), Trials.Fights.First(f => f.Name == "goblin scouts"), 8);
+        var stats = Trials.Run(Trials.BuildFor("warrior"), Trials.Level(Trials.Fresh), Trials.Fights.First(f => f.Name == "goblin scouts"), 8);
         Assert.Equal(1.0, stats.Won + stats.DroveOff + stats.Stalemate + stats.Died, 3);
         Assert.InRange(stats.HpLeft, 0, 1);
         Assert.True(stats.Turns > 0);
@@ -353,7 +353,7 @@ public class MindTests
     public void AForcedMindAppliesOnlyToThatGame()
     {
         var fight = Trials.MindSubjects.First();
-        var build = Trials.BuildFor("soldier");
+        var build = Trials.BuildFor("warrior");
         var level = Trials.Level(Trials.Seasoned);
         Assert.NotEqual(Trials.Run(build, level, fight, 12, mind: "mindless"), Trials.Run(build, level, fight, 12, mind: "pack"));
     }

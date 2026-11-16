@@ -27,12 +27,21 @@
     { "id": "soul_drain",   "kind": "drain",  "cooldown": 4,  "amount": 6, "verb": "drinks the life from" },
 
     // The player's skills (skills.json grants these).
-    { "id": "war_cry",      "kind": "frighten", "cooldown": 30, "range": 8, "amount": 40, "verb": "roars", "you": "roar a challenge" },
+    { "id": "war_cry",      "kind": "frighten", "cooldown": 30, "range": 8, "amount": 40, "verb": "roars", "you": "roar a challenge", "name": "War Cry" },
     { "id": "crushing_blow","kind": "bash",   "cooldown": 14,  "amount": 3, "verb": "smashes", "you": "bring a crushing blow down on" },
-    { "id": "hunters_volley","kind": "volley","cooldown": 5,  "count": 2, "verb": "looses a volley at", "you": "loose a volley at" },
-    { "id": "pinning_shot", "kind": "pin",    "cooldown": 10, "verb": "pins", "you": "pin" },
-    { "id": "vanish",       "kind": "vanish", "cooldown": 25, "range": 7, "amount": 4, "verb": "vanishes", "you": "vanish in a blink" },
-    { "id": "shadow_strike","kind": "charge", "cooldown": 6, "range": 6, "verb": "strikes from the shadows at", "you": "step through the shadows at" },
+    { "id": "hunters_volley","kind": "volley","cooldown": 5,  "count": 2, "verb": "looses a volley at", "you": "loose a volley at", "name": "Rapid Shot", "description": "Two arrows at once." },
+    { "id": "pinning_shot", "kind": "pin",    "cooldown": 8, "amount": 50, "turns": 2, "verb": "pins", "you": "pin", "name": "Pinning Shot" },
+    // Class skills (COMBAT_AND_MAGIC.md §3). "time": how long it takes (100 = a turn; 0 = no time).
+    { "id": "shove",        "kind": "shove",  "cooldown": 4, "verb": "shoves", "you": "shove", "name": "Shove", "description": "Push an enemy back; into a wall or another, both reel." },
+    { "id": "careful_aim",  "kind": "aimedShot", "cooldown": 3, "amount": 50, "power": 3, "time": 150, "verb": "takes careful aim at", "you": "take careful aim at", "name": "Careful Aim", "description": "A slow shot: +3 accuracy, +50% damage." },
+    { "id": "suppressive_fire", "kind": "suppress", "cooldown": 15, "count": 3, "amount": 2, "turns": 3, "verb": "covers the ground around", "you": "train your bow on the ground around", "name": "Suppressive Fire", "description": "For 3 turns, shoot whoever steps within 2 of the target (3 shots); they lose nerve." },
+    { "id": "disengage",    "kind": "disengage", "cooldown": 4, "verb": "falls back and shoots", "you": "fall back and shoot", "name": "Disengage", "description": "Step back from an enemy and shoot it, in one action." },
+    { "id": "mark_prey",    "kind": "markPrey", "cooldown": 10, "range": 12, "turns": 30, "amount": 25, "power": 60, "time": 0, "verb": "marks", "you": "mark", "name": "Mark Prey", "description": "No time: +25% damage on it for 30 turns; you always see it." },
+    { "id": "tumble",       "kind": "tumble", "cooldown": 5, "verb": "tumbles past", "you": "tumble past", "name": "Tumble", "description": "Slip past an adjacent enemy to the cell behind it." },
+    { "id": "throw_stone",  "kind": "distract", "cooldown": 4, "range": 8, "amount": 4, "verb": "throws a stone past", "you": "toss a stone past", "name": "Throw Stone", "description": "It clatters beyond the target; squads near it go to look." },
+    { "id": "smoke",        "kind": "smoke", "cooldown": 25, "range": 1, "turns": 8, "verb": "vanishes in a cloud of smoke", "you": "break a smoke pot", "name": "Smoke", "description": "A cloud around you for 8 turns that nobody sees through." },
+    { "id": "vanish",       "kind": "vanish", "cooldown": 25, "range": 7, "amount": 4, "verb": "vanishes", "you": "vanish in a blink", "name": "Vanish" },
+    { "id": "shadow_strike","kind": "charge", "cooldown": 6, "range": 6, "verb": "strikes from the shadows at", "you": "step through the shadows at", "name": "Shadow Strike" },
     { "id": "cinder_bolt",  "kind": "bolt",   "cooldown": 3,  "range": 7, "power": 5, "verb": "burns", "you": "hurl fire at" },
     { "id": "mend",         "kind": "heal",   "cooldown": 30, "power": 10, "verb": "mends its wounds", "you": "mend your wounds" },
     { "id": "life_drain",   "kind": "drain",  "cooldown": 14,  "range": 6, "power": 5, "amount": 3, "verb": "drinks the life from", "you": "drink the life from" }

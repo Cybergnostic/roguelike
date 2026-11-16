@@ -32,8 +32,7 @@ public static class Lethality
                 var squad = world.SquadOf(monster)!;
                 squad.State = AI.Squads.SquadState.Engage;
                 // The player's best plain attack: the bow at range if it has one, else melee; a Mystic's bolt.
-                var bolt = player.Character!.ActiveSkills.Select(sk => world.Content.Abilities[sk.Ability!])
-                    .FirstOrDefault(a => a.Kind == Content.AbilityKind.Bolt);
+                var bolt = player.Character!.KnownAbilities.FirstOrDefault(a => a.Kind == Content.AbilityKind.Bolt);
                 (double avg, int chance, string weapon) best = (0, 0, "");
                 foreach (var (ranged, power, name) in new (bool, int, string)[]
                          {

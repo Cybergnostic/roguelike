@@ -86,6 +86,7 @@
     "inscription": { "glyph": 234, "color": "#e8c98b" },
     "rubble":     { "glyph": 177, "color": "#747f86" },
     "water":      { "glyph": "~", "color": "#5aa2c0", "glyphs": ["~", 247], "background": "#0d1a22" },
-    "fire":       { "glyph": "*", "color": "#ffb74d" }
+    "fire":       { "glyph": "*", "color": "#ffb74d" },
+    "smoke":      { "glyph": 177, "color": "#9aa3a8", "glyphs": [176, 177] }
   }
 }

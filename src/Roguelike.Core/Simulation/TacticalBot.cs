@@ -285,9 +285,8 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
     {
         if (me.Character is not { } c)
             return null;
-        foreach (var skill in c.ActiveSkills)
+        foreach (var ability in c.KnownAbilities)
         {
-            var ability = world.Content.Abilities[skill.Ability!];
             if (ability.Kind == Content.AbilityKind.Heal && hp < 0.6 && world.AbilityProblem(me, ability, null) is null)
                 return new UseAbilityAction(ability.Id);
             if (ability.Kind == Content.AbilityKind.Frighten && threats.Count >= 2 && world.AbilityProblem(me, ability, null) is null)

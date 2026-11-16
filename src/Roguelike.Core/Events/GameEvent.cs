@@ -243,5 +243,11 @@ public sealed record WindUpSpoiled(int ActorId, string AbilityId) : GameEvent;
 /// <summary>The player took up a stance (or dropped it).</summary>
 public sealed record StanceChanged(int ActorId, Stance Stance) : GameEvent;
 
+/// <summary>The player trains a bow on ground around a spot: anyone stepping into it is shot.</summary>
+public sealed record CoveringFire(int ActorId, Point Center, int Turns) : GameEvent;
+
+/// <summary>A stone thrown to clatter somewhere and draw squads to look.</summary>
+public sealed record StoneThrown(int ActorId, Point At) : GameEvent;
+
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>
 public sealed record ActionFailed(int ActorId, FailureReason Reason) : GameEvent;

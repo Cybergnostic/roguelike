@@ -52,7 +52,7 @@ public sealed class Character
 
     /// <summary>Whether any learned skill grants this special ability ("cleave").</summary>
     public bool Has(string special) =>
-        _ranks.Keys.Any(id => _content.Skills[id].Special == special);
+        _ranks.Any(r => _content.Skills[r.Key].Grants.Any(g => g.Special == special && r.Value >= g.Rank));
 
     /// <summary>
     /// Total bonus to a stat from attributes (per modifier point) and skills (per rank).
@@ -107,11 +107,13 @@ public sealed class Character
     public bool CanLearnFrom(string tree) =>
         Class is { } own ? own.Trees.Contains(tree) : !_content.Classes.Any(c => c.Starts.Any(s => _content.Skills[s].Tree == tree));
 
-    /// <summary>The active skills this character knows, in the order they were defined.</summary>
-    public IEnumerable<SkillDef> ActiveSkills =>
-        _content.SkillTrees.SelectMany(t => t.Skills).Where(s => s.Ability is not null && Rank(s.Id) > 0);
+    /// <summary>The active skills this character can use, in the order their skills (and ranks) define them.</summary>
+    public IEnumerable<AbilityDef> KnownAbilities =>
+        _content.SkillTrees.SelectMany(t => t.Skills)
+            .SelectMany(s => s.Grants.Where(g => g.Ability is not null && Rank(s.Id) >= g.Rank).Select(g => _content.Abilities[g.Ability!]))
+            .Distinct();
 
-    public bool KnowsAbility(string abilityId) => ActiveSkills.Any(s => s.Ability == abilityId);
+    public bool KnowsAbility(string abilityId) => KnownAbilities.Any(a => a.Id == abilityId);
 
     public FailureReason? CheckLearn(string skill)
     {

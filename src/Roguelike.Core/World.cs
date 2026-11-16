@@ -19,7 +19,7 @@ namespace Roguelike.Core;
 /// The whole simulation. No rendering, no input, no text: give it actions, get events back.
 /// Fully determined by its seed and the sequence of player actions.
 /// </summary>
-public sealed class World
+public sealed partial class World
 {
     public const int FovRadius = 8;
 
@@ -85,6 +85,9 @@ public sealed class World
         public List<Lair> Lairs { get; } = [];
         public List<Camp> Camps { get; } = [];
         public List<PlaceIncursion> PendingIncursions { get; } = [];
+
+        /// <summary>Smoke hanging over cells: what each cell was, and the turn it clears.</summary>
+        public List<(Point At, Tile Was, int Until)> Smoke { get; } = [];
 
         /// <summary>The turn the player last left, to know how much time has passed here.</summary>
         public int LeftOnTurn { get; set; }
@@ -609,11 +612,17 @@ public sealed class World
         timeCost = timeCost * 100 / Math.Max(25, 100 + Player.Bonus(Stat.Speed));
         if (Player.StatusOf(StatusKind.Slowed) is { } slowed)
             timeCost = timeCost * 100 / Math.Max(10, 100 - slowed.Amount);
+        bool quick = _quickNextAction && timeCost > 0;
         int noiseMade = playerAction.NoiseMade(this, Player);
         var stoodAt = Player.Position;
         if (!playerAction.Perform(this, Player))
             return [.. _events];
         ActionsTaken++;
+        if (quick)
+        {
+            _quickNextAction = false;
+            timeCost /= 2;
+        }
         Player.StoodStill = Player.Position == stoodAt;
         _bumpWarnedAbout = null;
         if (IsWon || Depth != depthBefore)
@@ -667,6 +676,7 @@ public sealed class World
             Player.Hp++;
         Rest();
         ExpireStatuses();
+        ClearSmoke();
     }
 
     // ---- Passing conditions, wind-ups, stances ----
@@ -1080,20 +1090,28 @@ public sealed class World
     public int HitChance(Actor attacker, Actor target, bool ranged, int accuracyBonus = 0)
     {
         var rules = Content.Combat;
-        if (IsStaggered(target))
+        if (IsStaggered(target) || (attacker.HasSpecial("sure_strike") && CaughtOffGuard(attacker, target)))
             return 100;
         int accuracy = attacker.Accuracy + accuracyBonus - (ranged && IsAdjacent(attacker.Position, target.Position) && !attacker.HasSpecial("skirmisher") ? rules.PointBlankPenalty : 0);
         if (!ranged)
             accuracy += attacker.Equipment?.Weapon?.Def.Accuracy ?? 0;
         accuracy += rules.OverwhelmAccuracy * Overwhelmed(target);
+        if (target.HasSpecial("slippery"))
+            accuracy -= SlipperyEvasion * Crowding(target);
         return Math.Clamp(rules.BaseHitChance + rules.HitChancePerPoint * (accuracy - target.Evasion),
             rules.MinHitChance, rules.MaxHitChance);
     }
 
     public bool IsStaggered(Actor actor) => actor.StaggeredUntil >= Turn;
 
+    /// <summary>Evasion a Shadow with Evasion gains for each enemy crowding it beyond the first.</summary>
+    private const int SlipperyEvasion = 2;
+
     /// <summary>How many enemies beyond the first stand next to this actor, up to the most that count.</summary>
-    public int Overwhelmed(Actor target)
+    public int Overwhelmed(Actor target) => target.HasSpecial("unyielding") ? 0 : Crowding(target);
+
+    /// <summary>Enemies next to it beyond the first, up to the most that count, whatever its skills.</summary>
+    public int Crowding(Actor target)
     {
         int around = EightWay.Count(d => ActorAt(target.Position + d) is { IsDead: false } a && AreHostile(a, target));
         return Math.Clamp(around - 1, 0, Content.Combat.OverwhelmMax);
@@ -1110,7 +1128,7 @@ public sealed class World
     {
         var rules = Content.Combat;
         double percent = 100;
-        if (IsUnaware(target))
+        if (CaughtOffGuard(attacker, target))
             percent = !ranged && attacker.HasSpecial("backstab") ? rules.BackstabPercent : rules.UnawarePercent;
         if (IsStaggered(target))
             percent = percent * rules.StaggeredPercent / 100;
@@ -1122,7 +1140,9 @@ public sealed class World
         if (target.Statuses.FirstOrDefault(s => s.Kind == StatusKind.Marked && s.SourceId == attacker.Id) is { } marked)
             percent = percent * (100 + marked.Amount) / 100;
         if (attacker.Stance == Stance.Aggressive)
-            percent = percent * Actor.AggressivePercent / 100;
+            percent = percent * attacker.AggressivePercent / 100;
+        if (attacker.StatusOf(StatusKind.Emboldened) is { } bold)
+            percent = percent * (100 + bold.Amount) / 100;
         return (int)Math.Round(percent);
     }
 
@@ -1135,7 +1155,7 @@ public sealed class World
     {
         // Judged before the blow lands: the blow itself wakes them up.
         int advantage = AdvantagePercent(attacker, target, ranged);
-        bool unaware = IsUnaware(target);
+        bool unaware = CaughtOffGuard(attacker, target);
         Noise(target.Position, SoundKind.Fight, attacker, target);
         if (SquadOf(target) is { } targetSquad)
         {
@@ -1212,12 +1232,25 @@ public sealed class World
             return FailureReason.NoTarget;
 
         int distance = Distance(actor.Position, target.Position);
-        int reach = ability.Kind == AbilityKind.Bash ? 1 : ability.NeedsBow ? actor.Range : ability.Range;
+        int reach = ability.Adjacent ? 1 : ability.NeedsBow ? actor.Range : ability.Range;
         if (distance > reach)
             return FailureReason.OutOfRange;
-        if (ability.Kind == AbilityKind.Charge)
-            return ChargeLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
-        return ability.Kind != AbilityKind.Bash && !HasClearShot(actor.Position, target.Position) ? FailureReason.NoLineOfFire : null;
+        switch (ability.Kind)
+        {
+            case AbilityKind.Charge:
+                return ChargeLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
+            case AbilityKind.Shove:
+                return CanBeShoved(target) ? null : FailureReason.NoTarget;
+            case AbilityKind.Tumble:
+                return TumbleLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
+            case AbilityKind.Disengage:
+                return DisengageLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
+            case AbilityKind.MarkPrey:
+                return HasLineOfSight(actor.Position, target.Position) ? null : FailureReason.NoLineOfFire;
+            case AbilityKind.Distract:
+                return StoneLanding(actor, target, ability) is null || !HasLineOfSight(actor.Position, target.Position) ? FailureReason.NoLineOfFire : null;
+        }
+        return !ability.Adjacent && !HasClearShot(actor.Position, target.Position) ? FailureReason.NoLineOfFire : null;
     }
 
     /// <summary>Where a skill that moves its user puts them.</summary>
@@ -1225,6 +1258,12 @@ public sealed class World
     {
         if (ability.Kind == AbilityKind.Charge && target is not null)
             return ChargeLanding(actor, target);
+        if (ability.Kind == AbilityKind.Tumble && target is not null)
+            return TumbleLanding(actor, target);
+        if (ability.Kind == AbilityKind.Disengage && target is not null)
+            return DisengageLanding(actor, target);
+        if (ability.Kind == AbilityKind.Distract && target is not null)
+            return StoneLanding(actor, target, ability);
         if (ability.Kind != AbilityKind.Vanish)
             return null;
         var threats = _actors.Where(a => a != actor && !a.IsDead && AreHostile(a, actor) && PlayerCanSee(a)).Select(a => a.Position).ToList();
@@ -1259,6 +1298,8 @@ public sealed class World
 
     private void Stagger(Actor target, Actor by)
     {
+        if (target.StoodStill && target.HasSpecial("hold_line"))
+            return; // feet set: it takes more than that
         target.StaggeredUntil = Turn + 1;
         if (target.WindUp is { } spoiled)
         {
@@ -1324,6 +1365,8 @@ public sealed class World
             return;
 
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
+        if (attacker == Player && target != Player)
+            PlayerKilled();
         Noise(target.Position, SoundKind.Death, target);
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
             GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth) * target.XpMultiplier);
@@ -1567,10 +1610,15 @@ public sealed class World
         if (target.HiddenUntil > Turn && !IsAdjacent(observer.Position, target.Position))
             return false;
         double reach = target.Sneaking ? Math.Max(1.5, Content.Dungeon.SneakSight - target.Bonus(Stat.Stealth) * 0.5) : Math.Sqrt(SightRadiusSquared);
+        if (target.Sneaking && target.StoodStill && target.HasSpecial("stillness"))
+            reach = Math.Min(reach, StillnessSight);
         return dx * dx + dy * dy <= reach * reach && HasLineOfSight(observer.Position, target.Position);
     }
 
     private const int SightRadiusSquared = FovRadius * FovRadius + FovRadius; // ~ radius 8.5
+
+    /// <summary>How close a Shadow keeping still while sneaking must be before anyone sees it (Shadowcraft rank 2).</summary>
+    private const double StillnessSight = 2.5;
 
     /// <summary>The closest hostile actor this actor can see, or null.</summary>
     public Actor? NearestVisibleHostile(Actor self)
@@ -1655,6 +1703,10 @@ public sealed class World
     /// <summary>Line of sight that also isn't blocked by any actor in between.</summary>
     public bool HasClearShot(Point from, Point to) =>
         InnerLine(from, to).All(p => Map.Transparent[p] && ActorAt(p) is null);
+
+    /// <summary>A clear shot from somewhere the shooter is about to be: the shooter's own cell doesn't block it.</summary>
+    public bool HasClearShotFrom(Actor shooter, Point from, Point to) =>
+        InnerLine(from, to).All(p => Map.Transparent[p] && (ActorAt(p) is null || ActorAt(p) == shooter));
 
     private static IEnumerable<Point> InnerLine(Point from, Point to) =>
         Lines.GetLine(from, to, Lines.Algorithm.Bresenham).Where(p => p != from && p != to);

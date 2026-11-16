@@ -51,7 +51,8 @@ public sealed class Actor
     public int BaseEvasion { get; init; }
 
     public int Accuracy => BaseAccuracy + Bonus(Stat.Accuracy);
-    public int Evasion => BaseEvasion + Bonus(Stat.Evasion);
+    public int Evasion => BaseEvasion + Bonus(Stat.Evasion) + (!StoodStill && HasSpecial("elusive") ? ElusiveEvasion : 0);
+    public const int ElusiveEvasion = 2;
 
     /// <summary>Ignores morale: never routs.</summary>
     public bool Fearless { get; init; }
@@ -86,6 +87,8 @@ public sealed class Actor
         get
         {
             int weapon = Equipment is { } gear ? gear.Weapon?.Def.Stagger ?? 0 : BaseStagger;
+            if (weapon > 0 && HeavyWeapon && HasSpecial("heavy_hands"))
+                weapon += HeavyHandsStagger;
             return weapon > 0 ? weapon + Bonus(Stat.Stagger) : 0;
         }
     }
@@ -119,7 +122,18 @@ public sealed class Actor
 
     /// <summary>How long a blow takes. 100 is one ordinary turn.</summary>
     public int BaseAttackTime { get; init; } = 100;
-    public int MeleeAttackTime => Equipment?.Weapon?.Def.AttackTime ?? BaseAttackTime;
+    public int MeleeAttackTime
+    {
+        get
+        {
+            int time = Equipment?.Weapon?.Def.AttackTime ?? BaseAttackTime;
+            return HeavyWeapon && HasSpecial("swift_heavy") ? time * 85 / 100 : time;
+        }
+    }
+
+    /// <summary>A weapon slow enough to count as heavy (long swords and up), for Weapon Mastery.</summary>
+    public bool HeavyWeapon => (Equipment?.Weapon?.Def.AttackTime ?? 0) >= 120;
+    public const int HeavyHandsStagger = 15;
     public int RangedAttackTime => Equipment?.Bow?.Def.AttackTime ?? BaseAttackTime;
 
     /// <summary>The off-hand weapon's strength, before the off-hand penalty. It gets only a share of a Strength bonus.</summary>
@@ -132,8 +146,16 @@ public sealed class Actor
     public int Defense => Math.Max(0, BaseDefense + (Equipment?.Armor?.DefenseBonus ?? 0) + Bonus(Stat.Defense) + StanceArmour);
 
     /// <summary>Armour a stance adds or costs.</summary>
-    public int StanceArmour => Stance switch { Stance.Guarded => GuardedArmour, Stance.Aggressive => -AggressiveArmourCost, _ => 0 };
-    public const int GuardedArmour = 2, AggressiveArmourCost = 2, AggressivePercent = 130;
+    public int StanceArmour => Stance switch
+    {
+        Stance.Guarded => GuardedArmour + (HasSpecial("stances_2") ? 1 : 0),
+        Stance.Aggressive => -AggressiveArmourCost,
+        _ => 0,
+    };
+    public const int GuardedArmour = 2, AggressiveArmourCost = 2;
+
+    /// <summary>Damage percent in the Aggressive stance: 130, or 140 with Combat Stances rank 2.</summary>
+    public int AggressivePercent => HasSpecial("stances_2") ? 140 : 130;
 
     /// <summary>How it stands (player stances; monsters stand ordinarily).</summary>
     public Stance Stance { get; set; }
