@@ -15,18 +15,18 @@
       "trees": ["warrior", "survival", "senses", "runes"], "starts": ["breakthrough"] },
     { "id": "ranger", "name": "Ranger",
       "description": "Kills at range and shapes the approach. Weak when the enemy gets close.",
-      "attributes": { "str": 11, "dex": 16, "con": 13, "int": 10, "wis": 12, "cha": 10 },
+      "attributes": { "str": 11, "dex": 15, "con": 11, "int": 10, "wis": 12, "cha": 10 },
       "gold": 30,
       "kit": [
         { "item": "short_bow",      "equip": true },
         { "item": "dagger",         "equip": true },
         { "item": "leather_armor",  "equip": true },
-        { "item": "healing_potion", "count": 4 }
+        { "item": "healing_potion", "count": 2 }
       ],
       "trees": ["ranger", "survival", "senses", "runes"], "starts": ["shooting_techniques"] },
     { "id": "shadow", "name": "Shadow",
       "description": "Two daggers and a light step. Works the enemy's awareness; deadly against anyone not ready.",
-      "attributes": { "str": 12, "dex": 18, "con": 13, "int": 12, "wis": 10, "cha": 12 },
+      "attributes": { "str": 12, "dex": 18, "con": 14, "int": 12, "wis": 10, "cha": 12 },
       "gold": 60,
       "kit": [
         { "item": "dagger",         "equip": true },
@@ -37,12 +37,12 @@
       "trees": ["shadow", "survival", "senses", "runes"], "starts": ["opportunist"] },
     { "id": "mystic", "name": "Mystic",
       "description": "Old words and older marks. Frail, but its voice strikes through armour, and runes come easily.",
-      "attributes": { "str": 9, "dex": 11, "con": 11, "int": 16, "wis": 15, "cha": 11 },
+      "attributes": { "str": 9, "dex": 11, "con": 11, "int": 15, "wis": 15, "cha": 11 },
       "gold": 40,
       "kit": [
         { "item": "dagger",         "equip": true },
         { "item": "robes",          "equip": true },
-        { "item": "healing_potion", "count": 4 }
+        { "item": "healing_potion", "count": 3 }
       ],
       "trees": ["mystic", "survival", "senses", "runes"], "starts": ["word_of_power", "rune_sight", "inscription"],
       "runes": ["algiz", "berkano"] }

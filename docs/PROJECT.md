@@ -12,7 +12,9 @@ Last updated: 2026-11-16 (fuzzing, drilled squads no longer deadlock, popups as 
 
 Start here in a new chat. `main` is pushed up to the fuzzing work. **Work in progress is on the branch
 `combat-and-runes`** (2026-11-16): building [COMBAT_AND_MAGIC.md](COMBAT_AND_MAGIC.md) step by step; the user
-will playtest when it's all in. Step 1 (lethality) is done there; see that file's §5 for what's next.
+will playtest when it's all in. **All six steps are done there** (lethal combat, statuses and wind-ups, the
+15 Warrior/Ranger/Shadow skills, runes, the new Mystic, the crypt's seals and a rebalance): bot wins 28-36% per
+class. Waiting for the user's playtest before merging to `main`; §6 below still describes `main`.
 
 **Last finished**
 - Four classes with their own kits and skills.

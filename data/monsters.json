@@ -19,8 +19,8 @@
     { "id": "goblin_archer",  "faction": "goblins", "role": "archer",  "maxHp": 6, "attack": 4, "defense": 0, "xp": 10, "accuracy": 1, "range": 6, "loot": "goblin", "risesAs": "goblin_zombie" },
     // Deeper goblins: hardened in the war below. Ordinary monsters don't grow with depth; deeper bands
     // bring tougher kinds instead (COMBAT_AND_MAGIC.md §1).
-    { "id": "goblin_veteran", "stagger": 10, "faction": "goblins", "role": "warrior", "maxHp": 15, "attack": 7, "defense": 2, "accuracy": 1, "xp": 18, "loot": "goblin", "risesAs": "goblin_zombie" },
-    { "id": "goblin_marksman", "faction": "goblins", "role": "archer", "maxHp": 10, "attack": 6, "defense": 1, "accuracy": 2, "xp": 18, "range": 7, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_veteran", "stagger": 10, "faction": "goblins", "role": "warrior", "maxHp": 22, "attack": 11, "defense": 3, "accuracy": 2, "xp": 18, "loot": "goblin", "risesAs": "goblin_zombie" },
+    { "id": "goblin_marksman", "faction": "goblins", "role": "archer", "maxHp": 14, "attack": 9, "defense": 1, "accuracy": 3, "xp": 18, "range": 7, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_shaman",  "faction": "goblins", "role": "shaman",  "maxHp": 6, "attack": 2, "defense": 0, "xp": 15, "loot": "goblin", "risesAs": "goblin_zombie" },
     { "id": "goblin_runner",  "faction": "goblins", "role": "runner",  "maxHp": 6, "attack": 3, "defense": 0, "xp": 8, "evasion": 2, "loot": "goblin", "risesAs": "goblin_zombie" },
 
@@ -62,8 +62,8 @@
     { "id": "skeleton_warrior", "mind": "mindless", "faction": "undead", "role": "warrior", "maxHp": 12, "attack": 6, "defense": 1, "xp": 12, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior" },
     { "id": "skeleton_archer", "mind": "mindless",  "faction": "undead", "role": "archer",  "maxHp": 8,  "attack": 4, "defense": 1, "xp": 12, "lootDepthBonus": 1, "range": 5, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_archer" },
     // The barrow dead: older, better armed, laid down with honours in the deep tombs.
-    { "id": "barrow_guard", "mind": "mindless", "stagger": 10, "faction": "undead", "role": "warrior", "maxHp": 20, "attack": 8, "defense": 3, "xp": 22, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "barrow_guard" },
-    { "id": "barrow_archer", "mind": "mindless", "faction": "undead", "role": "archer", "maxHp": 12, "attack": 6, "defense": 2, "accuracy": 1, "xp": 20, "lootDepthBonus": 1, "range": 6, "fearless": true, "loot": "skeleton", "risesAs": "barrow_archer" },
+    { "id": "barrow_guard", "mind": "mindless", "stagger": 10, "faction": "undead", "role": "warrior", "maxHp": 30, "attack": 12, "defense": 4, "accuracy": 2, "xp": 22, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "barrow_guard" },
+    { "id": "barrow_archer", "mind": "mindless", "faction": "undead", "role": "archer", "maxHp": 16, "attack": 9, "defense": 2, "accuracy": 2, "xp": 20, "lootDepthBonus": 1, "range": 6, "fearless": true, "loot": "skeleton", "risesAs": "barrow_archer" },
     { "id": "goblin_zombie", "mind": "mindless",    "faction": "undead", "role": "warrior", "maxHp": 14, "attack": 5, "defense": 0, "xp": 8, "accuracy": -1, "evasion": -3, "speed": 50, "fearless": true },
 
     { "id": "bone_knight", "commands": "drilled", "mind": "mindless", "stagger": 20, "faction": "undead", "role": "warrior", "rank": "elite", "maxHp": 22, "attack": 7, "defense": 3, "xp": 40, "lootDepthBonus": 1, "fearless": true, "loot": "skeleton", "risesAs": "skeleton_warrior", "abilities": ["charge", "heavy_blow"] },

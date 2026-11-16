@@ -264,3 +264,26 @@ turns painting wards and healing runes in melee instead of fighting or drinking:
   important target.
 
 Measured (300 games): Mystic 88% (Warrior 82%, Ranger 93%, Shadow 89% from step 4).
+
+### Step 6, the crypt and the rebalance (2026-11-16)
+- **Crypt** (step 6a): the necromancer binds up to two undead squads on the last level with seals (Naudhiz
+  marks of his, set in other rooms). Smash a seal (5 loud turns; 1 quiet turn with Rune Lore 3) and its dead
+  crumble. Up to four hidden Thurisaz traps lie in the passages round his court, seen only with Rune Lore 2 or
+  Rune-Sight. `R` unmakes a mark at or beside you. The bot breaks seals it sees.
+- **What the first measurement showed:** by level 5 every class had bought all 15 of its class ranks and
+  carried 6-20 potions. The XP economy, not the monsters, was the main reason everything was a walkover.
+- **Changes:** class skill ranks cost 100/200/300 (general skills about 1.5x); deep kinds tougher (goblin
+  veteran 22 HP / attack 11 / armour 3, marksman 14 / 9, barrow guard 30 / 12 / 4, barrow archer 16 / 9) and in
+  bigger numbers; brutal elites +4 attack, veteran archers +2; elites 10% + 10% a level; rooms 9% fuller a level;
+  rest slower (after 25 quiet turns, 2% a turn). Per class: short bow shoots in a full turn, long bow 6, Rapid
+  Shot cooldown 7, Careful Aim +40%, Pinning Shot cooldown 10 and slows 30%, Disengage cooldown 6, Mark Prey
+  +20% / +40%, Ranger Dex 15 / Con 11 / 2 potions; Marksmanship and Weapon Mastery give damage only; Evasion
+  adds +1 evasion a rank, Shadow Con 14; Word of Power 4, Aegis 8, Spirit Blade +2, Hex 20%, Mystic Int 15 /
+  3 potions.
+
+**Measured (tactical bot, 500 games per class, seeds 1000-1499, `--turns 30000`): Warrior 32%, Ranger 36%,
+Shadow 28%, Mystic 30%.** Deaths by level (1-7):
+Warrior 15, 11, 2, 9, 22, 26, 17; Ranger 2, 1, 3, 10, 13, 32, 27; Shadow 2, 5, 4, 13, 27, 35, 23;
+Mystic 10, 5, 7, 15, 24, 23, 22. Deaths now rise with depth from level 3; the old crypt cliff is gone (level 6
+is the hardest). Ranger and Warrior are a little over the 20-30% target. Warriors still die early (15% on
+level 1). Fuzz: 3000 fights, no rule broken.

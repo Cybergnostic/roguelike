@@ -3,11 +3,11 @@
   // and sure to drop something. Chance = "chance" + "chancePerLevel" per level below "minDepth".
   // "roles": which squad roles this kind of elite can be. "hp": multiplies HP. "xp": multiplies XP.
   "chance": 0.10,
-  "chancePerLevel": 0.07,
+  "chancePerLevel": 0.10,
   "minDepth": 2,
   "kinds": [
-    { "id": "brutal",  "title": "brutal",  "roles": ["warrior"], "hp": 1.7, "attack": 2, "xp": 2.5, "abilities": ["charge"] },
-    { "id": "veteran", "title": "veteran", "roles": ["archer"],  "hp": 1.4, "accuracy": 2, "xp": 2.5, "abilities": ["volley"] },
+    { "id": "brutal",  "title": "brutal",  "roles": ["warrior"], "hp": 1.7, "attack": 4, "xp": 2.5, "abilities": ["charge"] },
+    { "id": "veteran", "title": "veteran", "roles": ["archer"],  "hp": 1.4, "attack": 2, "accuracy": 3, "xp": 2.5, "abilities": ["volley"] },
     { "id": "elder",   "title": "elder",   "roles": ["shaman"],  "hp": 1.5, "xp": 2.5, "abilities": ["warcry"] }
   ]
 }

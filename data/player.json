@@ -11,8 +11,8 @@
   "regenInterval": 12,
   // Resting: after restAfter turns with no enemy in sight, heal restHealPercent of max HP each turn.
   // Fights are meant to be deadly; what they cost should be potions and cooldowns, not HP carried on.
-  "restAfter": 15,
-  "restHealPercent": 4,
+  "restAfter": 25,
+  "restHealPercent": 2,
   // Natural accuracy/evasion (see combat.json), before Dexterity.
   "evasion": 1,
   // Starting attribute scores (see attributes.json). Missing ones start at 10.

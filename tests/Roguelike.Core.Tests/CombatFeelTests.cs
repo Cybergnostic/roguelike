@@ -197,7 +197,7 @@ public class CombatFeelTests
         var shortBow = Give(world, "short_bow");
         var longBow = Give(world, "long_bow");
         world.Step(new EquipAction(shortBow.Id));
-        Assert.Equal(80, world.Player.RangedAttackTime);
+        Assert.Equal(100, world.Player.RangedAttackTime);
         world.Step(new EquipAction(longBow.Id));
         Assert.Equal(130, world.Player.RangedAttackTime);
     }

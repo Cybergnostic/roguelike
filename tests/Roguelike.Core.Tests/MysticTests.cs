@@ -79,7 +79,7 @@ public class MysticTests
         Learn(world, "hex", 1);
         var foe = Foe(world, 3);
         world.Step(new UseAbilityAction("hex", foe.Id));
-        Assert.Equal(25, foe.StatusOf(StatusKind.Hexed)!.Amount);
+        Assert.Equal(world.Content.Abilities["hex"].Amount, foe.StatusOf(StatusKind.Hexed)!.Amount);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class MysticTests
         var world = Mystic();
         Learn(world, "spirit_blade", 1);
         world.Step(new UseAbilityAction("spirit_blade"));
-        Assert.Equal(3, world.Player.StatusOf(StatusKind.SpiritBlade)!.Amount);
+        Assert.Equal(world.Content.Abilities["spirit_blade"].Amount, world.Player.StatusOf(StatusKind.SpiritBlade)!.Amount);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class MysticTests
         int hp = world.Player.Hp;
         world.ResolveAttack(archer, world.Player, ranged: true);
         Assert.Equal(hp, world.Player.Hp);
-        Assert.Equal(10 + world.Player.Bonus(Stat.Magic), world.Player.StatusOf(StatusKind.Shielded)!.Amount);
+        Assert.Equal(world.Content.Abilities["aegis"].Power + world.Player.Bonus(Stat.Magic), world.Player.StatusOf(StatusKind.Shielded)!.Amount);
     }
 
     [Fact]

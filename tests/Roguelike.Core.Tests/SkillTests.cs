@@ -238,8 +238,9 @@ public class SkillTests
         int turn = world.Turn;
         world.Step(new UseAbilityAction("mark_prey", foe.Id));
         Assert.Equal(turn, world.Turn);
-        Assert.Equal(25, foe.StatusOf(StatusKind.Marked)!.Amount);
-        Assert.Equal(125, world.AdvantagePercent(world.Player, foe, ranged: true));
+        int mark = world.Content.Abilities["mark_prey"].Amount;
+        Assert.Equal(mark, foe.StatusOf(StatusKind.Marked)!.Amount);
+        Assert.Equal(100 + mark, world.AdvantagePercent(world.Player, foe, ranged: true));
     }
 
     // ---- Shadow ----
