@@ -35,7 +35,7 @@ public sealed record RaiseDeadAction(int CorpseId) : GameAction
             || world.Content.Monsters.GetValueOrDefault(corpse.Kind)?.RisesAs is not { } risesAs
             || World.Distance(actor.Position, corpse.Position) > raise.Range
             || !world.HasLineOfSight(actor.Position, corpse.Position)
-            || !world.IsFree(corpse.Position)
+            || !world.IsFree(corpse.Position) || world.IsBound(corpse.Position)
             || world.MinionsOf(actor).Count() >= raise.MaxMinions)
             return false;
 

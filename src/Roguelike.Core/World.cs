@@ -86,6 +86,9 @@ public sealed partial class World
         public List<Camp> Camps { get; } = [];
         public List<PlaceIncursion> PendingIncursions { get; } = [];
 
+        /// <summary>Runes carved on the ground here.</summary>
+        public List<Mark> Marks { get; } = [];
+
         /// <summary>Smoke hanging over cells: what each cell was, and the turn it clears.</summary>
         public List<(Point At, Tile Was, int Until)> Smoke { get; } = [];
 
@@ -640,6 +643,7 @@ public sealed partial class World
 
         UpdatePerception();
         ReadStoneUnderfoot();
+        LearnRuneFromStone();
         UpdateCamps();
         CheckObjective();
         HeardByNearbySquads(noiseMade);
@@ -677,6 +681,7 @@ public sealed partial class World
         Rest();
         ExpireStatuses();
         ClearSmoke();
+        WearMarks();
     }
 
     // ---- Passing conditions, wind-ups, stances ----
@@ -766,7 +771,7 @@ public sealed partial class World
         if (threatened)
             LastThreatTurn = Turn;
         else if (Turn - LastThreatTurn >= rules.RestAfter && Player.Hp < Player.MaxHp)
-            Player.Hp = Math.Min(Player.MaxHp, Player.Hp + Math.Max(1, Player.MaxHp * rules.RestHealPercent / 100));
+            Player.Hp = Math.Min(Player.MaxHp, Player.Hp + Math.Max(1, Player.MaxHp * rules.RestHealPercent / 100) * (RestingByBerkano() ? 2 : 1));
     }
 
     /// <summary>
@@ -891,7 +896,8 @@ public sealed partial class World
             while (actor.Energy >= 100 && !actor.IsDead && !Player.IsDead)
             {
                 var action = DeliverWindUp(actor) ?? actor.Brain.Decide(this, actor);
-                if (action is MoveAction held && actor.Has(StatusKind.Held) && ActorAt(actor.Position + held.Direction) is not { } _)
+                if (action is MoveAction step && ActorAt(actor.Position + step.Direction) is null
+                    && (actor.Has(StatusKind.Held) || MarkBars(actor, actor.Position + step.Direction)))
                     action = new WaitAction();
                 actor.Energy -= action.TimeCost(this, actor);
                 action.Perform(this, actor);
@@ -1173,7 +1179,8 @@ public sealed partial class World
         if (unaware && !ranged && attacker.HasSpecial("backstab"))
             Emit(new SpecialUsed(attacker.Id, "backstab", target.Id));
         int spread = Rng.NextInt(100 - rules.DamageSpread, 100 + rules.DamageSpread + 1);
-        int armour = target.Defense + target.BraceBonus + (ranged ? target.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0);
+        int armour = target.Defense + target.BraceBonus
+                     + (ranged ? (target.Equipment?.Armor?.Def.ArrowGuard ?? 0) + (target.Equipment?.Armor?.Rune == "algiz" ? AlgizArrowGuard : 0) : 0);
         if (ranged && attacker.HasSpecial("piercing"))
             armour /= 2;
         int blow = (int)Math.Round(strength * spread / 100.0 * advantage / 100.0);
@@ -1193,7 +1200,7 @@ public sealed partial class World
             Emit(new SpecialUsed(attacker.Id, "lifesteal", target.Id));
         }
         // Thorns: whoever lands a melee blow on the wearer takes 1-3 damage back.
-        if (!target.IsDead && !attacker.IsDead && target.HasSpecial("thorns"))
+        if (!target.IsDead && !attacker.IsDead && (target.HasSpecial("thorns") || target.Has(StatusKind.Thorned)))
         {
             Emit(new SpecialUsed(target.Id, "thorns", attacker.Id));
             Damage(target, attacker, Rng.NextInt(1, 4), ranged: false);
@@ -1298,7 +1305,7 @@ public sealed partial class World
 
     private void Stagger(Actor target, Actor by)
     {
-        if (target.StoodStill && target.HasSpecial("hold_line"))
+        if ((target.StoodStill && target.HasSpecial("hold_line")) || target.Has(StatusKind.Steadfast) || target.Equipment?.Armor?.Rune == "isa")
             return; // feet set: it takes more than that
         target.StaggeredUntil = Turn + 1;
         if (target.WindUp is { } spoiled)
@@ -1568,7 +1575,7 @@ public sealed partial class World
     public bool ObserverMode { get; set; }
 
     /// <summary>Whether the player can see this actor (interface, bots). Uses the player's FOV.</summary>
-    public bool PlayerCanSee(Actor actor) => Map.PlayerFov.BooleanResultView[actor.Position];
+    public bool PlayerCanSee(Actor actor) => Map.PlayerFov.BooleanResultView[actor.Position] || InPlayersLight(actor.Position);
 
     /// <summary>Observer-mode guard for attacks: the player can't be harmed while spectating.</summary>
     public bool IsUntouchable(Actor target) => ObserverMode && target == Player;
@@ -1727,7 +1734,7 @@ public sealed partial class World
         foreach (var dir in EightWay)
         {
             var p = self.Position + dir;
-            if (!IsFreeToStep(p) || map[p] is not { } value || value >= here)
+            if (!IsFreeToStep(p) || map[p] is not { } value || value >= here || MarkBars(self, p))
                 continue;
             int crowding = EightWay.Count(d => ActorAt(p + d) is { } a && a != self && !AreHostile(a, self));
             if (value < bestValue - 1e-9 || (Math.Abs(value - bestValue) < 1e-9 && crowding < bestCrowding))

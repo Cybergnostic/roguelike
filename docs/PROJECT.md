@@ -292,7 +292,7 @@ The report gives: death rate, survivors' lowest HP and close calls (<25% HP), sh
 inside rooms, monsters per level, kills split by "player" vs "others" per faction, events, squad states.
 
 ### In-game keys
-Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stance (Warrior): `w` cycles ordinary, Aggressive, Guarded. Stairs: `>` `<`. Walk into someone in the hamlet to talk (and buy from the peddler). Gates: walk into one to open it, `C`
+Move/attack: arrows, numpad, `hjklyubn`. Wait: `.` `5` `Space`. Stance (Warrior): `w` cycles ordinary, Aggressive, Guarded. Runes: `r` (pick a rune you know, then g ground, b skin, w weapon, a armour). Stairs: `>` `<`. Walk into someone in the hamlet to talk (and buy from the peddler). Gates: walk into one to open it, `C`
 closes an adjacent one. Moving into someone who's leaving you alone warns you; doing it again attacks. Sneak: `z`. Examine: `x` (Tab next thing, no time passes). What the stones tell: `m`. Pay a toll near a gate: `t`. After a game: `R` new seed, `S` retry this seed. Quit: `Esc`.
 Items: `g`/`,` pick up, `i` inventory (pick an item to use it), `e` equip/remove, `q` drink, `d` drop,
 `f` fire bow (Tab next target, `f`/Enter fire, Esc cancel). Skills: `a` (pick one; aimed ones use Tab, `a`/Enter, Esc). Character sheet: `c` (letters spend XP).

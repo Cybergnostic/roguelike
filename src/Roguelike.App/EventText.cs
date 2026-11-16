@@ -152,8 +152,28 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         SpecialUsed { Special: "thorns" } u when u.ActorId == world.Player.Id => $"Thorns bite {Name(u.TargetId)}!",
         SpecialUsed => null,
 
-        ActionFailed f when f.ActorId == world.Player.Id => f.Reason switch
-        {
+        ActionFailed f when f.ActorId == world.Player.Id => Failure(f.Reason),
+
+        RuneCarved { Surface: Roguelike.Core.Content.RuneSurface.Ground } c when c.ActorId == world.Player.Id => $"You carve {RuneName(c.RuneId)} into the ground.",
+        RuneCarved { Surface: Roguelike.Core.Content.RuneSurface.Body } c when c.ActorId == world.Player.Id => $"You paint {RuneName(c.RuneId)} on your skin.",
+        RuneCarved c when c.ActorId == world.Player.Id => $"You cut {RuneName(c.RuneId)} into your {(c.Surface == Roguelike.Core.Content.RuneSurface.Weapon ? "weapon" : "armour")}.",
+        RuneCarved => null,
+        RuneTriggered t when isVisible(t.TargetId) => $"{RuneName(t.RuneId)} flares under {Name(t.TargetId)}!",
+        RuneTriggered => null,
+        RuneFaded f when world.Map.PlayerFov.BooleanResultView[f.At] => $"{RuneName(f.RuneId)} fades from the ground.",
+        RuneFaded => null,
+        RuneLearned r => $"You read the stone's rune: {RuneName(r.RuneId)}, {world.Content.Runes[r.RuneId].Meaning}. (r: runes)",
+        StoneThrown => "A stone clatters off in the dark.",
+        CoveringFire c => $"You train your bow on the ground around there for {c.Turns} turns.",
+
+        _ => null,
+    };
+
+    private string RuneName(string id) => world.Content.Runes.TryGetValue(id, out var r) ? r.Name : id;
+
+    /// <summary>Why the player's action didn't happen, in words.</summary>
+    public static string? Failure(FailureReason reason) => reason switch
+    {
             FailureReason.NotEnoughXp => "You need more experience for that.",
             FailureReason.AttributeAtMax => "That is as high as it goes.",
             FailureReason.SkillMastered => "You have mastered that already.",
@@ -181,11 +201,11 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
             FailureReason.ChargeNotReady => "You haven't got your breath back for another charge.",
             FailureReason.Held => "You are held fast and can't take a step.",
             FailureReason.StanceUnknown => "You haven't learned to fight that way.",
+            FailureReason.RuneUnknown => "You don't know that rune.",
+            FailureReason.CantCarveThere => "You can't put that rune there (yet).",
+            FailureReason.EnemiesNear => "Not with enemies in sight: that needs quiet work.",
             _ => null,
-        },
-
-        _ => null,
-    };
+        };
 
     /// <summary>What goes in a speech popup for this event: who says it, and what. Null if nobody says anything.</summary>
     public (int Speaker, string Text)? Speech(GameEvent e) => e switch

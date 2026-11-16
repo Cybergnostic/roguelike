@@ -118,7 +118,8 @@ public sealed class Actor
     public bool Sneaking { get; set; }
 
     /// <summary>Melee attack: natural attack, wielded weapon (including its +X), attributes and skills.</summary>
-    public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack);
+    public int Attack => BaseAttack + (Equipment?.Weapon?.AttackBonus ?? 0) + Bonus(Stat.MeleeAttack)
+                         + (Equipment?.Weapon?.Rune == "thurisaz" ? World.ThurisazWeaponBonus : 0);
 
     /// <summary>How long a blow takes. 100 is one ordinary turn.</summary>
     public int BaseAttackTime { get; init; } = 100;

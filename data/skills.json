@@ -83,6 +83,16 @@
         "ranks": 1, "cost": [70], "ability": "life_drain" }
     ]},
     // ---- General skills: anyone can learn these.
+    { "id": "runes", "name": "Runes", "skills": [
+      { "id": "rune_lore", "name": "Rune Lore", "description": "Read the old marks: stones teach you their runes.",
+        "ranks": 3, "cost": [30, 50, 80], "special": "rune_reading",
+        "grants": [ { "rank": 2, "special": "rune_sense" }, { "rank": 3, "special": "rune_breaking" } ],
+        "rankText": ["read inscriptions and learn the runes on them", "know a mark for what it is at a glance, anywhere you can see", "unmake marks: yours and others'"] },
+      { "id": "inscription", "name": "Inscription", "description": "Carve the runes you know: on the ground, on your skin, on your gear.",
+        "ranks": 3, "cost": [40, 60, 90], "special": "carving",
+        "grants": [ { "rank": 2, "special": "gear_carving" }, { "rank": 3, "special": "deep_carving" } ],
+        "rankText": ["carve on the ground (6 turns) or paint on your skin (1 turn); 3 marks at once", "cut runes into weapons and armour; 4 marks", "marks last twice as long; 5 marks"] }
+    ]},
     { "id": "senses", "name": "Senses", "skills": [
       { "id": "perception", "name": "Perception", "description": "Tell more of what you hear, from farther off.",
         "ranks": 3, "cost": [30, 45, 60], "perRank": { "perception": 1 } },

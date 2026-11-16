@@ -223,6 +223,11 @@ public enum FailureReason
     Held,
     /// <summary>Doesn't know how to fight that way.</summary>
     StanceUnknown,
+    /// <summary>Doesn't know that rune, or can't carve (yet) on that.</summary>
+    RuneUnknown,
+    CantCarveThere,
+    /// <summary>Gear needs quiet work: not with enemies in sight.</summary>
+    EnemiesNear,
 }
 
 /// <summary>A passing condition took hold (or was renewed) on an actor.</summary>
@@ -248,6 +253,18 @@ public sealed record CoveringFire(int ActorId, Point Center, int Turns) : GameEv
 
 /// <summary>A stone thrown to clatter somewhere and draw squads to look.</summary>
 public sealed record StoneThrown(int ActorId, Point At) : GameEvent;
+
+/// <summary>A rune put somewhere: on the ground at At, on someone's skin, or into their gear.</summary>
+public sealed record RuneCarved(int ActorId, string RuneId, Content.RuneSurface Surface, Point At) : GameEvent;
+
+/// <summary>A rune on the ground went off on someone.</summary>
+public sealed record RuneTriggered(string RuneId, Point At, int TargetId) : GameEvent;
+
+/// <summary>A rune on the ground is spent, broken or worn away.</summary>
+public sealed record RuneFaded(string RuneId, Point At) : GameEvent;
+
+/// <summary>The player read a rune off a stone and can carve it now.</summary>
+public sealed record RuneLearned(string RuneId) : GameEvent;
 
 /// <summary>An action that didn't happen, and why (the turn isn't used).</summary>
 public sealed record ActionFailed(int ActorId, FailureReason Reason) : GameEvent;

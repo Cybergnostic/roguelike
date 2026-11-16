@@ -282,7 +282,7 @@ public sealed partial class GameScreen
         ("g", "Pick up"), ("e", "Equip"),
         ("q", "Drink"), ("<>", "Stairs"),
         ("z", "Sneak"), ("t C", "Toll, gate"),
-        ("v", "Charge"), ("a", "Skills"),
+        ("v", "Charge"), ("a r", "Skills, runes"),
     ];
 
     private void DrawKeys()

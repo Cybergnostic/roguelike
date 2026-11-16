@@ -302,7 +302,7 @@ public class ClassTests
     }
 
     [Theory]
-    [InlineData("\"trees\": [\"warrior\", \"survival\", \"senses\"]", "\"trees\": [\"warrior\", \"nonsense\", \"senses\"]", "nonsense")]
+    [InlineData("\"trees\": [\"warrior\", \"survival\", \"senses\", \"runes\"]", "\"trees\": [\"warrior\", \"nonsense\", \"senses\", \"runes\"]", "nonsense")]
     [InlineData("\"starts\": [\"breakthrough\"]", "\"starts\": [\"mend\"]", "mend")]
     [InlineData("{ \"item\": \"robes\",", "{ \"item\": \"nothing\",", "nothing")]
     public void ABrokenClassIsAContentError(string find, string replace, string expected)

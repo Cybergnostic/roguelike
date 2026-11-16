@@ -320,7 +320,7 @@ public sealed partial class GameScreen : ScreenObject
         DrawLog();
         DrawKeys();
         _ui.Clear();
-        _ui.IsVisible = _menu is not null || _sheetOpen || _chronicleOpen || _shop is not null || _choosing || _abilityMenu;
+        _ui.IsVisible = _menu is not null || _sheetOpen || _chronicleOpen || _shop is not null || _choosing || _abilityMenu || _runeMenu;
         DrawModalUi();
     }
 
@@ -409,6 +409,7 @@ public sealed partial class GameScreen : ScreenObject
             var look = Theme.ForCorpse(corpse.Kind, _world.IsWithered(corpse));
             _map.SetGlyph(at.X, at.Y, look.Glyph, look.Foreground, _map.Surface[at.X, at.Y].Background);
         }
+        DrawMarks();
         DrawFloorItems();
         if (_showSquads)
             DrawSquadMarkers();

@@ -1,0 +1,31 @@
+{
+  // Runes (COMBAT_AND_MAGIC.md §4): magic written into the world. A rune is a meaning, not a damage type.
+  // They are found, not bought: a stone inscription teaches one to anyone who can read runes (Rune Lore, or
+  // a Mystic). Carved on the ground (6 turns; lasts "groundTurns"), painted on your skin (1 turn; lasts
+  // "bodyTurns"), or cut into a weapon or armour (long work, with no enemy in sight; lasts until replaced).
+  // "ground"/"body"/"weapon"/"armor": what it does there (missing: it can't go there). The rules for each
+  // are in World.Runes.cs; the numbers are here:
+  //   power: damage (Thurisaz), ward strength (Algiz on skin), healing (Berkano)
+  //   charges: how many times a ground mark goes off before it is spent
+  //   radius: how far a ground mark reaches (Kenaz's light, Berkano's rest)
+  "runes": [
+    { "id": "algiz", "name": "Algiz", "meaning": "protection",
+      "ground": "a ward: the dead can't cross it, and anyone else who does breaks it",
+      "body": "a ward that soaks the next blows", "armor": "arrows glance off (+2 against missiles)",
+      "power": 8, "bodyTurns": 12 },
+    { "id": "thurisaz", "name": "Thurisaz", "meaning": "thorn",
+      "ground": "wounds whoever steps on it", "body": "whoever strikes you is cut", "weapon": "+2 damage",
+      "power": 6, "charges": 3, "bodyTurns": 10 },
+    { "id": "isa", "name": "Isa", "meaning": "ice, stillness",
+      "ground": "whoever steps on it is slowed", "body": "you can't be staggered", "armor": "you can't be staggered",
+      "charges": 3, "bodyTurns": 12 },
+    { "id": "naudhiz", "name": "Naudhiz", "meaning": "need, constraint",
+      "ground": "binds: whoever steps on it is held fast, and the dead lying there can't rise",
+      "charges": 2 },
+    { "id": "kenaz", "name": "Kenaz", "meaning": "torch",
+      "ground": "light: you see everyone near it, and nobody hides there", "radius": 4 },
+    { "id": "berkano", "name": "Berkano", "meaning": "birch, healing",
+      "ground": "resting beside it heals twice as fast", "body": "heals at once",
+      "power": 8, "radius": 2 }
+  ]
+}

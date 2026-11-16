@@ -35,6 +35,7 @@ public sealed partial class World
                 var from = target.Position;
                 target.Position = next;
                 Emit(new ActorMoved(target.Id, from, next));
+                TriggerMark(target); // shoved onto a rune
                 continue;
             }
             // Into something: it reels, and so does whoever it hit.
@@ -119,6 +120,9 @@ public sealed partial class World
     /// <summary>A creature took a step: covering fire and interceptions react to it.</summary>
     public void AfterStep(Actor mover, Point from)
     {
+        TriggerMark(mover);
+        if (mover.IsDead)
+            return;
         Intercept(mover, from);
         if (!mover.IsDead)
             SuppressiveFire(mover);

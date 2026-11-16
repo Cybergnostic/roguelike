@@ -1,6 +1,7 @@
 {
   // What you can start as. "attributes" replace player.json's; "kit" and "gold" are what you carry.
   // "trees": the skill trees this class can learn from (skills.json). "starts": skills it already knows.
+  // "runes": runes it knows from the start (runes.json); everyone else finds them on inscribed stones.
   "classes": [
     { "id": "warrior", "name": "Warrior",
       "description": "Heavy armour and a long blade. Holds ground, breaks lines, hard to stop once it arrives.",
@@ -11,7 +12,7 @@
         { "item": "chain_mail",     "equip": true },
         { "item": "healing_potion", "count": 2 }
       ],
-      "trees": ["warrior", "survival", "senses"], "starts": ["breakthrough"] },
+      "trees": ["warrior", "survival", "senses", "runes"], "starts": ["breakthrough"] },
     { "id": "ranger", "name": "Ranger",
       "description": "Kills at range and shapes the approach. Weak when the enemy gets close.",
       "attributes": { "str": 11, "dex": 16, "con": 13, "int": 10, "wis": 12, "cha": 10 },
@@ -22,7 +23,7 @@
         { "item": "leather_armor",  "equip": true },
         { "item": "healing_potion", "count": 4 }
       ],
-      "trees": ["ranger", "survival", "senses"], "starts": ["shooting_techniques"] },
+      "trees": ["ranger", "survival", "senses", "runes"], "starts": ["shooting_techniques"] },
     { "id": "shadow", "name": "Shadow",
       "description": "Two daggers and a light step. Works the enemy's awareness; deadly against anyone not ready.",
       "attributes": { "str": 12, "dex": 18, "con": 13, "int": 12, "wis": 10, "cha": 12 },
@@ -33,7 +34,7 @@
         { "item": "leather_armor",  "equip": true },
         { "item": "healing_potion", "count": 4 }
       ],
-      "trees": ["shadow", "survival", "senses"], "starts": ["opportunist"] },
+      "trees": ["shadow", "survival", "senses", "runes"], "starts": ["opportunist"] },
     { "id": "mystic", "name": "Mystic",
       "description": "Fire and old words. Frail, but it can burn from afar and mend its own wounds.",
       "attributes": { "str": 9, "dex": 11, "con": 11, "int": 16, "wis": 15, "cha": 11 },
@@ -43,6 +44,7 @@
         { "item": "robes",          "equip": true },
         { "item": "healing_potion", "count": 4 }
       ],
-      "trees": ["rites", "survival", "senses"], "starts": ["cinder_bolt"] }
+      "trees": ["rites", "survival", "senses", "runes"], "starts": ["cinder_bolt", "rune_lore", "inscription"],
+      "runes": ["algiz", "berkano"] }
   ]
 }

@@ -28,7 +28,8 @@ public enum HoldsCorridors { Never, WithShooters, Always }
 /// <summary>How a squad thinks (minds.json).</summary>
 public sealed record MindDef(string Id, string Name, string Description, int ShoutRange, int Memory, int Searches, bool SizesUp,
     Surrounds Surround, HoldsCorridors HoldsCorridors, int BreaksAt, bool FocusFire = false, bool RotatesWounded = false,
-    bool ShootersKeepBack = false, int CommanderLoss = 0, bool AdvancesTogether = false, int CasualtyMorale = 25, int UnderFireStepTime = 100)
+    bool ShootersKeepBack = false, int CommanderLoss = 0, bool AdvancesTogether = false, int CasualtyMorale = 25, int UnderFireStepTime = 100,
+    bool AvoidsMarks = false)
 {
     /// <summary>For actors made by hand, without any content behind them.</summary>
     public static readonly MindDef Default = new("rabble", "Rabble", "", 6, 6, 20, true, Surrounds.WhenBold, HoldsCorridors.Never, 40);
@@ -39,7 +40,26 @@ public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain, Frighten
 
 /// <summary>A class the player can start as (classes.json): its attributes and kit, the skill trees it can learn, and what it already knows.</summary>
 public sealed record ClassDef(string Id, string Name, string Description, IReadOnlyDictionary<string, int> Attributes, int Gold,
-    IReadOnlyList<KitEntry> Kit, IReadOnlyList<string> Trees, IReadOnlyList<string> Starts);
+    IReadOnlyList<KitEntry> Kit, IReadOnlyList<string> Trees, IReadOnlyList<string> Starts, IReadOnlyList<string>? Runes = null);
+
+/// <summary>Where a rune can be put: the ground under you, your own skin, or a piece of gear.</summary>
+public enum RuneSurface { Ground, Body, Weapon, Armor }
+
+/// <summary>
+/// A rune (runes.json, COMBAT_AND_MAGIC.md §4): a meaning, not a damage type. Ground/Body/Weapon/Armor are
+/// what it does on each surface (null: it can't go there). Power, Charges, Radius and the turns are its numbers.
+/// </summary>
+public sealed record RuneDef(string Id, string Name, string Meaning, string? Ground = null, string? Body = null, string? Weapon = null,
+    string? Armor = null, int Power = 0, int Charges = 0, int Radius = 0, int GroundTurns = 200, int BodyTurns = 10)
+{
+    public string? On(RuneSurface surface) => surface switch
+    {
+        RuneSurface.Ground => Ground,
+        RuneSurface.Body => Body,
+        RuneSurface.Weapon => Weapon,
+        _ => Armor,
+    };
+}
 
 /// <summary>A skill (abilities.json); which fields matter depends on Kind. Verb: its log wording.</summary>
 public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, string Verb, int Range = 0, int Amount = 0, int Count = 0, string? Monster = null, int Power = 0, string? You = null,
@@ -279,9 +299,15 @@ public sealed class ContentDatabase
         // Ranger
         "elusive", "pin_hold", "pin_through", "keen_hunter", "watchful",
         // Shadow
-        "light_step", "stillness", "shadow_runner", "cutthroat", "sure_strike", "slippery", "decoy", "slip_away", "from_shadows"];
+        "light_step", "stillness", "shadow_runner", "cutthroat", "sure_strike", "slippery", "decoy", "slip_away", "from_shadows",
+        // Runes (anyone)
+        "rune_reading", "rune_sense", "rune_breaking", "carving", "gear_carving", "deep_carving"];
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
+
+    /// <summary>The runes (runes.json), in the order they are written there.</summary>
+    public IReadOnlyDictionary<string, RuneDef> Runes { get; private init; } = new Dictionary<string, RuneDef>();
+    public IReadOnlyList<RuneDef> RuneList { get; private init; } = [];
 
     private static readonly Lazy<ContentDatabase> DefaultContent =
         new(() => Load(Path.Combine(AppContext.BaseDirectory, "data")));
@@ -481,8 +507,19 @@ public sealed class ContentDatabase
         ValidateClasses(classes, trees, attributes, items, abilities);
 
         var affixes = LoadAffixes(Read<AffixFile>(directory, "affixes.json"), dungeon.Levels);
+        var runes = Read<RuneFile>(directory, "runes.json").Runes;
+        if (runes.Select(r => r.Id).Distinct().Count() != runes.Count)
+            throw Error("runes.json", "rune ids must be unique");
+        foreach (var c in classes)
+            foreach (var r in c.Runes ?? [])
+                if (runes.All(x => x.Id != r))
+                    throw Error("classes.json", $"'{c.Id}' starts knowing unknown rune '{r}'");
         return new ContentDatabase(factions, relations, monsters, spawnFile, items, itemFile, player,
-            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites, classes, LoadMinds(directory, monsters));
+            attributes, raise, trees, combat, dungeon, affixes, surface, history, abilities, elites, classes, LoadMinds(directory, monsters))
+        {
+            Runes = runes.ToDictionary(r => r.Id),
+            RuneList = runes,
+        };
     }
 
     private static Dictionary<string, MindDef> LoadMinds(string directory, Dictionary<string, MonsterDef> monsters)
@@ -893,6 +930,7 @@ public sealed class ContentDatabase
     private sealed record AbilityFile(List<AbilityDef> Abilities);
     private sealed record ClassFile(List<ClassDef> Classes);
     private sealed record MindFile(List<MindDef> Minds);
+    private sealed record RuneFile(List<RuneDef> Runes);
     private sealed record SpawnFile(double RoomOccupancy, double FloorItemChance, List<SquadTemplateDef> Squads,
         int SafeStartDistance = 0, List<SquadTemplateDef>? Lairs = null);
     private sealed record AttributeFile(List<AttributeEntry> Attributes, AttributeRaiseRules Raise);

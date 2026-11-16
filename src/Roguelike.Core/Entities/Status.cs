@@ -4,9 +4,9 @@ namespace Roguelike.Core.Entities;
 /// A passing condition on an actor (COMBAT_AND_MAGIC.md §5 step 2). Each kind's Amount means:
 /// Slowed: percent slower; Held: unused (can't step); Hexed: percent more damage taken and less dealt;
 /// Shielded: points of damage still to absorb; Marked: percent more damage from whoever marked it;
-/// Emboldened: percent more damage dealt.
+/// Emboldened: percent more damage dealt; Thorned: whoever strikes it in melee is cut; Steadfast: can't be staggered.
 /// </summary>
-public enum StatusKind { Slowed, Held, Hexed, Shielded, Marked, Emboldened }
+public enum StatusKind { Slowed, Held, Hexed, Shielded, Marked, Emboldened, Thorned, Steadfast }
 
 /// <summary>One status: until the end of turn <see cref="Until"/>, from <see cref="SourceId"/> (who caused it).</summary>
 public sealed class Status(StatusKind kind, int until, int amount, int sourceId)

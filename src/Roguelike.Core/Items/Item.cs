@@ -68,6 +68,9 @@ public sealed class Item(int id, ItemDef def)
     public int Count { get; set; } = 1;
     public IReadOnlyList<AffixRoll> Affixes { get; init; } = [];
     public string? Special { get; init; }
+
+    /// <summary>A rune cut into it (runes.json id), if any. Carving another replaces it.</summary>
+    public string? Rune { get; set; }
     public IReadOnlyList<string>? NameWords { get; init; }
 
     /// <summary>What this item's properties add to a stat while it's worn.</summary>

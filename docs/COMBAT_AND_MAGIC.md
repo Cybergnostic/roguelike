@@ -228,3 +228,26 @@ levels 4-7. Too easy overall: left for the rebalance after the class skills, as 
 Measured (tactical bot, 300 games per class, seeds 1000-1299): **Warrior 84%, Ranger 99.7%, Shadow 93%,
 Mystic 83%**. Every class is too strong, the Ranger most of all (no deaths below level 1). Left for the
 rebalance (step 6). Warriors die mostly on level 1 (11%), before their skills arrive.
+
+### Step 4, runes (2026-11-16)
+- `data/runes.json`: Algiz, Thurisaz, Isa, Naudhiz, Kenaz, Berkano, each with what it does on the ground, the
+  skin, a weapon and armour (where it can go), and its numbers. Rules in `World.Runes.cs`.
+- Known, not bought: the Mystic starts with Algiz and Berkano (and Rune Lore 1, Inscription 1); anyone with Rune
+  Lore learns one rune from each inscribed stone they stand on, in an order fixed by the seed.
+- General tree `runes`: Rune Lore (read stones; ranks 2-3 for enemy marks later) and Inscription (ground and
+  skin; gear at rank 2; longer marks at rank 3; 2 + rank marks at once). Every class can learn them.
+- Ground marks go off on enemies of their maker who step on them (Thurisaz wounds, Isa slows, Naudhiz holds),
+  spend charges and fade with time. Algiz: the undead can't cross it; the living break it by crossing. Kenaz:
+  the player sees whoever is in its light. Berkano: resting beside it heals twice as fast. Naudhiz keeps corpses
+  from rising. Minds with `avoidsMarks` (pack, rabble, drilled) step round harmful marks; the mindless and beasts
+  walk in.
+- Skin: Algiz ward (soaks 8), Thurisaz thorns, Isa steadfast, Berkano heal. Gear: Thurisaz weapon +2, Algiz armour
+  +2 against missiles, Isa armour can't be staggered. Gear needs quiet (no enemy in sight) and 15 turns.
+- Screen: `r` opens the rune menu (rune, then g/b/w/a, with each surface's effect or why not); marks drawn with
+  CP437 look-alikes (¥ ► │ ╪ « ß) until the font carries the Futhark; examine and tooltip describe them; gear
+  shows "marked Thurisaz".
+- The bot learns Rune Lore and Inscription, walks to stones it can read, paints Algiz as enemies close (not in
+  melee), Berkano when hurt with no potion, and cuts runes into its gear when it's quiet.
+
+Measured (300 games per class): Warrior 82%, Ranger 93%, Shadow 89%, Mystic 74%. (A first bot version spent its
+turns painting wards and healing runes in melee instead of fighting or drinking: the Mystic fell to 52%.)

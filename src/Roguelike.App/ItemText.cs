@@ -18,6 +18,8 @@ public static class ItemText
             name = affix.Def.Kind == AffixKind.Prefix ? $"{affix.Def.Name} {name}" : $"{name} {affix.Def.Name}";
         if (item.Def.IsEquipment && item.Enchantment != 0)
             name = $"{item.Enchantment:+0;-0} {name}";
+        if (item.Rune is { } rune)
+            name = $"{name} marked {char.ToUpperInvariant(rune[0])}{rune[1..]}";
         return IsNamed(item) ? $"{string.Join(' ', item.NameWords!)} ({name})" : name;
     }
 

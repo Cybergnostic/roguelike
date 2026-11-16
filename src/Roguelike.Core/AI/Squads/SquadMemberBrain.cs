@@ -426,7 +426,7 @@ public sealed class SquadMemberBrain(Squad squad) : IBrain
         var corpse = world.Corpses
             .Where(c => world.Content.Monsters.GetValueOrDefault(c.Kind)?.RisesAs is not null
                         && World.Distance(self.Position, c.Position) <= raise.Range
-                        && world.IsFree(c.Position)
+                        && world.IsFree(c.Position) && !world.IsBound(c.Position)
                         && world.HasLineOfSight(self.Position, c.Position))
             .OrderBy(c => World.Distance(self.Position, c.Position))
             .FirstOrDefault();

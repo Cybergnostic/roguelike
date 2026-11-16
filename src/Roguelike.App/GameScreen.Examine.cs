@@ -115,6 +115,8 @@ public sealed partial class GameScreen
                 lines.Add((_world.IsWithered(corpse) ? $"The withered remains of a {corpse.Kind.Replace('_', ' ')}" : $"The corpse of a {corpse.Kind.Replace('_', ' ')}", Theme.Text));
         }
 
+        if (MarkText(p) is { } mark)
+            lines.Add((mark, RuneColor));
         var (name, about) = TileText(map.Tiles[p]);
         lines.Add((name, Theme.Warning));
         lines.Add((about, Theme.Text));

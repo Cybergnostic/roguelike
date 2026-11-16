@@ -3,6 +3,7 @@ using Roguelike.Core.AI.Squads;
 using Roguelike.Core.Entities;
 using Roguelike.Core.Items;
 using SadRogue.Primitives;
+using SadRogue.Primitives.GridViews;
 
 namespace Roguelike.Core.Simulation;
 
@@ -27,16 +28,16 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
     /// <summary>XP purchases in order, per class (skill ids; each entry is that skill's next rank), bought as soon as affordable.</summary>
     private static readonly Dictionary<string, string[]> ClassPlans = new()
     {
-        ["warrior"] = ["weapon_mastery", "combat_stances", "hold_the_line", "weapon_mastery", "toughness", "battle_momentum",
+        ["warrior"] = ["weapon_mastery", "combat_stances", "hold_the_line", "rune_lore", "weapon_mastery", "inscription", "toughness", "inscription", "battle_momentum",
             "hold_the_line", "combat_stances", "weapon_mastery", "breakthrough", "hold_the_line", "battle_momentum", "toughness",
             "breakthrough", "combat_stances", "battle_momentum", "toughness", "thick_skin", "field_medicine"],
-        ["ranger"] = ["marksmanship", "pinning_shot", "skirmishing", "marksmanship", "hunters_instinct", "shooting_techniques",
+        ["ranger"] = ["marksmanship", "pinning_shot", "skirmishing", "rune_lore", "marksmanship", "inscription", "hunters_instinct", "inscription", "shooting_techniques",
             "skirmishing", "toughness", "marksmanship", "pinning_shot", "shooting_techniques", "skirmishing", "hunters_instinct",
             "toughness", "pinning_shot", "field_medicine", "hunters_instinct", "toughness"],
-        ["shadow"] = ["shadowcraft", "evasion", "escape_artist", "opportunist", "evasion", "toughness", "shadowcraft",
+        ["shadow"] = ["shadowcraft", "evasion", "escape_artist", "rune_lore", "opportunist", "inscription", "evasion", "toughness", "inscription", "shadowcraft",
             "escape_artist", "opportunist", "misdirection", "evasion", "toughness", "misdirection", "shadowcraft", "escape_artist",
             "field_medicine", "toughness"],
-        ["mystic"] = ["toughness", "cinder_bolt", "mend", "field_medicine", "toughness", "life_drain", "thick_skin",
+        ["mystic"] = ["toughness", "cinder_bolt", "mend", "inscription", "field_medicine", "toughness", "life_drain", "inscription", "thick_skin",
             "second_wind", "toughness", "field_medicine", "thick_skin", "second_wind", "fleet_foot"],
     };
 
@@ -73,6 +74,8 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
 
         if (threats.Count > 0 && Dodge(world, me) is { } dodge)
             return dodge;
+        if (Runes(world, me, threats, hp) is { } rune)
+            return rune;
         if (threats.Count > 0 && UseSkill(world, me, threats, hp) is { } skill)
             return skill;
         if (threats.Count > 0 && ChangeStance(world, me, threats, hp) is { } stance)
@@ -131,9 +134,11 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
             _ignoreUntil = world.Turn + 30;
         }
 
-        // 3. Quiet: recover, loot, explore, descend.
+        // 3. Quiet: recover, loot, read stones, explore, descend.
         if (hp < 0.7)
             return new WaitAction();
+        if (UnreadStone(world, me) is { } stone && world.StepToward(me, stone) is { } toStone)
+            return new MoveAction(toStone);
         if (world.ItemsAt(me.Position).Any(i => Wanted(me, i)) && me.Inventory is { IsFull: false })
             return new PickUpAction();
         var fov = world.Map.PlayerFov.BooleanResultView;
@@ -295,6 +300,50 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
                 (best, bestDist) = (p, dist);
         }
         return best;
+    }
+
+    /// <summary>Stones I've stood on (to read their runes) in this game.</summary>
+    private readonly HashSet<(int Depth, Point At)> _stonesRead = [];
+
+    /// <summary>An inscribed stone in sight I haven't read yet, if I can read runes.</summary>
+    private Point? UnreadStone(World world, Actor me)
+    {
+        if (world.Map.Tiles[me.Position] == Map.Tile.Inscription)
+            _stonesRead.Add((world.Depth, me.Position));
+        if (!me.HasSpecial("rune_reading"))
+            return null;
+        var fov = world.Map.PlayerFov.BooleanResultView;
+        return world.Map.Tiles.Positions().Where(p => world.Map.Tiles[p] == Map.Tile.Inscription && fov[p] && !_stonesRead.Contains((world.Depth, p)))
+            .Cast<Point?>().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Runes the way a careful player would use them: a ward on the skin as a fight closes in, Berkano when
+    /// hurt, and in quiet moments the best runes cut into weapon and armour.
+    /// </summary>
+    private static GameAction? Runes(World world, Actor me, List<Actor> threats, double hp)
+    {
+        if (me.Character is not { } c || c.KnownRunes.Count == 0)
+            return null;
+        bool Can(string rune, Content.RuneSurface where) => c.KnowsRune(rune) && world.CarveProblem(me, rune, where) is null;
+        if (threats.Count > 0)
+        {
+            // A potion heals more; Berkano is for when they're gone, and only out of reach of blows.
+            if (hp < 0.5 && Potion(me) is null && !threats.Any(t => world.IsAdjacent(t.Position, me.Position)) && Can("berkano", Content.RuneSurface.Body))
+                return new CarveAction("berkano", Content.RuneSurface.Body);
+            // Before they arrive: once they're at my throat a turn spent painting is a turn not fighting.
+            bool closing = threats.Any(t => World.Distance(t.Position, me.Position) is >= 2 and <= 4)
+                           && !threats.Any(t => world.IsAdjacent(t.Position, me.Position));
+            if (closing && !me.Has(Entities.StatusKind.Shielded) && Can("algiz", Content.RuneSurface.Body))
+                return new CarveAction("algiz", Content.RuneSurface.Body);
+            return null;
+        }
+        if (me.Equipment?.Weapon is { Rune: null } && Can("thurisaz", Content.RuneSurface.Weapon))
+            return new CarveAction("thurisaz", Content.RuneSurface.Weapon);
+        foreach (var rune in new[] { "isa", "algiz" })
+            if (me.Equipment?.Armor is { Rune: null } && Can(rune, Content.RuneSurface.Armor))
+                return new CarveAction(rune, Content.RuneSurface.Armor);
+        return null;
     }
 
     /// <summary>An announced heavy blow at me from next door: shove the brute if I can, else step out of reach.</summary>

@@ -484,3 +484,25 @@ public sealed record WindUpAction(AbilityDef Ability, int TargetId) : GameAction
     }
 }
 
+/// <summary>Carves (or paints) a rune the player knows: on the ground underfoot, on the skin, or into gear.</summary>
+public sealed record CarveAction(string RuneId, RuneSurface Surface) : GameAction
+{
+    public override int TimeCost(World world, Actor actor) => World.CarveTime(Surface);
+
+    public override int NoiseMade(World world, Actor actor) => Surface == RuneSurface.Body ? 0 : CarvingNoise;
+
+    /// <summary>Chisel on stone: about as loud as a scuffle.</summary>
+    private const int CarvingNoise = 5;
+
+    public override bool Perform(World world, Actor actor)
+    {
+        if (world.CarveProblem(actor, RuneId, Surface) is { } problem)
+        {
+            world.Emit(new ActionFailed(actor.Id, problem));
+            return false;
+        }
+        world.Carve(actor, RuneId, Surface);
+        return true;
+    }
+}
+

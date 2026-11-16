@@ -32,7 +32,7 @@ public sealed partial class GameScreen
     private ItemMenu? _menu;
     private Targeting? _targeting;
 
-    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null || _beggar is not null || _choosing || _abilityMenu;
+    private bool InModalUi => _menu is not null || _targeting is not null || _sheetOpen || _examine is not null || _askingToll || _chronicleOpen || _shop is not null || _beggar is not null || _choosing || _abilityMenu || _runeMenu;
 
     /// <summary>Handles item keys in normal play. Returns the action to take, or null.</summary>
     private GameAction? ItemCommand(Keyboard keyboard)
@@ -66,6 +66,8 @@ public sealed partial class GameScreen
             return new ToggleSneakAction();
         else if (keyboard.IsKeyPressed(Keys.W))
             return NextStance();
+        else if (keyboard.IsKeyPressed(Keys.R) && !keyboard.IsKeyDown(Keys.LeftShift) && !keyboard.IsKeyDown(Keys.RightShift))
+            OpenRunes();
         else if (keyboard.IsKeyPressed(Keys.M))
             _chronicleOpen = true;
         else if (keyboard.IsKeyPressed(Keys.X))
@@ -144,11 +146,15 @@ public sealed partial class GameScreen
             _shop = null;
             _beggar = null;
             _abilityMenu = false;
+            _runeMenu = false;
+            _runeChosen = null;
             return null;
         }
 
         if (_abilityMenu)
             return AbilityMenuInput(keyboard);
+        if (_runeMenu)
+            return RuneMenuInput(keyboard);
 
         if (_beggar is not null)
             return MercyInput(keyboard);
@@ -233,6 +239,8 @@ public sealed partial class GameScreen
             DrawMercyPrompt();
         if (_abilityMenu)
             DrawAbilities();
+        if (_runeMenu)
+            DrawRunes();
         if (_choosing)
             DrawChooser();
     }

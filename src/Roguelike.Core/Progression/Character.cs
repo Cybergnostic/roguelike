@@ -25,6 +25,7 @@ public sealed class Character
         Class = characterClass;
         foreach (var skill in characterClass?.Starts ?? [])
             _ranks[skill] = 1;
+        _runes.AddRange(characterClass?.Runes ?? []);
         foreach (var a in content.Attributes)
             _scores[a.Id] = scores?.GetValueOrDefault(a.Id, BaseScore) ?? BaseScore;
     }
@@ -103,9 +104,9 @@ public sealed class Character
         return rank < def.Ranks ? def.Cost[rank] : null;
     }
 
-    /// <summary>Whether this character's class teaches this tree. The classless get only the general trees.</summary>
+    /// <summary>Whether this character's class teaches this tree. The classless get only the general trees (those every class has).</summary>
     public bool CanLearnFrom(string tree) =>
-        Class is { } own ? own.Trees.Contains(tree) : !_content.Classes.Any(c => c.Starts.Any(s => _content.Skills[s].Tree == tree));
+        Class is { } own ? own.Trees.Contains(tree) : _content.Classes.All(c => c.Trees.Contains(tree));
 
     /// <summary>The active skills this character can use, in the order their skills (and ranks) define them.</summary>
     public IEnumerable<AbilityDef> KnownAbilities =>
@@ -152,6 +153,20 @@ public sealed class Character
 
     /// <summary>Marks a first encounter ("kind:goblin_archer", "zone:the tower"). True the first time only.</summary>
     internal bool Discover(string key) => _discovered.Add(key);
+
+    /// <summary>The runes this character can carve (runes.json ids), in the order learned.</summary>
+    public IReadOnlyList<string> KnownRunes => _runes;
+    private readonly List<string> _runes = [];
+
+    public bool KnowsRune(string rune) => _runes.Contains(rune);
+
+    internal bool LearnRune(string rune)
+    {
+        if (_runes.Contains(rune))
+            return false;
+        _runes.Add(rune);
+        return true;
+    }
 
     public bool HasDiscovered(string key) => _discovered.Contains(key);
 }
