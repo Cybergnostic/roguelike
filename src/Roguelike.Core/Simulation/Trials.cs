@@ -79,8 +79,8 @@ public static class Trials
         new("ranger", "skirmisher", ["skill:skirmishing", "skill:marksmanship", "skill:skirmishing", "skill:pinning_shot", "skill:skirmishing"], ["dex", "wis"]),
         new("shadow", "duelist", ["skill:evasion", "skill:opportunist", "skill:evasion", "skill:escape_artist", "skill:opportunist"], ["dex", "str"]),
         new("shadow", "survivor", ["skill:escape_artist", "skill:misdirection", "skill:shadowcraft", "skill:escape_artist", "skill:evasion"], ["con", "dex"]),
-        new("mystic", "pyromancer", ["skill:cinder_bolt", "skill:life_drain", "skill:mend", "skill:fleet_foot"], ["int", "con"]),
-        new("mystic", "mender", ["skill:mend", "skill:cinder_bolt", "skill:field_medicine", "skill:second_wind", "skill:thick_skin", "skill:life_drain"], ["wis", "con"]),
+        new("mystic", "voice", ["skill:word_of_power", "skill:hex", "skill:word_of_power", "skill:aegis", "skill:hex", "skill:word_of_power"], ["int", "con"]),
+        new("mystic", "warder", ["skill:aegis", "skill:spirit_blade", "skill:aegis", "skill:rune_sight", "skill:spirit_blade", "skill:hex"], ["con", "int"]),
     ];
 
     public static readonly TrialFight[] Fights =

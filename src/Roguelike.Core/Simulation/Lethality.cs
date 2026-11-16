@@ -32,7 +32,7 @@ public static class Lethality
                 var squad = world.SquadOf(monster)!;
                 squad.State = AI.Squads.SquadState.Engage;
                 // The player's best plain attack: the bow at range if it has one, else melee; a Mystic's bolt.
-                var bolt = player.Character!.KnownAbilities.FirstOrDefault(a => a.Kind == Content.AbilityKind.Bolt);
+                var bolt = player.Character!.KnownAbilities.FirstOrDefault(a => a.Kind is Content.AbilityKind.Bolt or Content.AbilityKind.Word);
                 (double avg, int chance, string weapon) best = (0, 0, "");
                 foreach (var (ranged, power, name) in new (bool, int, string)[]
                          {
@@ -42,7 +42,8 @@ public static class Lethality
                          })
                 {
                     if (power <= 0) continue;
-                    double avg = AverageBlow(world, power, monster.Defense + (ranged ? monster.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0));
+                    bool pierces = name == "bolt" && bolt?.Kind == Content.AbilityKind.Word;
+                    double avg = AverageBlow(world, power, pierces ? 0 : monster.Defense + (ranged ? monster.Equipment?.Armor?.Def.ArrowGuard ?? 0 : 0));
                     // Two blades strike twice a turn, about.
                     if (!ranged && player.Equipment?.OffHand is not null)
                         avg *= 1.6;

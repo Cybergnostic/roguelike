@@ -37,8 +37,8 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
         ["shadow"] = ["shadowcraft", "evasion", "escape_artist", "rune_lore", "opportunist", "inscription", "evasion", "toughness", "inscription", "shadowcraft",
             "escape_artist", "opportunist", "misdirection", "evasion", "toughness", "misdirection", "shadowcraft", "escape_artist",
             "field_medicine", "toughness"],
-        ["mystic"] = ["toughness", "cinder_bolt", "mend", "inscription", "field_medicine", "toughness", "life_drain", "inscription", "thick_skin",
-            "second_wind", "toughness", "field_medicine", "thick_skin", "second_wind", "fleet_foot"],
+        ["mystic"] = ["toughness", "hex", "aegis", "word_of_power", "spirit_blade", "toughness", "rune_sight", "hex", "aegis",
+            "word_of_power", "inscription", "field_medicine", "spirit_blade", "toughness", "aegis", "hex", "rune_sight", "spirit_blade"],
     };
 
     /// <summary>For a character with no class: general skills only.</summary>
@@ -383,7 +383,17 @@ public sealed class TacticalBot(bool spendsXp = true) : IPlayerBot
                 case Content.AbilityKind.Heal when hp < 0.6 && free:
                 case Content.AbilityKind.Frighten when threats.Count >= 2 && free:
                     return new UseAbilityAction(ability.Id);
-                case Content.AbilityKind.Bolt or Content.AbilityKind.Drain:
+                case Content.AbilityKind.Aegis when free && !me.Has(Entities.StatusKind.Shielded)
+                                                   && threats.Any(t => World.Distance(t.Position, me.Position) <= 4):
+                    return new UseAbilityAction(ability.Id);
+                case Content.AbilityKind.SpiritBlade when free && !me.Has(Entities.StatusKind.SpiritBlade) && adjacent.Count > 0:
+                    return new UseAbilityAction(ability.Id);
+                case Content.AbilityKind.Hex when threats.Count >= 2 || byPriority.FirstOrDefault()?.Rank != Rank.Normal:
+                    foreach (var t in byPriority.Where(t => !t.Has(Entities.StatusKind.Hexed)))
+                        if (world.AbilityProblem(me, ability, t) is null)
+                            return new UseAbilityAction(ability.Id, t.Id);
+                    break;
+                case Content.AbilityKind.Bolt or Content.AbilityKind.Drain or Content.AbilityKind.Word:
                     foreach (var t in byPriority)
                         if (world.AbilityProblem(me, ability, t) is null)
                             return new UseAbilityAction(ability.Id, t.Id);

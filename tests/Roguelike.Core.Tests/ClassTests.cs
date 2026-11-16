@@ -91,7 +91,7 @@ public class ClassTests
     {
         var world = World.Create(1);
         world.GrantXp(XpSource.Kill, "test", 2000);
-        Assert.Contains(world.Step(new LearnSkillAction("mend")), e => e is ActionFailed { Reason: FailureReason.NotYourClass });
+        Assert.Contains(world.Step(new LearnSkillAction("hex")), e => e is ActionFailed { Reason: FailureReason.NotYourClass });
         world.Step(new LearnSkillAction("toughness"));
         Assert.Equal(1, world.Player.Character!.Rank("toughness"));
     }
@@ -101,7 +101,7 @@ public class ClassTests
     {
         var world = Started("warrior");
         var foe = FoeAt(world, 3);
-        Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt", foe.Id)), e => e is ActionFailed { Reason: FailureReason.AbilityUnknown });
+        Assert.Contains(world.Step(new UseAbilityAction("word_of_power", foe.Id)), e => e is ActionFailed { Reason: FailureReason.AbilityUnknown });
     }
 
     [Fact]
@@ -109,47 +109,44 @@ public class ClassTests
     {
         var world = Started("mystic");
         var foe = FoeAt(world, 4);
-        var bolt = world.Content.Abilities["cinder_bolt"];
+        var bolt = world.Content.Abilities["word_of_power"];
 
-        Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt", foe.Id)), e => e is AbilityUsed);
+        Assert.Contains(world.Step(new UseAbilityAction("word_of_power", foe.Id)), e => e is AbilityUsed);
         Assert.True(world.CooldownLeft(bolt) > 0);
-        Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt", foe.Id)), e => e is ActionFailed { Reason: FailureReason.AbilityNotReady });
+        Assert.Contains(world.Step(new UseAbilityAction("word_of_power", foe.Id)), e => e is ActionFailed { Reason: FailureReason.AbilityNotReady });
     }
 
     [Fact]
     public void AimedSkillsNeedATargetInReach()
     {
         var world = Started("mystic");
-        Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt")), e => e is ActionFailed { Reason: FailureReason.NoTarget });
+        Assert.Contains(world.Step(new UseAbilityAction("word_of_power")), e => e is ActionFailed { Reason: FailureReason.NoTarget });
         var at = world.Map.Tiles.Positions().First(p => world.IsFree(p) && World.Distance(p, world.Player.Position) >= 8);
         var far = world.SpawnMonster("goblin_warrior", at);
-        Assert.Contains(world.Step(new UseAbilityAction("cinder_bolt", far.Id)), e => e is ActionFailed { Reason: FailureReason.OutOfRange });
+        Assert.Contains(world.Step(new UseAbilityAction("word_of_power", far.Id)), e => e is ActionFailed { Reason: FailureReason.OutOfRange });
     }
 
     [Fact]
-    public void MagicMakesTheBoltStronger()
+    public void MagicMakesTheWordStronger()
     {
         var world = Started("mystic");
         var foe = FoeAt(world, 4);
-        int before = world.Player.Character!.Rank("cinder_bolt");
+        int before = world.Player.Character!.Rank("word_of_power");
         int magic = world.Player.Bonus(Stat.Magic);
 
-        Learn(world, "cinder_bolt");
+        Learn(world, "word_of_power");
 
-        Assert.Equal(before + 1, world.Player.Character!.Rank("cinder_bolt"));
+        Assert.Equal(before + 1, world.Player.Character!.Rank("word_of_power"));
         Assert.Equal(magic + 1, world.Player.Bonus(Stat.Magic));
     }
 
     [Fact]
-    public void MendHeals()
+    public void AegisWardsTheMystic()
     {
         var world = Started("mystic");
-        Learn(world, "mend");
-        world.Player.Hp = 5;
-
-        world.Step(new UseAbilityAction("mend"));
-
-        Assert.True(world.Player.Hp > 5);
+        Learn(world, "aegis");
+        world.Step(new UseAbilityAction("aegis"));
+        Assert.True(world.Player.Has(StatusKind.Shielded));
     }
 
     [Fact]

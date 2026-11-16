@@ -65,7 +65,8 @@ public class RuneTests
         int turn = world.Turn;
         var events = world.Step(new CarveAction("thurisaz", RuneSurface.Ground));
         Assert.Contains(events, e => e is RuneCarved);
-        Assert.Equal(turn + 6, world.Turn);
+        Assert.Equal(3, World.CarveTime(world.Player, RuneSurface.Ground) / 100); // Rune-Sight: half the usual 6
+        Assert.Equal(turn + 3, world.Turn);
         Assert.Equal("thurisaz", world.MarkAt(world.Player.Position)!.RuneId);
     }
 

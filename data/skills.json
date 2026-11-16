@@ -74,13 +74,27 @@
         "grants": [ { "rank": 2, "special": "slip_away" }, { "rank": 3, "ability": "shadow_strike" }, { "rank": 3, "special": "from_shadows" } ],
         "rankText": ["Vanish: jump away and go unseen for a few turns", "those who lose sight of you give up sooner", "Shadow Strike; blows from hiding catch them unaware"] }
     ]},
-    { "id": "rites", "name": "Old Rites", "skills": [
-      { "id": "cinder_bolt", "name": "Cinder Bolt", "description": "Burn someone from afar. Each rank adds to your Magic.",
-        "ranks": 2, "cost": [40, 70], "perRank": { "magic": 1 }, "ability": "cinder_bolt" },
-      { "id": "mend", "name": "Mend", "description": "Close your own wounds.",
-        "ranks": 1, "cost": [50], "ability": "mend" },
-      { "id": "life_drain", "name": "Life Drain", "description": "Take their strength for your own.",
-        "ranks": 1, "cost": [70], "ability": "life_drain" }
+    { "id": "mystic", "name": "Mystic", "skills": [
+      { "id": "word_of_power", "name": "Word of Power", "description": "A spoken word that strikes at range, through any armour. Magic makes it stronger.",
+        "ranks": 3, "cost": [40, 70, 100], "perRank": { "magic": 1 }, "ability": "word_of_power",
+        "grants": [ { "rank": 2, "special": "word_staggers" }, { "rank": 3, "special": "word_unbinds" } ],
+        "rankText": ["Word of Power: strikes at range, ignoring armour", "it staggers", "double against the dead and the bound"] },
+      { "id": "hex", "name": "Hex", "description": "Curse an enemy: everyone hurts it more, and it hurts less.",
+        "ranks": 3, "cost": [40, 60, 90], "ability": "hex",
+        "grants": [ { "rank": 2, "special": "hex_spreads" }, { "rank": 3, "special": "hex_dread" } ],
+        "rankText": ["Hex: +25% damage taken, -25% dealt, 10 turns", "when it dies the hex leaps to another nearby", "its squad loses its nerve"] },
+      { "id": "spirit_blade", "name": "Spirit Blade", "description": "Your blade strikes the spirit: harder, through armour.",
+        "ranks": 3, "cost": [40, 60, 90], "ability": "spirit_blade",
+        "grants": [ { "rank": 2, "special": "spirit_drain" }, { "rank": 3, "special": "spirit_harvest" } ],
+        "rankText": ["Spirit Blade: +3 melee, ignoring armour, 8 turns", "each blow drinks a little life", "a kill with it heals you"] },
+      { "id": "aegis", "name": "Aegis", "description": "A ward of will around you.",
+        "ranks": 3, "cost": [40, 70, 100], "ability": "aegis",
+        "grants": [ { "rank": 2, "special": "aegis_arrows" }, { "rank": 3, "special": "aegis_burst" } ],
+        "rankText": ["Aegis: soaks 10 + Magic damage, 10 turns", "arrows can't touch you while it holds", "when it breaks, those next to you are thrown back"] },
+      { "id": "rune_sight", "name": "Rune-Sight", "description": "Runes come easily to you.",
+        "ranks": 3, "cost": [30, 60, 90], "special": "rune_reading",
+        "grants": [ { "rank": 1, "special": "quick_carving" }, { "rank": 2, "special": "strong_marks" }, { "rank": 3, "special": "word_through_marks" } ],
+        "rankText": ["read runes without Rune Lore; carve twice as fast", "your marks go off once more, hit harder, and you keep one more", "speak Word of Power through any of your marks in sight"] }
     ]},
     // ---- General skills: anyone can learn these.
     { "id": "runes", "name": "Runes", "skills": [

@@ -1157,7 +1157,7 @@ public sealed partial class World
     /// times the attacker's advantages, minus the target's armour, never below the minimum damage.
     /// Armour softens hits; it can't make anyone untouchable.
     /// </summary>
-    public void ResolveAttack(Actor attacker, Actor target, bool ranged, int? power = null, int accuracyBonus = 0)
+    public void ResolveAttack(Actor attacker, Actor target, bool ranged, int? power = null, int accuracyBonus = 0, bool throughArmour = false)
     {
         // Judged before the blow lands: the blow itself wakes them up.
         int advantage = AdvantagePercent(attacker, target, ranged);
@@ -1176,6 +1176,17 @@ public sealed partial class World
         }
         var rules = Content.Combat;
         int strength = Math.Max(1, power ?? (ranged ? attacker.RangedAttack : attacker.Attack));
+        var blade = ranged ? null : attacker.StatusOf(StatusKind.SpiritBlade);
+        if (blade is not null)
+        {
+            strength += blade.Amount;
+            throughArmour = true;
+        }
+        if (ranged && target.Has(StatusKind.Shielded) && target.HasSpecial("aegis_arrows") && !throughArmour)
+        {
+            Emit(new ShieldAbsorbed(target.Id, 0, false)); // the arrow glances off the ward
+            return;
+        }
         if (unaware && !ranged && attacker.HasSpecial("backstab"))
             Emit(new SpecialUsed(attacker.Id, "backstab", target.Id));
         int spread = Rng.NextInt(100 - rules.DamageSpread, 100 + rules.DamageSpread + 1);
@@ -1184,6 +1195,8 @@ public sealed partial class World
         if (ranged && attacker.HasSpecial("piercing"))
             armour /= 2;
         int blow = (int)Math.Round(strength * spread / 100.0 * advantage / 100.0);
+        if (throughArmour)
+            armour = 0;
         int stopped = Math.Min(Math.Max(0, armour), blow * rules.ArmourStopsAtMostPercent / 100);
         int dealt = Math.Max(rules.MinDamage, blow - stopped);
         Damage(attacker, target, dealt, ranged);
@@ -1194,7 +1207,8 @@ public sealed partial class World
             Stagger(target, attacker);
 
         // Lifesteal: a melee hit heals the striker by a quarter of the damage (at least 1).
-        if (dealt > 0 && !attacker.IsDead && attacker.Hp < attacker.MaxHp && attacker.HasSpecial("lifesteal"))
+        if (dealt > 0 && !attacker.IsDead && attacker.Hp < attacker.MaxHp
+            && (attacker.HasSpecial("lifesteal") || (blade is not null && attacker.HasSpecial("spirit_drain"))))
         {
             attacker.Hp = Math.Min(attacker.MaxHp, attacker.Hp + Math.Max(1, dealt / 4));
             Emit(new SpecialUsed(attacker.Id, "lifesteal", target.Id));
@@ -1238,6 +1252,10 @@ public sealed partial class World
         if (target is null || target.IsDead || !CouldFight(actor, target))
             return FailureReason.NoTarget;
 
+        if (ability.Kind == AbilityKind.Word)
+            return WordOrigin(actor, target, ability) is null
+                ? (Distance(actor.Position, target.Position) > ability.Range && !actor.HasSpecial("word_through_marks") ? FailureReason.OutOfRange : FailureReason.NoLineOfFire)
+                : null;
         int distance = Distance(actor.Position, target.Position);
         int reach = ability.Adjacent ? 1 : ability.NeedsBow ? actor.Range : ability.Range;
         if (distance > reach)
@@ -1252,7 +1270,7 @@ public sealed partial class World
                 return TumbleLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
             case AbilityKind.Disengage:
                 return DisengageLanding(actor, target) is null ? FailureReason.NoLineOfFire : null;
-            case AbilityKind.MarkPrey:
+            case AbilityKind.MarkPrey or AbilityKind.Hex:
                 return HasLineOfSight(actor.Position, target.Position) ? null : FailureReason.NoLineOfFire;
             case AbilityKind.Distract:
                 return StoneLanding(actor, target, ability) is null || !HasLineOfSight(actor.Position, target.Position) ? FailureReason.NoLineOfFire : null;
@@ -1364,7 +1382,12 @@ public sealed partial class World
             damage -= soaked;
             Emit(new ShieldAbsorbed(target.Id, soaked, shield.Amount == 0));
             if (shield.Amount == 0)
+            {
                 RemoveStatus(target, StatusKind.Shielded);
+                if (target.HasSpecial("aegis_burst"))
+                    foreach (var near in EightWay.Select(d => ActorAt(target.Position + d)).OfType<Actor>().Where(a => !a.IsDead && AreHostile(a, target)).ToList())
+                        Shove(target, near);
+            }
         }
         target.Hp -= damage;
         Emit(new ActorAttacked(attacker.Id, target.Id, damage, ranged));
@@ -1374,6 +1397,7 @@ public sealed partial class World
         Emit(new ActorDied(target.Id, target.Kind, target.Faction.Id, attacker.Id));
         if (attacker == Player && target != Player)
             PlayerKilled();
+        SpreadHex(target);
         Noise(target.Position, SoundKind.Death, target);
         if (attacker == Player && Content.Monsters.TryGetValue(target.Kind, out var killed))
             GrantXp(XpSource.Kill, target.Kind, Content.Dungeon.XpFor(killed.Xp, DangerDepth) * target.XpMultiplier);

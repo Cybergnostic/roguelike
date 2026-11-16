@@ -63,6 +63,12 @@ public sealed partial class World
     /// <summary>The player's kill: Battle Momentum makes the next action quick, and rank 2 emboldens.</summary>
     private void PlayerKilled()
     {
+        if (Player.Has(StatusKind.SpiritBlade) && Player.HasSpecial("spirit_harvest"))
+        {
+            int healed = Math.Min(Player.MaxHp - Player.Hp, SpiritHarvest);
+            Player.Hp += healed;
+            Emit(new ActorHealed(Player.Id, Player.Id, healed));
+        }
         if (Player.HasSpecial("momentum"))
             _quickNextAction = true;
         if (Player.HasSpecial("bloodlust"))
@@ -252,4 +258,54 @@ public sealed partial class World
             return true;
         return false;
     }
+
+    // ---- Mystic ----
+
+    private const int SpiritHarvest = 5, HexDread = 15, HexSpreadReach = 3;
+
+    /// <summary>Word of Power: ranged, through any armour; with rank 3, double on the dead and the bound.</summary>
+    public void SpeakWord(Actor actor, Actor target, AbilityDef ability)
+    {
+        int power = ability.Power + actor.Bonus(Progression.Stat.Magic);
+        if (actor.HasSpecial("word_unbinds") && (target.Faction.Id == "undead" || target.Has(StatusKind.Held)))
+            power *= 2;
+        ResolveAttack(actor, target, ranged: true, power: power, accuracyBonus: 3, throughArmour: true);
+        if (actor.HasSpecial("word_staggers"))
+            StaggerIfAlive(target, actor);
+    }
+
+    /// <summary>
+    /// Where a Word of Power can be spoken from at this target: the speaker, or (Rune-Sight rank 3) any of
+    /// their marks the player can see, within reach and a clear line of it. Null if none will do.
+    /// </summary>
+    public Point? WordOrigin(Actor actor, Actor target, AbilityDef ability)
+    {
+        bool From(Point p) => Distance(p, target.Position) <= ability.Range && HasClearShotFrom(actor, p, target.Position);
+        if (From(actor.Position))
+            return actor.Position;
+        if (!actor.HasSpecial("word_through_marks"))
+            return null;
+        var fov = Map.PlayerFov.BooleanResultView;
+        return _location.Marks.Where(m => m.OwnerId == actor.Id && fov[m.At] && From(m.At)).Select(m => (Point?)m.At).FirstOrDefault();
+    }
+
+    public void Hex(Actor actor, Actor target, AbilityDef ability)
+    {
+        AddStatus(target, StatusKind.Hexed, Math.Max(1, ability.Turns), ability.Amount, actor);
+        if (actor.HasSpecial("hex_dread") && SquadOf(target) is { IsFearless: false } squad)
+            squad.Morale -= HexDread;
+    }
+
+    /// <summary>Hex rank 2: when a hexed creature dies, the curse leaps to the nearest of its friends.</summary>
+    private void SpreadHex(Actor dead)
+    {
+        if (dead.StatusOf(StatusKind.Hexed) is not { } hex || GetActor(hex.SourceId) is not { } caster || !caster.HasSpecial("hex_spreads"))
+            return;
+        var next = _actors.Where(a => !a.IsDead && a != dead && AreHostile(a, caster) && Distance(a.Position, dead.Position) <= HexSpreadReach
+                                     && !a.Has(StatusKind.Hexed))
+            .OrderBy(a => Distance(a.Position, dead.Position)).FirstOrDefault();
+        if (next is not null)
+            AddStatus(next, StatusKind.Hexed, Math.Max(1, hex.Until - Turn), hex.Amount, caster);
+    }
 }
+

@@ -251,3 +251,16 @@ rebalance (step 6). Warriors die mostly on level 1 (11%), before their skills ar
 
 Measured (300 games per class): Warrior 82%, Ranger 93%, Shadow 89%, Mystic 74%. (A first bot version spent its
 turns painting wards and healing runes in melee instead of fighting or drinking: the Mystic fell to 52%.)
+
+### Step 5, the Mystic (2026-11-16)
+- The Old Rites tree (Cinder Bolt, Mend, Life Drain) is gone. New `mystic` tree: Word of Power (ranged, through
+  armour; staggers; double on the dead and the bound), Hex (+25% taken, -25% dealt; leaps on death; shakes the
+  squad), Spirit Blade (+3 melee through armour for 8 turns; drains; heals on a kill), Aegis (soaks 10 + Magic;
+  stops arrows; throws back the adjacent when it breaks), Rune-Sight (reads runes, carves twice as fast; marks
+  stronger and one more; Word of Power spoken through your own marks).
+- The Mystic starts with Word of Power, Rune-Sight and Inscription, knowing Algiz and Berkano. Healing now comes
+  from Berkano (skin, and resting beside it), potions and rest.
+- The bot: Aegis as enemies close, Spirit Blade in melee, Hex on elites or groups, Word of Power on the most
+  important target.
+
+Measured (300 games): Mystic 88% (Warrior 82%, Ranger 93%, Shadow 89% from step 4).

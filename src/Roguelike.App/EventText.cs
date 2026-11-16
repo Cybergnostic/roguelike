@@ -306,6 +306,10 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         Roguelike.Core.Entities.StatusKind.Held => "held fast",
         Roguelike.Core.Entities.StatusKind.Hexed => "hexed",
         Roguelike.Core.Entities.StatusKind.Shielded => "warded",
+        Roguelike.Core.Entities.StatusKind.Emboldened => "emboldened",
+        Roguelike.Core.Entities.StatusKind.Thorned => "thorned",
+        Roguelike.Core.Entities.StatusKind.Steadfast => "steadfast",
+        Roguelike.Core.Entities.StatusKind.SpiritBlade => "wielding a spirit blade",
         _ => "marked",
     };
 
@@ -317,6 +321,8 @@ public sealed class EventText(World world, Func<int, string> nameOf, Func<int, b
         {
             Roguelike.Core.Entities.StatusKind.Shielded => you ? $"A ward closes around you ({g.Amount})." : $"A ward closes around {Name(g.ActorId)}.",
             Roguelike.Core.Entities.StatusKind.Marked => you ? "You are marked." : $"{who} is marked.",
+            Roguelike.Core.Entities.StatusKind.SpiritBlade => you ? "Pale fire runs along your blade." : $"Pale fire runs along {Name(g.ActorId)}'s blade.",
+            Roguelike.Core.Entities.StatusKind.Emboldened => you ? "The kill drives you on!" : $"{who} is emboldened.",
             _ => you ? $"You are {StatusName(g.Kind)}!" : $"{who} is {StatusName(g.Kind)}.",
         };
     }

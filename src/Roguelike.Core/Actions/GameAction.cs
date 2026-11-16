@@ -213,6 +213,20 @@ public sealed record AbilityAction(AbilityDef Ability, int? TargetId, Point? At 
                 if (At is { } landing)
                     world.Distract(actor, landing);
                 break;
+            case AbilityKind.Word:
+                if (target is { IsDead: false })
+                    world.SpeakWord(actor, target, Ability);
+                break;
+            case AbilityKind.Hex:
+                if (target is { IsDead: false })
+                    world.Hex(actor, target, Ability);
+                break;
+            case AbilityKind.SpiritBlade:
+                world.AddStatus(actor, StatusKind.SpiritBlade, Math.Max(1, Ability.Turns), Ability.Amount, actor);
+                break;
+            case AbilityKind.Aegis:
+                world.AddStatus(actor, StatusKind.Shielded, Math.Max(1, Ability.Turns), Ability.Power + actor.Bonus(Progression.Stat.Magic), actor);
+                break;
             case AbilityKind.Smoke:
                 world.MakeSmoke(actor.Position, Math.Max(1, Ability.Range), Math.Max(1, Ability.Turns));
                 break;
@@ -487,7 +501,7 @@ public sealed record WindUpAction(AbilityDef Ability, int TargetId) : GameAction
 /// <summary>Carves (or paints) a rune the player knows: on the ground underfoot, on the skin, or into gear.</summary>
 public sealed record CarveAction(string RuneId, RuneSurface Surface) : GameAction
 {
-    public override int TimeCost(World world, Actor actor) => World.CarveTime(Surface);
+    public override int TimeCost(World world, Actor actor) => World.CarveTime(actor, Surface);
 
     public override int NoiseMade(World world, Actor actor) => Surface == RuneSurface.Body ? 0 : CarvingNoise;
 

@@ -42,8 +42,10 @@
     { "id": "smoke",        "kind": "smoke", "cooldown": 25, "range": 1, "turns": 8, "verb": "vanishes in a cloud of smoke", "you": "break a smoke pot", "name": "Smoke", "description": "A cloud around you for 8 turns that nobody sees through." },
     { "id": "vanish",       "kind": "vanish", "cooldown": 25, "range": 7, "amount": 4, "verb": "vanishes", "you": "vanish in a blink", "name": "Vanish" },
     { "id": "shadow_strike","kind": "charge", "cooldown": 6, "range": 6, "verb": "strikes from the shadows at", "you": "step through the shadows at", "name": "Shadow Strike" },
-    { "id": "cinder_bolt",  "kind": "bolt",   "cooldown": 3,  "range": 7, "power": 5, "verb": "burns", "you": "hurl fire at" },
-    { "id": "mend",         "kind": "heal",   "cooldown": 30, "power": 10, "verb": "mends its wounds", "you": "mend your wounds" },
-    { "id": "life_drain",   "kind": "drain",  "cooldown": 14,  "range": 6, "power": 5, "amount": 3, "verb": "drinks the life from", "you": "drink the life from" }
+    // The Mystic: power over the spirit, not fire or ice.
+    { "id": "word_of_power", "kind": "word", "cooldown": 2, "range": 7, "power": 5, "verb": "speaks a word of power at", "you": "speak a word of power at", "name": "Word of Power", "description": "Strikes at range through any armour." },
+    { "id": "hex",          "kind": "hex",   "cooldown": 8, "range": 7, "amount": 25, "turns": 10, "verb": "hexes", "you": "hex", "name": "Hex", "description": "+25% damage taken, -25% dealt, 10 turns." },
+    { "id": "spirit_blade", "kind": "spiritBlade", "cooldown": 14, "amount": 3, "turns": 8, "verb": "wreathes its blade in pale fire", "you": "wake the spirit in your blade", "name": "Spirit Blade", "description": "+3 melee through armour, 8 turns." },
+    { "id": "aegis",        "kind": "aegis", "cooldown": 20, "power": 10, "turns": 10, "verb": "is wrapped in a ward", "you": "raise a ward of will", "name": "Aegis", "description": "Soaks 10 + Magic damage for 10 turns." },
   ]
 }

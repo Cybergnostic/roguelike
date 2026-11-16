@@ -36,7 +36,7 @@
       ],
       "trees": ["shadow", "survival", "senses", "runes"], "starts": ["opportunist"] },
     { "id": "mystic", "name": "Mystic",
-      "description": "Fire and old words. Frail, but it can burn from afar and mend its own wounds.",
+      "description": "Old words and older marks. Frail, but its voice strikes through armour, and runes come easily.",
       "attributes": { "str": 9, "dex": 11, "con": 11, "int": 16, "wis": 15, "cha": 11 },
       "gold": 40,
       "kit": [
@@ -44,7 +44,7 @@
         { "item": "robes",          "equip": true },
         { "item": "healing_potion", "count": 4 }
       ],
-      "trees": ["rites", "survival", "senses", "runes"], "starts": ["cinder_bolt", "rune_lore", "inscription"],
+      "trees": ["mystic", "survival", "senses", "runes"], "starts": ["word_of_power", "rune_sight", "inscription"],
       "runes": ["algiz", "berkano"] }
   ]
 }

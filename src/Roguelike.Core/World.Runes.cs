@@ -35,7 +35,11 @@ public sealed partial class World
     private const int SlowedByIsa = 50, IsaTurns = 3, HeldByNaudhiz = 2;
 
     /// <summary>Marks a carver can keep at once: 2, and one more for each rank of Inscription.</summary>
-    public int MaxMarks(Actor actor) => 2 + (actor.Character?.Rank("inscription") ?? 0);
+    public int MaxMarks(Actor actor) => 2 + (actor.Character?.Rank("inscription") ?? 0) + (actor.HasSpecial("strong_marks") ? 1 : 0);
+
+    /// <summary>How long carving takes this carver, in time (100 = a turn): a Mystic's Rune-Sight halves it.</summary>
+    public static int CarveTime(Actor actor, RuneSurface surface) =>
+        surface == RuneSurface.Body || !actor.HasSpecial("quick_carving") ? CarveTime(surface) : CarveTime(surface) / 2;
 
     public FailureReason? CarveProblem(Actor actor, string runeId, RuneSurface surface)
     {
@@ -69,7 +73,7 @@ public sealed partial class World
                 if (MarkAt(actor.Position) is { } old)
                     _location.Marks.Remove(old);
                 int turns = rune.GroundTurns * (actor.HasSpecial("deep_carving") ? 2 : 1);
-                _location.Marks.Add(new Mark(actor.Position, runeId, actor.Id, Turn + turns, Math.Max(1, rune.Charges)));
+                _location.Marks.Add(new Mark(actor.Position, runeId, actor.Id, Turn + turns, Math.Max(1, rune.Charges) + (actor.HasSpecial("strong_marks") ? 1 : 0)));
                 var mine = _location.Marks.Where(m => m.OwnerId == actor.Id).ToList();
                 foreach (var extra in mine.Take(Math.Max(0, mine.Count - MaxMarks(actor))))
                     FadeMark(extra);
@@ -147,6 +151,7 @@ public sealed partial class World
         if (MarkAt(mover.Position) is not { } mark || GetActor(mark.OwnerId) is not { } owner || !AreHostile(owner, mover))
             return;
         var rune = Content.Runes[mark.RuneId];
+        bool strong = owner.HasSpecial("strong_marks");
         switch (mark.RuneId)
         {
             case "algiz": // the living break a ward by walking through it
@@ -154,15 +159,15 @@ public sealed partial class World
                 return;
             case "thurisaz":
                 Emit(new RuneTriggered(mark.RuneId, mark.At, mover.Id));
-                Damage(owner, mover, rune.Power, ranged: false);
+                Damage(owner, mover, strong ? rune.Power * 3 / 2 : rune.Power, ranged: false);
                 break;
             case "isa":
                 Emit(new RuneTriggered(mark.RuneId, mark.At, mover.Id));
-                AddStatus(mover, StatusKind.Slowed, IsaTurns, SlowedByIsa, owner);
+                AddStatus(mover, StatusKind.Slowed, IsaTurns + (strong ? 1 : 0), SlowedByIsa, owner);
                 break;
             case "naudhiz":
                 Emit(new RuneTriggered(mark.RuneId, mark.At, mover.Id));
-                AddStatus(mover, StatusKind.Held, HeldByNaudhiz, 0, owner);
+                AddStatus(mover, StatusKind.Held, HeldByNaudhiz + (strong ? 1 : 0), 0, owner);
                 break;
             default:
                 return;

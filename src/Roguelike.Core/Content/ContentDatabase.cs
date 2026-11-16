@@ -36,7 +36,8 @@ public sealed record MindDef(string Id, string Name, string Description, int Sho
 }
 
 public enum AbilityKind { Charge, Warcry, Volley, Blink, Summon, Drain, Frighten, Bash, Pin, Vanish, Bolt, Heal,
-    Shove, AimedShot, Suppress, Disengage, MarkPrey, Tumble, Distract, Smoke }
+    Shove, AimedShot, Suppress, Disengage, MarkPrey, Tumble, Distract, Smoke,
+    Word, Hex, SpiritBlade, Aegis }
 
 /// <summary>A class the player can start as (classes.json): its attributes and kit, the skill trees it can learn, and what it already knows.</summary>
 public sealed record ClassDef(string Id, string Name, string Description, IReadOnlyDictionary<string, int> Attributes, int Gold,
@@ -67,7 +68,8 @@ public sealed record AbilityDef(string Id, AbilityKind Kind, int Cooldown, strin
 {
     /// <summary>Whether using it means picking someone to aim it at.</summary>
     public bool NeedsTarget => Kind is AbilityKind.Charge or AbilityKind.Volley or AbilityKind.Drain or AbilityKind.Bash or AbilityKind.Pin or AbilityKind.Bolt
-        or AbilityKind.Shove or AbilityKind.AimedShot or AbilityKind.Suppress or AbilityKind.Disengage or AbilityKind.MarkPrey or AbilityKind.Tumble or AbilityKind.Distract;
+        or AbilityKind.Shove or AbilityKind.AimedShot or AbilityKind.Suppress or AbilityKind.Disengage or AbilityKind.MarkPrey or AbilityKind.Tumble or AbilityKind.Distract
+        or AbilityKind.Word or AbilityKind.Hex;
 
     /// <summary>Whether it needs a bow readied.</summary>
     public bool NeedsBow => Kind is AbilityKind.Volley or AbilityKind.Pin or AbilityKind.AimedShot or AbilityKind.Suppress or AbilityKind.Disengage;
@@ -301,7 +303,10 @@ public sealed class ContentDatabase
         // Shadow
         "light_step", "stillness", "shadow_runner", "cutthroat", "sure_strike", "slippery", "decoy", "slip_away", "from_shadows",
         // Runes (anyone)
-        "rune_reading", "rune_sense", "rune_breaking", "carving", "gear_carving", "deep_carving"];
+        "rune_reading", "rune_sense", "rune_breaking", "carving", "gear_carving", "deep_carving",
+        // Mystic
+        "word_staggers", "word_unbinds", "hex_spreads", "hex_dread", "spirit_drain", "spirit_harvest", "aegis_arrows", "aegis_burst",
+        "quick_carving", "strong_marks", "word_through_marks"];
 
     public Faction PlayerFaction => Factions[Faction.PlayerId];
 
